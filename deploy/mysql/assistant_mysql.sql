@@ -44,16 +44,17 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 4.1 assistant_category · 助理分类字典
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_category` (
-    `id`          BIGINT       NOT NULL AUTO_INCREMENT,
-    `company_id`  BIGINT       NOT NULL,
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `company_id`  BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
     `name`        VARCHAR(10)  NOT NULL COMMENT '分类名称，≤10 字符，公司内唯一',
-    `sort_no`     INT          NOT NULL DEFAULT 0,
+    `sort_no`     INT          NOT NULL DEFAULT 0 COMMENT '排序号，升序展示，值越小越靠前',
     `is_builtin`  TINYINT      NOT NULL DEFAULT 0 COMMENT '是否系统内置，内置分类不允许删除',
-    `created_by`  BIGINT       NULL,
-    `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `deleted_at`  DATETIME     NULL,
+    `created_by`  BIGINT       NULL COMMENT '创建人用户 ID；系统初始化数据为空',
+    `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `deleted_at`  DATETIME     NULL COMMENT '逻辑删除时间，非空表示已删除',
     -- 等价 PG: CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL
-    `active_flag` TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED,
+    `active_flag` TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED
+                  COMMENT '生效行标记生成列：未删除为 1、已删除为 NULL，配合唯一索引实现部分唯一',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_category_company_name` (`company_id`, `name`, `active_flag`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
@@ -63,34 +64,36 @@ CREATE TABLE `assistant_category` (
 -- 4.2 assistant · 助理主表
 -- ------------------------------------------------------------
 CREATE TABLE `assistant` (
-    `id`                 BIGINT       NOT NULL AUTO_INCREMENT,
-    `company_id`         BIGINT       NOT NULL,
+    `id`                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `company_id`         BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
     `name`               VARCHAR(20)  NOT NULL COMMENT '昵称，2-20 字符，公司内唯一',
     `avatar_type`        VARCHAR(10)  NOT NULL DEFAULT 'char'
                          COMMENT 'char=预置字符头像，image=本地上传（2MB 内 image/*）',
-    `avatar_char`        VARCHAR(2)   NULL,
-    `avatar_url`         VARCHAR(512) NULL,
-    `avatar_color`       VARCHAR(16)  NOT NULL DEFAULT '#3685F2',
+    `avatar_char`        VARCHAR(2)   NULL COMMENT '预置字符头像字符，avatar_type=char 时使用',
+    `avatar_url`         VARCHAR(512) NULL COMMENT '上传头像地址，avatar_type=image 时使用',
+    `avatar_color`       VARCHAR(16)  NOT NULL DEFAULT '#3685F2' COMMENT '头像背景色，十六进制色值如 #3685F2',
     `description`        VARCHAR(200) NOT NULL COMMENT '描述，10-200 字符，列表截断 60 字',
-    `category_id`        BIGINT       NOT NULL,
+    `category_id`        BIGINT       NOT NULL COMMENT '所属分类 ID，外键指向 assistant_category.id',
     `source`             VARCHAR(16)  NOT NULL
                          COMMENT 'platform 平台预置 / custom 自建 / thirdparty 第三方接入（预留）；shared 为查询视图，不落库',
     `owner_user_id`      BIGINT       NULL COMMENT '创建人；平台预置助理为空',
-    `owner_name`         VARCHAR(64)  NULL,
-    `owner_dept_name`    VARCHAR(128) NULL,
+    `owner_name`         VARCHAR(64)  NULL COMMENT '创建人姓名快照；平台预置助理为空',
+    `owner_dept_name`    VARCHAR(128) NULL COMMENT '创建人所属部门名称快照；平台预置助理为空',
     `prompt`             TEXT         NOT NULL COMMENT '提示词，必填，≤4000 字符',
-    `share_status`       VARCHAR(16)  NOT NULL DEFAULT 'unshared',
-    `version`            VARCHAR(16)  NOT NULL DEFAULT 'v1.0',
+    `share_status`       VARCHAR(16)  NOT NULL DEFAULT 'unshared'
+                         COMMENT '共享状态：unshared 未共享 / pending 待审批 / approved 已共享 / rejected 已驳回 / offline_pending 下线待审批 / offline 已下线',
+    `version`            VARCHAR(16)  NOT NULL DEFAULT 'v1.0' COMMENT '当前版本号，如 v1.0 / v1.1',
     `authorized_count`   INT          NOT NULL DEFAULT 0 COMMENT '已生效授权人数，冗余字段，由 assistant_grant 统计回写',
-    `last_reject_reason` VARCHAR(200) NULL,
-    `last_approver_name` VARCHAR(64)  NULL,
-    `last_approve_time`  DATETIME     NULL,
-    `created_by`         BIGINT       NOT NULL,
-    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `last_reject_reason` VARCHAR(200) NULL COMMENT '最近一次审批拒绝原因，仅 rejected 状态有值',
+    `last_approver_name` VARCHAR(64)  NULL COMMENT '最近一次审批人姓名',
+    `last_approve_time`  DATETIME     NULL COMMENT '最近一次审批完成时间',
+    `created_by`         BIGINT       NOT NULL COMMENT '创建人用户 ID，平台预置助理为 0（系统）',
+    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
     `deleted_at`         DATETIME     NULL COMMENT '逻辑删除；删除后关联授权置 invalid、待审批单置 terminated',
     -- 等价 PG: uk_assistant_company_name ... WHERE deleted_at IS NULL
-    `active_flag`        TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED,
+    `active_flag`        TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED
+                         COMMENT '生效行标记生成列：未删除为 1、已删除为 NULL，配合唯一索引实现部分唯一',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_assistant_company_name` (`company_id`, `name`, `active_flag`),
     KEY `idx_assistant_list_mine` (`company_id`, `owner_user_id`, `created_at` DESC),
@@ -107,12 +110,12 @@ CREATE TABLE `assistant` (
 -- 4.3 ~ 4.5 能力组成关联表（SKILL / MCP / 知识库）
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_skill_rel` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `assistant_id`     BIGINT       NOT NULL,
-    `resource_id`   VARCHAR(64)  NOT NULL,
-    `resource_name` VARCHAR(128) NOT NULL,
-    `sort_no`       INT          NOT NULL DEFAULT 0,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`     BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
+    `resource_id`   VARCHAR(64)  NOT NULL COMMENT 'SKILL 资源 ID，来源为平台技能中心',
+    `resource_name` VARCHAR(128) NOT NULL COMMENT 'SKILL 资源名称快照，用于列表直接展示',
+    `sort_no`       INT          NOT NULL DEFAULT 0 COMMENT '展示顺序，按保存时选择顺序写入',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_assistant_skill` (`assistant_id`, `resource_id`),
     CONSTRAINT `fk_skill_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
@@ -120,13 +123,13 @@ CREATE TABLE `assistant_skill_rel` (
   COMMENT = '助理挂载的 SKILL，单个助理上限 20 个，保存时校验资源在线';
 
 CREATE TABLE `assistant_mcp_rel` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `assistant_id`     BIGINT       NOT NULL,
-    `resource_id`   VARCHAR(64)  NOT NULL,
-    `resource_name` VARCHAR(128) NOT NULL,
-    `resource_type` VARCHAR(32)  NULL,
-    `sort_no`       INT          NOT NULL DEFAULT 0,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`     BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
+    `resource_id`   VARCHAR(64)  NOT NULL COMMENT 'MCP 服务资源 ID，来源为平台 MCP 中心',
+    `resource_name` VARCHAR(128) NOT NULL COMMENT 'MCP 服务名称快照，用于列表直接展示',
+    `resource_type` VARCHAR(32)  NULL COMMENT 'MCP 服务类型，如 http / sse / stdio',
+    `sort_no`       INT          NOT NULL DEFAULT 0 COMMENT '展示顺序，按保存时选择顺序写入',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_assistant_mcp` (`assistant_id`, `resource_id`),
     CONSTRAINT `fk_mcp_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
@@ -134,12 +137,12 @@ CREATE TABLE `assistant_mcp_rel` (
   COMMENT = '助理挂载的 MCP 服务，单个助理上限 20 个';
 
 CREATE TABLE `assistant_kb_rel` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `assistant_id`     BIGINT       NOT NULL,
-    `resource_id`   VARCHAR(64)  NOT NULL,
-    `resource_name` VARCHAR(128) NOT NULL,
-    `sort_no`       INT          NOT NULL DEFAULT 0,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`     BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
+    `resource_id`   VARCHAR(64)  NOT NULL COMMENT '知识库资源 ID，来源为平台知识库',
+    `resource_name` VARCHAR(128) NOT NULL COMMENT '知识库名称快照，用于列表直接展示',
+    `sort_no`       INT          NOT NULL DEFAULT 0 COMMENT '展示顺序，按保存时选择顺序写入',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_assistant_kb` (`assistant_id`, `resource_id`),
     CONSTRAINT `fk_kb_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
@@ -150,11 +153,11 @@ CREATE TABLE `assistant_kb_rel` (
 -- 4.6 assistant_tag · 助理自定义标签
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_tag` (
-    `id`         BIGINT      NOT NULL AUTO_INCREMENT,
-    `assistant_id`  BIGINT      NOT NULL,
+    `id`         BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`  BIGINT      NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
     `name`       VARCHAR(8)  NOT NULL COMMENT '标签名，1-8 字符；同一助理内唯一',
     `sort_no`    INT         NOT NULL DEFAULT 0 COMMENT '展示顺序，按保存时标签输入顺序写入',
-    `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_assistant_tag` (`assistant_id`, `name`),
     KEY `idx_tag_name` (`name`),
@@ -166,11 +169,11 @@ CREATE TABLE `assistant_tag` (
 -- 4.7 assistant_quick_question · 召唤快速问题
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_quick_question` (
-    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
-    `assistant_id`  BIGINT       NOT NULL,
-    `content`    VARCHAR(200) NOT NULL,
-    `sort_no`    INT          NOT NULL DEFAULT 0,
-    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`  BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
+    `content`    VARCHAR(200) NOT NULL COMMENT '快速问题内容，≤200 字符，同一助理内去重',
+    `sort_no`    INT          NOT NULL DEFAULT 0 COMMENT '展示顺序，升序排列，值越小越靠前',
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     KEY `idx_qq_assistant` (`assistant_id`, `sort_no`),
     CONSTRAINT `fk_qq_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
@@ -181,14 +184,14 @@ CREATE TABLE `assistant_quick_question` (
 -- 4.8 assistant_version_history · 版本与操作记录
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_version_history` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `assistant_id`     BIGINT       NOT NULL,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `assistant_id`     BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
     `version`       VARCHAR(16)  NOT NULL COMMENT '如 v1.0 / v1.1；编辑一次 minor +1，管理员范围调整与审批通过也记一条',
-    `action`        VARCHAR(32)  NOT NULL,
-    `operator_id`   BIGINT       NULL,
-    `operator_name` VARCHAR(64)  NOT NULL,
-    `remark`        VARCHAR(200) NULL,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `action`        VARCHAR(32)  NOT NULL COMMENT '操作类型：create 创建 / update 编辑 / share_submit 共享提交 / share_approve 审批通过 / share_reject 审批拒绝 / scope_change 范围调整 / delete 删除',
+    `operator_id`   BIGINT       NULL COMMENT '操作人用户 ID；系统自动记录（如审批回写）为空',
+    `operator_name` VARCHAR(64)  NOT NULL COMMENT '操作人姓名快照；系统记录填「系统」',
+    `remark`        VARCHAR(200) NULL COMMENT '操作备注，如审批意见摘要、调整说明',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
     PRIMARY KEY (`id`),
     KEY `idx_version_assistant` (`assistant_id`, `created_at` DESC),
     CONSTRAINT `fk_version_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE,
@@ -200,19 +203,19 @@ CREATE TABLE `assistant_version_history` (
 -- 4.9 share_scope · 共享范围快照（主）
 -- ------------------------------------------------------------
 CREATE TABLE `share_scope` (
-    `id`             BIGINT      NOT NULL AUTO_INCREMENT,
-    `company_id`     BIGINT      NOT NULL,
-    `assistant_id`      BIGINT      NOT NULL,
+    `id`             BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `company_id`     BIGINT      NOT NULL COMMENT '公司 ID，多租户隔离字段',
+    `assistant_id`      BIGINT      NOT NULL COMMENT '助理 ID，外键指向 assistant.id',
     `approval_id`    BIGINT      NULL COMMENT '为空且 stage=effective 表示管理员直接配置（平台预置助理 / 管理员范围直改）',
-    `scope_mode`     VARCHAR(16) NOT NULL DEFAULT 'RANGE',
-    `stage`          VARCHAR(16) NOT NULL,
-    `org_count`      INT         NOT NULL DEFAULT 0,
-    `role_count`     INT         NOT NULL DEFAULT 0,
-    `position_count` INT         NOT NULL DEFAULT 0,
-    `user_count`     INT         NOT NULL DEFAULT 0,
+    `scope_mode`     VARCHAR(16) NOT NULL DEFAULT 'RANGE' COMMENT '范围模式：RANGE 指定组织/角色/岗位/人员 / PUBLIC 全员公开',
+    `stage`          VARCHAR(16) NOT NULL COMMENT '范围阶段：requested 提交时申请范围 / adjusted 审批前管理员调整 / effective 最终生效范围',
+    `org_count`      INT         NOT NULL DEFAULT 0 COMMENT '组织维度选择数量',
+    `role_count`     INT         NOT NULL DEFAULT 0 COMMENT '角色维度选择数量',
+    `position_count` INT         NOT NULL DEFAULT 0 COMMENT '岗位维度选择数量',
+    `user_count`     INT         NOT NULL DEFAULT 0 COMMENT '人员维度直接选择数量',
     `grant_total`    INT         NOT NULL DEFAULT 0 COMMENT '展开后授权人数；PUBLIC 模式下为公司在职人数',
-    `created_by`     BIGINT      NOT NULL,
-    `created_at`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_by`     BIGINT      NOT NULL COMMENT '创建人用户 ID；系统生成时填 0',
+    `created_at`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     KEY `idx_scope_assistant_stage` (`assistant_id`, `stage`, `created_at` DESC),
     KEY `idx_scope_approval` (`approval_id`),
@@ -226,12 +229,12 @@ CREATE TABLE `share_scope` (
 -- 4.10 share_scope_item · 共享范围快照明细
 -- ------------------------------------------------------------
 CREATE TABLE `share_scope_item` (
-    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
-    `scope_id`   BIGINT       NOT NULL,
-    `dim`        VARCHAR(16)  NOT NULL,
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `scope_id`   BIGINT       NOT NULL COMMENT '范围快照 ID，外键指向 share_scope.id，级联删除',
+    `dim`        VARCHAR(16)  NOT NULL COMMENT '范围维度：org 组织 / role 角色 / position 岗位 / user 人员',
     `item_id`    VARCHAR(64)  NOT NULL COMMENT '外部主数据 ID（组织/角色/岗位/人员），不做外键，来源为主数据平台',
-    `item_name`  VARCHAR(128) NOT NULL,
-    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `item_name`  VARCHAR(128) NOT NULL COMMENT '维度项名称快照（组织/角色/岗位/人员名称），用于审批详情展示',
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_scope_item` (`scope_id`, `dim`, `item_id`),
     KEY `idx_scope_item_scope` (`scope_id`),
@@ -244,20 +247,20 @@ CREATE TABLE `share_scope_item` (
 -- 4.11 assistant_grant · 人员级授权与订阅关系
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_grant` (
-    `id`               BIGINT       NOT NULL AUTO_INCREMENT,
-    `company_id`       BIGINT       NOT NULL,
-    `assistant_id`        BIGINT       NOT NULL,
-    `user_id`          VARCHAR(64)  NOT NULL,
-    `user_name`        VARCHAR(64)  NOT NULL,
-    `dept_name`        VARCHAR(128) NULL,
-    `grant_status`     VARCHAR(16)  NOT NULL DEFAULT 'valid',
+    `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `company_id`       BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
+    `assistant_id`        BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id',
+    `user_id`          VARCHAR(64)  NOT NULL COMMENT '被授权用户 ID，来源为主数据平台',
+    `user_name`        VARCHAR(64)  NOT NULL COMMENT '被授权用户姓名快照',
+    `dept_name`        VARCHAR(128) NULL COMMENT '被授权用户所属部门名称快照',
+    `grant_status`     VARCHAR(16)  NOT NULL DEFAULT 'valid' COMMENT '授权状态：valid 生效 / invalid 失效（助理删除或范围调整后失效）',
     `subscribe_status` VARCHAR(16)  NOT NULL DEFAULT 'subscribed'
                        COMMENT '被授权方自主开关：subscribed 已订阅 / removed 已移除；移除不触发审批',
-    `source_scope_id`  BIGINT       NULL,
+    `source_scope_id`  BIGINT       NULL COMMENT '来源范围快照 ID，外键指向 share_scope.id',
     `grant_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                        COMMENT '授权生效时间，共享助理列表按其倒序排列',
-    `subscribe_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `subscribe_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近一次订阅/移除操作时间',
+    `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_grant_assistant_user` (`assistant_id`, `user_id`),
     KEY `idx_grant_user_sub` (`company_id`, `user_id`, `subscribe_status`),
@@ -273,31 +276,32 @@ CREATE TABLE `assistant_grant` (
 -- 4.12 approval · 审批单
 -- ------------------------------------------------------------
 CREATE TABLE `approval` (
-    `id`                 BIGINT       NOT NULL AUTO_INCREMENT,
-    `approval_no`        VARCHAR(32)  NOT NULL,
+    `id`                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `approval_no`        VARCHAR(32)  NOT NULL COMMENT '审批单号，全局唯一，供页面展示与检索',
     `batch_no`           VARCHAR(32)  NULL COMMENT '批量勾选 N 个助理提交时共享同一批次号，落库为 N 条审批单',
-    `company_id`         BIGINT       NOT NULL,
-    `approval_type`      VARCHAR(16)  NOT NULL DEFAULT 'share',
-    `assistant_id`          BIGINT       NOT NULL,
+    `company_id`         BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
+    `approval_type`      VARCHAR(16)  NOT NULL DEFAULT 'share' COMMENT '审批类型：share 共享申请 / scope_change 范围变更 / offline 下线（仅预留）',
+    `assistant_id`          BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id',
     `assistant_version`     VARCHAR(16)  NOT NULL COMMENT '提交时的助理版本快照，用于审批详情识别配置已变更',
-    `status`             VARCHAR(16)  NOT NULL DEFAULT 'pending',
-    `submitter_id`       BIGINT       NOT NULL,
-    `submitter_name`     VARCHAR(64)  NOT NULL,
-    `submitter_dept`     VARCHAR(128) NULL,
-    `submit_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `change_note`        VARCHAR(200) NULL,
-    `requested_scope_id` BIGINT       NULL,
+    `status`             VARCHAR(16)  NOT NULL DEFAULT 'pending' COMMENT '审批状态：pending 待审批 / approved 通过 / rejected 拒绝 / terminated 已终止',
+    `submitter_id`       BIGINT       NOT NULL COMMENT '提交人用户 ID',
+    `submitter_name`     VARCHAR(64)  NOT NULL COMMENT '提交人姓名快照',
+    `submitter_dept`     VARCHAR(128) NULL COMMENT '提交人所属部门名称快照',
+    `submit_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+    `change_note`        VARCHAR(200) NULL COMMENT '申请说明 / 变更说明，审批详情展示',
+    `requested_scope_id` BIGINT       NULL COMMENT '提交时申请的范围快照 ID，外键指向 share_scope.id',
     `final_scope_id`     BIGINT       NULL COMMENT '审批通过后实际生效的范围快照（含管理员调整）；等于 requested 表示未调整',
-    `approver_id`        BIGINT       NULL,
-    `approver_name`      VARCHAR(64)  NULL,
-    `approve_time`       DATETIME     NULL,
+    `approver_id`        BIGINT       NULL COMMENT '审批人用户 ID，未审批时为空',
+    `approver_name`      VARCHAR(64)  NULL COMMENT '审批人姓名快照，未审批时为空',
+    `approve_time`       DATETIME     NULL COMMENT '审批完成时间，未审批时为空',
     `reject_reason`      VARCHAR(200) NULL COMMENT '仅 rejected 状态有值，1-200 字符，必填',
     `idempotency_key`    VARCHAR(64)  NULL COMMENT '审批决策幂等键，与 sys_idempotency 配合使用',
-    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
     -- 等价 PG: uk_approval_pending_assistant ... WHERE status = 'pending'
     -- 保证同一助理同一时间只允许一条待审批申请（REQ-SHR-SUBMIT-011）
-    `pending_flag`       TINYINT GENERATED ALWAYS AS (IF(`status` = 'pending', 1, NULL)) STORED,
+    `pending_flag`       TINYINT GENERATED ALWAYS AS (IF(`status` = 'pending', 1, NULL)) STORED
+                         COMMENT '待审批标记生成列：status=pending 为 1、其他状态为 NULL，配合唯一索引保证单助理仅一条待审批单',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_approval_no` (`approval_no`),
     UNIQUE KEY `uk_approval_pending_assistant` (`assistant_id`, `pending_flag`),
@@ -316,13 +320,13 @@ CREATE TABLE `approval` (
 -- 4.13 assistant_summon · 召唤记录
 -- ------------------------------------------------------------
 CREATE TABLE `assistant_summon` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `company_id`    BIGINT       NOT NULL,
-    `assistant_id`     BIGINT       NOT NULL,
-    `user_id`       BIGINT       NOT NULL,
-    `session_id`    VARCHAR(64)  NOT NULL,
-    `session_title` VARCHAR(128) NULL,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `company_id`    BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
+    `assistant_id`     BIGINT       NOT NULL COMMENT '被召唤的助理 ID，外键指向 assistant.id',
+    `user_id`       BIGINT       NOT NULL COMMENT '召唤用户 ID',
+    `session_id`    VARCHAR(64)  NOT NULL COMMENT '会话 ID，每次召唤生成一个独立会话',
+    `session_title` VARCHAR(128) NULL COMMENT '会话标题快照，用于召唤记录列表展示',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '召唤时间',
     PRIMARY KEY (`id`),
     KEY `idx_summon_user` (`company_id`, `user_id`, `created_at` DESC),
     CONSTRAINT `fk_summon_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`)
@@ -333,17 +337,17 @@ CREATE TABLE `assistant_summon` (
 -- 4.14 sys_audit_log · 操作审计日志（按月分区）
 -- ------------------------------------------------------------
 CREATE TABLE `sys_audit_log` (
-    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
-    `company_id`    BIGINT       NOT NULL,
-    `operator_id`   BIGINT       NULL,
-    `operator_name` VARCHAR(64)  NULL,
-    `action`        VARCHAR(48)  NOT NULL,
-    `object_type`   VARCHAR(32)  NOT NULL,
-    `object_id`     VARCHAR(64)  NULL,
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增（与 created_at 组成联合主键）',
+    `company_id`    BIGINT       NOT NULL COMMENT '公司 ID，多租户隔离字段',
+    `operator_id`   BIGINT       NULL COMMENT '操作人用户 ID；系统自动任务为空',
+    `operator_name` VARCHAR(64)  NULL COMMENT '操作人姓名快照；系统自动任务为空',
+    `action`        VARCHAR(48)  NOT NULL COMMENT '操作动作编码，如 assistant_create / share_submit / grant_remove / approval_approve',
+    `object_type`   VARCHAR(32)  NOT NULL COMMENT '操作对象类型，如 assistant / approval / grant',
+    `object_id`     VARCHAR(64)  NULL COMMENT '操作对象 ID，与 object_type 组合定位对象',
     `before_value`  JSON         NULL COMMENT '变更前授权范围等结构化快照',
     `after_value`   JSON         NULL COMMENT '变更后授权范围等结构化快照',
-    `client_ip`     VARCHAR(64)  NULL,
-    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `client_ip`     VARCHAR(64)  NULL COMMENT '客户端 IP 地址，含 IPv6',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间，RANGE COLUMNS 分区键',
     PRIMARY KEY (`id`, `created_at`),
     KEY `idx_audit_object` (`object_type`, `object_id`, `created_at` DESC),
     KEY `idx_audit_operator` (`company_id`, `operator_id`, `created_at` DESC)
@@ -358,13 +362,13 @@ CREATE TABLE `sys_audit_log` (
 -- 4.15 sys_idempotency · 幂等键记录
 -- ------------------------------------------------------------
 CREATE TABLE `sys_idempotency` (
-    `id`              BIGINT       NOT NULL AUTO_INCREMENT,
-    `idempotency_key` VARCHAR(64)  NOT NULL,
-    `biz_type`        VARCHAR(32)  NOT NULL,
-    `biz_id`          VARCHAR(64)  NULL,
-    `response_body`   JSON         NULL,
-    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `expired_at`      DATETIME     NOT NULL,
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
+    `idempotency_key` VARCHAR(64)  NOT NULL COMMENT '幂等键，全局唯一，由客户端或服务端生成',
+    `biz_type`        VARCHAR(32)  NOT NULL COMMENT '业务类型，如 approval_approve / approval_reject / grant_subscribe',
+    `biz_id`          VARCHAR(64)  NULL COMMENT '业务对象 ID（如审批单 ID、助理 ID）',
+    `response_body`   JSON         NULL COMMENT '首次请求的响应体，重复请求直接返回该结果',
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `expired_at`      DATETIME     NOT NULL COMMENT '过期时间，到期后由定时任务清理',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_idem_key` (`idempotency_key`),
     KEY `idx_idem_expire` (`expired_at`)
