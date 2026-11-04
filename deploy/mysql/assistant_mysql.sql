@@ -1,0 +1,438 @@
+-- ============================================================
+-- 助理团助理创建与共享授权 · MySQL 8.0 建库建表脚本
+-- 来源：docs/02-数据库设计.md（PostgreSQL 15）
+-- 表数量：15 张（业务 12 张 + 支撑 3 张）
+-- 转换说明：
+--   1) BIGSERIAL → BIGINT AUTO_INCREMENT；TIMESTAMPTZ → DATETIME；
+--      BOOLEAN → TINYINT(1)；JSONB → JSON；COMMENT ON → 列/表 COMMENT
+--   2) PG 部分唯一索引（带 WHERE）→ MySQL 用 STORED 生成列 + 唯一索引等价实现
+--      （唯一索引允许多个 NULL，故生效行标记为 1，非生效行为 NULL）
+--   3) PG 部分普通索引（带 WHERE）→ 去掉 WHERE，保留同列组合索引
+--   4) sys_audit_log 分区键须包含在主键中：PRIMARY KEY (id, created_at)
+-- 执行：mysql -u root -p < assistant_mysql.sql
+-- ============================================================
+
+SET NAMES utf8mb4;
+
+CREATE DATABASE IF NOT EXISTS `assistant`
+    DEFAULT CHARACTER SET utf8mb4
+    COLLATE utf8mb4_0900_ai_ci;
+
+USE `assistant`;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS `sys_idempotency`;
+DROP TABLE IF EXISTS `sys_audit_log`;
+DROP TABLE IF EXISTS `assistant_summon`;
+DROP TABLE IF EXISTS `approval`;
+DROP TABLE IF EXISTS `assistant_grant`;
+DROP TABLE IF EXISTS `share_scope_item`;
+DROP TABLE IF EXISTS `share_scope`;
+DROP TABLE IF EXISTS `assistant_version_history`;
+DROP TABLE IF EXISTS `assistant_quick_question`;
+DROP TABLE IF EXISTS `assistant_tag`;
+DROP TABLE IF EXISTS `assistant_kb_rel`;
+DROP TABLE IF EXISTS `assistant_mcp_rel`;
+DROP TABLE IF EXISTS `assistant_skill_rel`;
+DROP TABLE IF EXISTS `assistant`;
+DROP TABLE IF EXISTS `assistant_category`;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ------------------------------------------------------------
+-- 4.1 assistant_category · 助理分类字典
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_category` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT,
+    `company_id`  BIGINT       NOT NULL,
+    `name`        VARCHAR(10)  NOT NULL COMMENT '分类名称，≤10 字符，公司内唯一',
+    `sort_no`     INT          NOT NULL DEFAULT 0,
+    `is_builtin`  TINYINT      NOT NULL DEFAULT 0 COMMENT '是否系统内置，内置分类不允许删除',
+    `created_by`  BIGINT       NULL,
+    `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `deleted_at`  DATETIME     NULL,
+    -- 等价 PG: CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL
+    `active_flag` TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_category_company_name` (`company_id`, `name`, `active_flag`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理分类字典；内置协同办公/人资/智慧云仓/环安/经营管理，管理员可在表单内新增';
+
+-- ------------------------------------------------------------
+-- 4.2 assistant · 助理主表
+-- ------------------------------------------------------------
+CREATE TABLE `assistant` (
+    `id`                 BIGINT       NOT NULL AUTO_INCREMENT,
+    `company_id`         BIGINT       NOT NULL,
+    `name`               VARCHAR(20)  NOT NULL COMMENT '昵称，2-20 字符，公司内唯一',
+    `avatar_type`        VARCHAR(10)  NOT NULL DEFAULT 'char'
+                         COMMENT 'char=预置字符头像，image=本地上传（2MB 内 image/*）',
+    `avatar_char`        VARCHAR(2)   NULL,
+    `avatar_url`         VARCHAR(512) NULL,
+    `avatar_color`       VARCHAR(16)  NOT NULL DEFAULT '#3685F2',
+    `description`        VARCHAR(200) NOT NULL COMMENT '描述，10-200 字符，列表截断 60 字',
+    `category_id`        BIGINT       NOT NULL,
+    `source`             VARCHAR(16)  NOT NULL
+                         COMMENT 'platform 平台预置 / custom 自建 / thirdparty 第三方接入（预留）；shared 为查询视图，不落库',
+    `owner_user_id`      BIGINT       NULL COMMENT '创建人；平台预置助理为空',
+    `owner_name`         VARCHAR(64)  NULL,
+    `owner_dept_name`    VARCHAR(128) NULL,
+    `prompt`             TEXT         NOT NULL COMMENT '提示词，必填，≤4000 字符',
+    `share_status`       VARCHAR(16)  NOT NULL DEFAULT 'unshared',
+    `version`            VARCHAR(16)  NOT NULL DEFAULT 'v1.0',
+    `authorized_count`   INT          NOT NULL DEFAULT 0 COMMENT '已生效授权人数，冗余字段，由 assistant_grant 统计回写',
+    `last_reject_reason` VARCHAR(200) NULL,
+    `last_approver_name` VARCHAR(64)  NULL,
+    `last_approve_time`  DATETIME     NULL,
+    `created_by`         BIGINT       NOT NULL,
+    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `deleted_at`         DATETIME     NULL COMMENT '逻辑删除；删除后关联授权置 invalid、待审批单置 terminated',
+    -- 等价 PG: uk_assistant_company_name ... WHERE deleted_at IS NULL
+    `active_flag`        TINYINT GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 1, NULL)) STORED,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_assistant_company_name` (`company_id`, `name`, `active_flag`),
+    KEY `idx_assistant_list_mine` (`company_id`, `owner_user_id`, `created_at` DESC),
+    KEY `idx_assistant_list_platform` (`company_id`, `category_id`, `created_at` DESC),
+    KEY `idx_assistant_status` (`company_id`, `share_status`),
+    CONSTRAINT `fk_assistant_category` FOREIGN KEY (`category_id`) REFERENCES `assistant_category` (`id`),
+    CONSTRAINT `ck_assistant_avatar_type` CHECK (`avatar_type` IN ('char', 'image')),
+    CONSTRAINT `ck_assistant_source` CHECK (`source` IN ('platform', 'custom', 'thirdparty')),
+    CONSTRAINT `ck_assistant_share_status` CHECK (`share_status` IN ('unshared', 'pending', 'approved', 'rejected', 'offline_pending', 'offline'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理（页面称「助理」「数字员工」）主表';
+
+-- ------------------------------------------------------------
+-- 4.3 ~ 4.5 能力组成关联表（SKILL / MCP / 知识库）
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_skill_rel` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `assistant_id`     BIGINT       NOT NULL,
+    `resource_id`   VARCHAR(64)  NOT NULL,
+    `resource_name` VARCHAR(128) NOT NULL,
+    `sort_no`       INT          NOT NULL DEFAULT 0,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_assistant_skill` (`assistant_id`, `resource_id`),
+    CONSTRAINT `fk_skill_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理挂载的 SKILL，单个助理上限 20 个，保存时校验资源在线';
+
+CREATE TABLE `assistant_mcp_rel` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `assistant_id`     BIGINT       NOT NULL,
+    `resource_id`   VARCHAR(64)  NOT NULL,
+    `resource_name` VARCHAR(128) NOT NULL,
+    `resource_type` VARCHAR(32)  NULL,
+    `sort_no`       INT          NOT NULL DEFAULT 0,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_assistant_mcp` (`assistant_id`, `resource_id`),
+    CONSTRAINT `fk_mcp_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理挂载的 MCP 服务，单个助理上限 20 个';
+
+CREATE TABLE `assistant_kb_rel` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `assistant_id`     BIGINT       NOT NULL,
+    `resource_id`   VARCHAR(64)  NOT NULL,
+    `resource_name` VARCHAR(128) NOT NULL,
+    `sort_no`       INT          NOT NULL DEFAULT 0,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_assistant_kb` (`assistant_id`, `resource_id`),
+    CONSTRAINT `fk_kb_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理关联的知识库，单个助理上限 10 个，需校验当前用户访问权限';
+
+-- ------------------------------------------------------------
+-- 4.6 assistant_tag · 助理自定义标签
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_tag` (
+    `id`         BIGINT      NOT NULL AUTO_INCREMENT,
+    `assistant_id`  BIGINT      NOT NULL,
+    `name`       VARCHAR(8)  NOT NULL COMMENT '标签名，1-8 字符；同一助理内唯一',
+    `sort_no`    INT         NOT NULL DEFAULT 0 COMMENT '展示顺序，按保存时标签输入顺序写入',
+    `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_assistant_tag` (`assistant_id`, `name`),
+    KEY `idx_tag_name` (`name`),
+    CONSTRAINT `fk_tag_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理自定义标签；单个助理上限 5 个，单个标签 1-8 字符，去重，支持 AI 生成（REQ-EXP-AI-003/004）与列表按标签模糊搜索';
+
+-- ------------------------------------------------------------
+-- 4.7 assistant_quick_question · 召唤快速问题
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_quick_question` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+    `assistant_id`  BIGINT       NOT NULL,
+    `content`    VARCHAR(200) NOT NULL,
+    `sort_no`    INT          NOT NULL DEFAULT 0,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_qq_assistant` (`assistant_id`, `sort_no`),
+    CONSTRAINT `fk_qq_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '召唤后欢迎区展示的快速问题，上限 6 条，去重';
+
+-- ------------------------------------------------------------
+-- 4.8 assistant_version_history · 版本与操作记录
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_version_history` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `assistant_id`     BIGINT       NOT NULL,
+    `version`       VARCHAR(16)  NOT NULL COMMENT '如 v1.0 / v1.1；编辑一次 minor +1，管理员范围调整与审批通过也记一条',
+    `action`        VARCHAR(32)  NOT NULL,
+    `operator_id`   BIGINT       NULL,
+    `operator_name` VARCHAR(64)  NOT NULL,
+    `remark`        VARCHAR(200) NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_version_assistant` (`assistant_id`, `created_at` DESC),
+    CONSTRAINT `fk_version_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `ck_version_action` CHECK (`action` IN ('create', 'update', 'share_submit', 'share_approve', 'share_reject', 'scope_change', 'delete'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '助理版本与操作流水，用于详情页版本记录展示；不存配置快照，不支持回滚';
+
+-- ------------------------------------------------------------
+-- 4.9 share_scope · 共享范围快照（主）
+-- ------------------------------------------------------------
+CREATE TABLE `share_scope` (
+    `id`             BIGINT      NOT NULL AUTO_INCREMENT,
+    `company_id`     BIGINT      NOT NULL,
+    `assistant_id`      BIGINT      NOT NULL,
+    `approval_id`    BIGINT      NULL COMMENT '为空且 stage=effective 表示管理员直接配置（平台预置助理 / 管理员范围直改）',
+    `scope_mode`     VARCHAR(16) NOT NULL DEFAULT 'RANGE',
+    `stage`          VARCHAR(16) NOT NULL,
+    `org_count`      INT         NOT NULL DEFAULT 0,
+    `role_count`     INT         NOT NULL DEFAULT 0,
+    `position_count` INT         NOT NULL DEFAULT 0,
+    `user_count`     INT         NOT NULL DEFAULT 0,
+    `grant_total`    INT         NOT NULL DEFAULT 0 COMMENT '展开后授权人数；PUBLIC 模式下为公司在职人数',
+    `created_by`     BIGINT      NOT NULL,
+    `created_at`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_scope_assistant_stage` (`assistant_id`, `stage`, `created_at` DESC),
+    KEY `idx_scope_approval` (`approval_id`),
+    CONSTRAINT `fk_scope_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`),
+    CONSTRAINT `ck_scope_mode` CHECK (`scope_mode` IN ('RANGE', 'PUBLIC')),
+    CONSTRAINT `ck_scope_stage` CHECK (`stage` IN ('requested', 'adjusted', 'effective'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '共享范围快照；requested=提交时申请范围，adjusted=审批前管理员调整，effective=最终生效范围';
+
+-- ------------------------------------------------------------
+-- 4.10 share_scope_item · 共享范围快照明细
+-- ------------------------------------------------------------
+CREATE TABLE `share_scope_item` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+    `scope_id`   BIGINT       NOT NULL,
+    `dim`        VARCHAR(16)  NOT NULL,
+    `item_id`    VARCHAR(64)  NOT NULL COMMENT '外部主数据 ID（组织/角色/岗位/人员），不做外键，来源为主数据平台',
+    `item_name`  VARCHAR(128) NOT NULL,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_scope_item` (`scope_id`, `dim`, `item_id`),
+    KEY `idx_scope_item_scope` (`scope_id`),
+    CONSTRAINT `fk_scope_item_scope` FOREIGN KEY (`scope_id`) REFERENCES `share_scope` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `ck_scope_item_dim` CHECK (`dim` IN ('org', 'role', 'position', 'user'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '范围快照的四维原始选择；组织/角色/岗位仅用于批量展开人员，最终生效颗粒为 user';
+
+-- ------------------------------------------------------------
+-- 4.11 assistant_grant · 人员级授权与订阅关系
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_grant` (
+    `id`               BIGINT       NOT NULL AUTO_INCREMENT,
+    `company_id`       BIGINT       NOT NULL,
+    `assistant_id`        BIGINT       NOT NULL,
+    `user_id`          VARCHAR(64)  NOT NULL,
+    `user_name`        VARCHAR(64)  NOT NULL,
+    `dept_name`        VARCHAR(128) NULL,
+    `grant_status`     VARCHAR(16)  NOT NULL DEFAULT 'valid',
+    `subscribe_status` VARCHAR(16)  NOT NULL DEFAULT 'subscribed'
+                       COMMENT '被授权方自主开关：subscribed 已订阅 / removed 已移除；移除不触发审批',
+    `source_scope_id`  BIGINT       NULL,
+    `grant_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                       COMMENT '授权生效时间，共享助理列表按其倒序排列',
+    `subscribe_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_grant_assistant_user` (`assistant_id`, `user_id`),
+    KEY `idx_grant_user_sub` (`company_id`, `user_id`, `subscribe_status`),
+    KEY `idx_grant_assistant` (`assistant_id`, `grant_status`),
+    CONSTRAINT `fk_grant_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`),
+    CONSTRAINT `fk_grant_scope` FOREIGN KEY (`source_scope_id`) REFERENCES `share_scope` (`id`),
+    CONSTRAINT `ck_grant_status` CHECK (`grant_status` IN ('valid', 'invalid')),
+    CONSTRAINT `ck_grant_subscribe` CHECK (`subscribe_status` IN ('subscribed', 'removed'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '授权范围展开后的人员级关系；被授权方的「共享助理」列表以此表为准';
+
+-- ------------------------------------------------------------
+-- 4.12 approval · 审批单
+-- ------------------------------------------------------------
+CREATE TABLE `approval` (
+    `id`                 BIGINT       NOT NULL AUTO_INCREMENT,
+    `approval_no`        VARCHAR(32)  NOT NULL,
+    `batch_no`           VARCHAR(32)  NULL COMMENT '批量勾选 N 个助理提交时共享同一批次号，落库为 N 条审批单',
+    `company_id`         BIGINT       NOT NULL,
+    `approval_type`      VARCHAR(16)  NOT NULL DEFAULT 'share',
+    `assistant_id`          BIGINT       NOT NULL,
+    `assistant_version`     VARCHAR(16)  NOT NULL COMMENT '提交时的助理版本快照，用于审批详情识别配置已变更',
+    `status`             VARCHAR(16)  NOT NULL DEFAULT 'pending',
+    `submitter_id`       BIGINT       NOT NULL,
+    `submitter_name`     VARCHAR(64)  NOT NULL,
+    `submitter_dept`     VARCHAR(128) NULL,
+    `submit_time`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `change_note`        VARCHAR(200) NULL,
+    `requested_scope_id` BIGINT       NULL,
+    `final_scope_id`     BIGINT       NULL COMMENT '审批通过后实际生效的范围快照（含管理员调整）；等于 requested 表示未调整',
+    `approver_id`        BIGINT       NULL,
+    `approver_name`      VARCHAR(64)  NULL,
+    `approve_time`       DATETIME     NULL,
+    `reject_reason`      VARCHAR(200) NULL COMMENT '仅 rejected 状态有值，1-200 字符，必填',
+    `idempotency_key`    VARCHAR(64)  NULL COMMENT '审批决策幂等键，与 sys_idempotency 配合使用',
+    `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- 等价 PG: uk_approval_pending_assistant ... WHERE status = 'pending'
+    -- 保证同一助理同一时间只允许一条待审批申请（REQ-SHR-SUBMIT-011）
+    `pending_flag`       TINYINT GENERATED ALWAYS AS (IF(`status` = 'pending', 1, NULL)) STORED,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_approval_no` (`approval_no`),
+    UNIQUE KEY `uk_approval_pending_assistant` (`assistant_id`, `pending_flag`),
+    KEY `idx_approval_pending_list` (`company_id`, `status`, `submit_time`),
+    KEY `idx_approval_batch` (`batch_no`),
+    KEY `idx_approval_assistant` (`assistant_id`, `submit_time` DESC),
+    CONSTRAINT `fk_approval_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`),
+    CONSTRAINT `fk_approval_req_scope` FOREIGN KEY (`requested_scope_id`) REFERENCES `share_scope` (`id`),
+    CONSTRAINT `fk_approval_final_scope` FOREIGN KEY (`final_scope_id`) REFERENCES `share_scope` (`id`),
+    CONSTRAINT `ck_approval_type` CHECK (`approval_type` IN ('share', 'scope_change', 'offline')),
+    CONSTRAINT `ck_approval_status` CHECK (`status` IN ('pending', 'approved', 'rejected', 'terminated'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '共享审批单；本期实现 share 与 scope_change，offline 仅预留';
+
+-- ------------------------------------------------------------
+-- 4.13 assistant_summon · 召唤记录
+-- ------------------------------------------------------------
+CREATE TABLE `assistant_summon` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `company_id`    BIGINT       NOT NULL,
+    `assistant_id`     BIGINT       NOT NULL,
+    `user_id`       BIGINT       NOT NULL,
+    `session_id`    VARCHAR(64)  NOT NULL,
+    `session_title` VARCHAR(128) NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_summon_user` (`company_id`, `user_id`, `created_at` DESC),
+    CONSTRAINT `fk_summon_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '召唤记录；召唤不修改助理配置，每次召唤生成独立会话';
+
+-- ------------------------------------------------------------
+-- 4.14 sys_audit_log · 操作审计日志（按月分区）
+-- ------------------------------------------------------------
+CREATE TABLE `sys_audit_log` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `company_id`    BIGINT       NOT NULL,
+    `operator_id`   BIGINT       NULL,
+    `operator_name` VARCHAR(64)  NULL,
+    `action`        VARCHAR(48)  NOT NULL,
+    `object_type`   VARCHAR(32)  NOT NULL,
+    `object_id`     VARCHAR(64)  NULL,
+    `before_value`  JSON         NULL COMMENT '变更前授权范围等结构化快照',
+    `after_value`   JSON         NULL COMMENT '变更后授权范围等结构化快照',
+    `client_ip`     VARCHAR(64)  NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`, `created_at`),
+    KEY `idx_audit_object` (`object_type`, `object_id`, `created_at` DESC),
+    KEY `idx_audit_operator` (`company_id`, `operator_id`, `created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '操作审计，覆盖助理创建/编辑/删除/召唤、共享提交/重提、移除/重新订阅、审批通过与拒绝；按月分区，保留 ≥12 个月'
+  PARTITION BY RANGE COLUMNS (`created_at`) (
+    PARTITION `p2026q4` VALUES LESS THAN ('2027-01-01'),
+    PARTITION `p_max`   VALUES LESS THAN (MAXVALUE)
+  );
+
+-- ------------------------------------------------------------
+-- 4.15 sys_idempotency · 幂等键记录
+-- ------------------------------------------------------------
+CREATE TABLE `sys_idempotency` (
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT,
+    `idempotency_key` VARCHAR(64)  NOT NULL,
+    `biz_type`        VARCHAR(32)  NOT NULL,
+    `biz_id`          VARCHAR(64)  NULL,
+    `response_body`   JSON         NULL,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `expired_at`      DATETIME     NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_idem_key` (`idempotency_key`),
+    KEY `idx_idem_expire` (`expired_at`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
+  COMMENT = '审批决策、订阅操作的幂等记录，保留 24 小时后由定时任务清理';
+
+-- ============================================================
+-- 7. 初始化数据
+-- ============================================================
+INSERT INTO `assistant_category` (`company_id`, `name`, `sort_no`, `is_builtin`) VALUES
+    (1, '协同办公', 10, 1),
+    (1, '人资',     20, 1),
+    (1, '智慧云仓', 30, 1),
+    (1, '环安',     40, 1),
+    (1, '经营管理', 50, 1);
+
+-- 平台预置助理：source='platform'，owner_user_id 为空，share_status='approved'
+INSERT INTO `assistant`
+    (`company_id`, `name`, `avatar_type`, `avatar_char`, `avatar_color`, `description`, `category_id`,
+     `source`, `owner_user_id`, `owner_name`, `owner_dept_name`, `prompt`, `share_status`, `version`,
+     `authorized_count`, `created_by`)
+VALUES
+    (1, '智能会议助理', 'char', '会', '#5E9DF5',
+     '会议前生成议程，会议中记录要点，会议后输出纪要与待办，并同步到日程。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '协同办公' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团智能会议助理，负责输出会议议程、纪要与待办。', 'approved', 'v1.6', 0, 0),
+    (1, 'AI 陪练助理', 'char', '练', '#04D999',
+     '按岗位场景模拟客户或员工对话，实时评分并给出改进建议。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '人资' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团 AI 陪练助理，负责场景模拟对话与评分建议。', 'approved', 'v2.1', 0, 0),
+    (1, 'AI 面试助理', 'char', '面', '#FF813B',
+     '按岗位模板发起结构化面试，输出候选人能力画像与面评报告。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '人资' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团 AI 面试助理，负责结构化面试与面评报告。', 'approved', 'v1.9', 0, 0),
+    (1, '人效分析助理', 'char', '效', '#3685F2',
+     '汇总人力投入与产出数据，输出部门人效对比与改善建议。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '人资' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团人效分析助理，负责人效对比与改善建议。', 'approved', 'v1.3', 0, 0),
+    (1, '智慧云仓助理', 'char', '仓', '#2468F2',
+     '解答库存、盘点与调度规则，支持按库区维度汇总异常。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '智慧云仓' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团智慧云仓助理，负责库存、盘点与调度规则答疑。', 'approved', 'v1.2', 0, 0),
+    (1, '环安合规助理', 'char', '安', '#00B780',
+     '检索环安法规与内部标准，输出合规检查项与整改建议。',
+     (SELECT `id` FROM `assistant_category` WHERE `name` = '环安' AND `company_id` = 1),
+     'platform', NULL, NULL, NULL,
+     '你是九牧集团环安合规助理，负责法规检索与合规检查建议。', 'approved', 'v1.1', 0, 0);
+
+-- 平台预置助理的自定义标签（与原型 Mock 数据一致）
+INSERT INTO `assistant_tag` (`assistant_id`, `name`, `sort_no`)
+SELECT e.`id`, t.`name`, t.`sort_no`
+FROM `assistant` e
+JOIN (
+    SELECT '智能会议助理' AS `assistant_name`, '会议' AS `name`, 10 AS `sort_no`
+    UNION ALL SELECT '智能会议助理', '纪要', 20
+    UNION ALL SELECT 'AI 陪练助理', '培训', 10
+    UNION ALL SELECT 'AI 陪练助理', '陪练', 20
+    UNION ALL SELECT 'AI 面试助理', '面试', 10
+    UNION ALL SELECT 'AI 面试助理', '评估', 20
+    UNION ALL SELECT '人效分析助理', '人效', 10
+    UNION ALL SELECT '人效分析助理', '分析', 20
+    UNION ALL SELECT '智慧云仓助理', '仓储', 10
+    UNION ALL SELECT '智慧云仓助理', '调度', 20
+    UNION ALL SELECT '环安合规助理', '环安', 10
+    UNION ALL SELECT '环安合规助理', '合规', 20
+) t ON e.`name` = t.`assistant_name` AND e.`company_id` = 1 AND e.`deleted_at` IS NULL;

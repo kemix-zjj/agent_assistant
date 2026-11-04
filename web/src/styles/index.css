@@ -1,0 +1,217 @@
+:root {
+  /* 设计令牌沿用 prototype/css/common.css 的视觉体系 */
+  --at-brand: #3685f2;
+  --at-brand-dark: #2468f2;
+  --at-success: #04d999;
+  --at-warning: #ff813b;
+  --at-danger: #ff4d5d;
+  --at-text: #1f2329;
+  --at-text-sub: #646a73;
+  --at-text-weak: #8f959e;
+  --at-border: #e5e6eb;
+  --at-bg: #f5f6f7;
+  --at-bg-card: #ffffff;
+  --at-radius: 4px;
+  --at-gap: 8px;
+
+  /* 抽屉 / 弹窗标题栏：蓝色渐变（对齐 prototype 的 .drawer-header / .modal-header） */
+  --at-header-gradient: linear-gradient(90deg, #2468f2 0%, #3685f2 55%, #4b95f5 100%);
+  --at-header-height: 40px;
+
+  --el-color-primary: #3685f2;
+  --el-border-radius-base: 4px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
+  color: var(--at-text);
+  background: var(--at-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 列表统一三态：空态 / 失败 */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+  color: var(--at-text-weak);
+  gap: 12px;
+}
+
+.page-card {
+  background: var(--at-bg-card);
+  border-radius: var(--at-radius);
+  padding: 20px;
+  min-height: calc(100vh - 32px);
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--at-text-sub);
+}
+
+/* ============ 抽屉标题栏：蓝色渐变（对齐 prototype .drawer-header） ============ */
+.el-drawer .el-drawer__header {
+  flex: 0 0 var(--at-header-height);
+  height: var(--at-header-height);
+  margin-bottom: 0;
+  padding: 0 20px;
+  background: var(--at-header-gradient);
+  color: #fff;
+}
+
+.el-drawer .el-drawer__header .el-drawer__title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.el-drawer .el-drawer__header .el-drawer__close-btn {
+  color: #fff;
+  font-size: 16px;
+  transition: background-color 0.15s;
+  border-radius: 2px;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-drawer .el-drawer__header .el-drawer__close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.el-drawer .el-drawer__header .el-drawer__close-btn:hover i,
+.el-drawer .el-drawer__header .el-drawer__close-btn:focus i {
+  color: #fff;
+}
+
+/* ============ 弹窗标题栏：蓝色渐变（对齐 prototype .modal-header） ============ */
+.el-overlay .el-dialog {
+  --el-dialog-padding-primary: 0;
+  overflow: hidden;
+}
+
+.el-overlay .el-dialog .el-dialog__header {
+  display: flex;
+  align-items: center;
+  height: var(--at-header-height);
+  padding: 0 16px;
+  margin-right: 0;
+  background: var(--at-header-gradient);
+}
+
+.el-overlay .el-dialog .el-dialog__header.show-close {
+  padding-right: 48px;
+}
+
+.el-overlay .el-dialog .el-dialog__header .el-dialog__title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.el-overlay .el-dialog .el-dialog__headerbtn {
+  top: 8px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  transition: background-color 0.15s;
+}
+
+.el-overlay .el-dialog .el-dialog__headerbtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.el-overlay .el-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: #fff;
+  font-size: 16px;
+}
+
+.el-overlay .el-dialog .el-dialog__headerbtn:hover .el-dialog__close,
+.el-overlay .el-dialog .el-dialog__headerbtn:focus .el-dialog__close {
+  color: #fff;
+}
+
+.el-overlay .el-dialog .el-dialog__body {
+  padding: 20px 16px;
+}
+
+.el-overlay .el-dialog .el-dialog__footer {
+  padding: 0 16px 16px;
+}
+
+/* MessageBox 无标题栏，需恢复默认内边距，避免与上方渐变标题栏样式冲突 */
+.el-message-box {
+  --el-messagebox-padding-primary: 16px;
+  padding: 16px;
+}
+
+.el-message-box__header {
+  height: auto;
+  padding: 0;
+  margin-bottom: 12px;
+  background: none;
+}
+
+.el-message-box__title {
+  color: var(--at-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.el-message-box__headerbtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  background: none;
+}
+
+.el-message-box__headerbtn:hover {
+  background: #f2f3f5;
+}
+
+.el-message-box__headerbtn .el-message-box__close {
+  color: var(--at-text-weak);
+}
+
+.el-message-box__btns {
+  padding-top: 12px;
+}
+
+.el-message-box__content {
+  padding: 0;
+}
