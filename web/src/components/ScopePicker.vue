@@ -2,8 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOrgTree, getPositions, getRoles, searchUsers } from '@/api'
-import { derivedUserIds, sourcesOf } from '@/api/mock'
-import type { OrgNode } from '@/api/mock'
+import { expandUserIds, sourcesOfUser } from '@/utils/scopeExpand'
+import type { OrgNodeLike, UserLike } from '@/utils/scopeExpand'
 import type { ScopeDim, ScopePayload, ScopeMode } from '@/types/scope'
 
 /**
@@ -61,10 +61,10 @@ const leftAllChecked = ref(false)
 
 /* ---------------- 主数据 ---------------- */
 
-const orgNodes = ref<OrgNode[]>([])
+const orgNodes = ref<OrgNodeLike[]>([])
 const roleList = ref<Array<{ id: string; name: string; desc?: string }>>([])
 const positionList = ref<Array<{ id: string; name: string; desc?: string }>>([])
-const userList = ref<Array<{ id: string; name: string; deptName?: string; jobNo?: string }>>([])
+const userList = ref<Array<UserLike & { deptName?: string; jobNo?: string }>>([])
 
 const NAME_MAP = ref<Record<ScopeDim, Map<string, string>>>({
   org: new Map(),
@@ -89,7 +89,7 @@ async function loadBase(): Promise<void> {
     userList.value = userRes.list
 
     NAME_MAP.value.org.clear()
-    const walk = (nodes: OrgNode[]): void => {
+    const walk = (nodes: OrgNodeLike[]): void => {
       nodes.forEach((n) => {
         NAME_MAP.value.org.set(n.id, n.name)
         if (n.children) walk(n.children)
@@ -123,8 +123,19 @@ function toPayload(): ScopePayload {
   }
 }
 
-/** 来源维度（组织含下级 / 角色 / 岗位）展开出的人员 */
-const derivedIds = computed(() => derivedUserIds(toPayload()))
+/** 来源维度（组织含下级 / 角色 / 岗位）展开出的人员，不含直接添加 */
+const derivedIds = computed(() =>
+  expandUserIds(
+    {
+      orgs: srcSel.value.org,
+      roles: srcSel.value.role,
+      positions: srcSel.value.position,
+      users: []
+    },
+    orgNodes.value,
+    userList.value
+  )
+)
 
 /** 单独添加且不来自任何来源维度的人员 */
 const manualOnlyIds = computed(() => manual.value.filter((id) => !derivedIds.value.includes(id)))
@@ -152,7 +163,7 @@ const selectedIds = computed<string[]>(() => {
   return srcSel.value[activeDim.value]
 })
 
-function flatOrgs(nodes: OrgNode[], level = 0): Array<{ id: string; name: string; level: number; meta?: string }> {
+function flatOrgs(nodes: OrgNodeLike[], level = 0): Array<{ id: string; name: string; level: number; meta?: string }> {
   const out: Array<{ id: string; name: string; level: number; meta?: string }> = []
   nodes.forEach((n) => {
     out.push({ id: n.id, name: n.name, level, meta: level === 0 ? '组织' : '' })
@@ -180,7 +191,17 @@ const rightItems = computed(() => allItems.value.filter((it) => selectedIds.valu
 
 /** 已选人员身上的来源标签（组织 / 岗位 / 角色 / 直接添加） */
 function srcTagsOf(userId: string): string[] {
-  return sourcesOf(userId, toPayload())
+  return sourcesOfUser(
+    userId,
+    {
+      orgs: srcSel.value.org,
+      roles: srcSel.value.role,
+      positions: srcSel.value.position,
+      users: manual.value
+    },
+    orgNodes.value,
+    userList.value
+  )
 }
 
 /** 底部汇总 */

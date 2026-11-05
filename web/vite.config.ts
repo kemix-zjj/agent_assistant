@@ -7,7 +7,8 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const target = env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+  // 代理目标必须是后端绝对地址；VITE_API_BASE_URL 是前端请求前缀（/api/v1），不能用作 target
+  const target = env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000'
 
   return {
     plugins: [

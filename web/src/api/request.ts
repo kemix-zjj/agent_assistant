@@ -14,10 +14,19 @@ const instance: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
+// 网关接好前，前端按当前视角模拟登录态；中文姓名需百分号编码后再放进请求头
+const ROLE_PROFILE: Record<'user' | 'admin', { id: string; name: string; dept: string }> = {
+  user: { id: '1001', name: '王晓明', dept: '人力资源部 · 招聘组' },
+  admin: { id: '9001', name: '王建国', dept: '人力资源部' }
+}
+
 instance.interceptors.request.use((config) => {
-  const role = localStorage.getItem('at_role') || 'user'
-  config.headers.set('X-User-Id', role === 'admin' ? '9001' : '1001')
+  const role = (localStorage.getItem('at_role') as 'user' | 'admin') || 'user'
+  const profile = ROLE_PROFILE[role] ?? ROLE_PROFILE.user
+  config.headers.set('X-User-Id', profile.id)
   config.headers.set('X-Company-Id', '1')
+  config.headers.set('X-User-Name', encodeURIComponent(profile.name))
+  config.headers.set('X-User-Dept', encodeURIComponent(profile.dept))
   return config
 })
 

@@ -87,7 +87,7 @@ const resKw = ref('')
 /** 步骤 3：是否立即申请共享（仅新建） */
 const shareMode = ref<'no' | 'yes'>('no')
 const shareScope = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
-const changeNote = ref('')
+
 
 const skills = ref<SkillItem[]>([])
 const mcps = ref<McpItem[]>([])
@@ -101,6 +101,7 @@ const newCategoryName = ref('')
 const nameLen = computed(() => draft.name.length)
 const promptLen = computed(() => draft.prompt.length)
 
+/** 已共享助理编辑时提示「变更立即生效」（docs/03 §3.4） */
 const needReapprove = computed(() => isEdit.value && (props.affectedGrantCount ?? 0) > 0)
 
 /* ---------------- 资源过滤（市场 + 搜索） ---------------- */
@@ -193,7 +194,6 @@ function resetDraft(): void {
   resKw.value = ''
   shareMode.value = 'no'
   shareScope.value = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
-  changeNote.value = ''
 }
 
 async function loadResources(): Promise<void> {
@@ -497,10 +497,6 @@ function next(): void {
 }
 
 async function submit(): Promise<void> {
-  if (needReapprove.value && !changeNote.value.trim()) {
-    ElMessage.error('请填写变更说明')
-    return
-  }
   if (shareMode.value === 'yes' && shareScope.value.scopeMode === 'RANGE') {
     const s = shareScope.value
     if (!s.orgs.length && !s.roles.length && !s.positions.length && !s.users.length) {
@@ -775,20 +771,9 @@ function close(): void {
             type="warning"
             :closable="false"
             show-icon
-            :title="`该助理已共享（${draft.name}）。保存后将生成新版本并重新提交审批，审批通过后新版本才生效。`"
+            :title="`该助理已共享给 ${props.affectedGrantCount} 个授权对象，保存后变更将立即对其生效。`"
           />
-          <div class="form-row mt-base">
-            <div class="form-item">
-              <label class="form-label required">变更说明</label>
-              <el-input
-                v-model="changeNote"
-                type="textarea"
-                :rows="3"
-                maxlength="200"
-                placeholder="向审批人说明本次修改内容，例如：补充校招场景提示词"
-              />
-            </div>
-          </div>
+          <div class="form-hint mt-base">共享状态与已生效授权范围不变；如需调整授权范围，请在卡片「共享范围」中提交变更申请。</div>
         </template>
 
         <template v-else-if="isEdit">
