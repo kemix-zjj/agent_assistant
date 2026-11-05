@@ -54,6 +54,7 @@ const scopeDialog = ref(false)
 
 const activeAssistantId = ref<number | null>(null)
 const shareTargets = ref<AssistantCardType[]>([])
+const shareInitialScope = ref<ScopePayload | null>(null)
 const editingAffectedCount = ref(0)
 const scopeTarget = ref<AssistantCardType | null>(null)
 const scopePayload = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
@@ -186,6 +187,12 @@ async function onCardAction(action: AssistantAction | 'detail' | 'toggleReject',
     case 'shareScope':
       await openScope(card)
       break
+    case 'share':
+      openShareDialog(card, null)
+      break
+    case 'resubmit':
+      await openResubmitDialog(card)
+      break
     case 'remove':
       await handleSubscription(card, 'remove')
       break
@@ -248,6 +255,43 @@ async function handleSubscription(card: AssistantCardType, action: 'remove' | 'r
   }
 }
 
+/** 首次共享：打开共享申请弹窗（走 POST /shares） */
+function openShareDialog(card: AssistantCardType, initial: ScopePayload | null): void {
+  shareTargets.value = [card]
+  shareInitialScope.value = initial
+  shareDialog.value = true
+}
+
+/** 重新提交：先回显上次被拒的申请范围，再走 POST /shares */
+async function openResubmitDialog(card: AssistantCardType): Promise<void> {
+  let initial: ScopePayload | null = null
+  try {
+    const { getShareScopeApi } = await import('@/api')
+    const res = await getShareScopeApi(card.assistantId)
+    if (res.scope) initial = toScopePayload(res.scope)
+  } catch {
+    // 回显失败不阻断，用户可重新选择
+  }
+  openShareDialog(card, initial)
+}
+
+function toScopePayload(scope: {
+  scopeMode: ScopePayload['scopeMode']
+  orgs: Array<{ id: string }>
+  roles: Array<{ id: string }>
+  positions: Array<{ id: string }>
+  users: Array<{ id: string }>
+}): ScopePayload {
+  return {
+    scopeMode: scope.scopeMode,
+    orgs: scope.orgs.map((o) => o.id),
+    roles: scope.roles.map((r) => r.id),
+    positions: scope.positions.map((p) => p.id),
+    users: scope.users.map((u) => u.id)
+  }
+}
+
+/** 已共享助理调整范围：走 PUT /assistants/{id}/share-scope */
 async function openScope(card: AssistantCardType): Promise<void> {
   scopeTarget.value = card
   scopePayload.value = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
@@ -255,15 +299,7 @@ async function openScope(card: AssistantCardType): Promise<void> {
   try {
     const { getShareScopeApi } = await import('@/api')
     const res = await getShareScopeApi(card.assistantId)
-    if (res.scope) {
-      scopePayload.value = {
-        scopeMode: res.scope.scopeMode,
-        orgs: res.scope.orgs.map((o) => o.id),
-        roles: res.scope.roles.map((r) => r.id),
-        positions: res.scope.positions.map((p) => p.id),
-        users: res.scope.users.map((u) => u.id)
-      }
-    }
+    if (res.scope) scopePayload.value = toScopePayload(res.scope)
   } catch {
     // 回显失败不阻断，用户可重新选择
   }
@@ -297,6 +333,7 @@ function openBatchShare(): void {
     return
   }
   shareTargets.value = [...selectedCards.value]
+  shareInitialScope.value = null
   shareDialog.value = true
 }
 
@@ -464,7 +501,12 @@ const emptyText = computed(() => {
 
     <AssistantDetailDrawer v-model="detailDrawer" :assistant-id="activeAssistantId" />
 
-    <ShareSubmitDialog v-model="shareDialog" :assistants="shareTargets" @submitted="onShareSubmitted" />
+    <ShareSubmitDialog
+      v-model="shareDialog"
+      :assistants="shareTargets"
+      :initial-scope="shareInitialScope"
+      @submitted="onShareSubmitted"
+    />
 
     <el-dialog
       v-model="scopeDialog"

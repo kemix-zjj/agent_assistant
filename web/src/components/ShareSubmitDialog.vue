@@ -7,11 +7,28 @@ import type { AssistantCard } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
-/** 共享提交弹窗：单条重新提交与批量勾选提交共用（F-SHR-001 / F-SHR-003） */
-const props = defineProps<{ modelValue: boolean; assistants: AssistantCard[] }>()
+/** 共享提交弹窗：首次共享、重新提交与批量勾选提交共用（F-SHR-001 / F-SHR-003） */
+const props = defineProps<{
+  modelValue: boolean
+  assistants: AssistantCard[]
+  /** 重新提交时回显上次申请范围 */
+  initialScope?: ScopePayload | null
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; submitted: [] }>()
 
-const scope = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
+const EMPTY_PAYLOAD: ScopePayload = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+
+function clonePayload(p: ScopePayload): ScopePayload {
+  return {
+    scopeMode: p.scopeMode,
+    orgs: [...p.orgs],
+    roles: [...p.roles],
+    positions: [...p.positions],
+    users: [...p.users]
+  }
+}
+
+const scope = ref<ScopePayload>(clonePayload(EMPTY_PAYLOAD))
 const changeNote = ref('')
 const submitting = ref(false)
 const pickerRef = ref<InstanceType<typeof ScopePicker>>()
@@ -20,7 +37,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      scope.value = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+      scope.value = props.initialScope ? clonePayload(props.initialScope) : clonePayload(EMPTY_PAYLOAD)
       changeNote.value = ''
     }
   }

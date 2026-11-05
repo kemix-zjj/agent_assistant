@@ -23,6 +23,8 @@ const ACTION_LABEL: Record<AssistantAction, string> = {
   summon: '召唤',
   edit: '编辑',
   delete: '删除',
+  share: '共享',
+  resubmit: '重新提交',
   shareScope: '共享范围',
   remove: '移除',
   resubscribe: '重新订阅'
@@ -31,7 +33,9 @@ const ACTION_LABEL: Record<AssistantAction, string> = {
 /** 需求 F-EXP-002：平台预置助理的「授权范围」仅公司管理员可见 */
 const visibleActions = computed(() =>
   (props.card.actions ?? []).filter((a) => {
-    if (a === 'edit' || a === 'delete') return props.scope === 'mine'
+    if (a === 'edit' || a === 'delete' || a === 'share' || a === 'resubmit') {
+      return props.scope === 'mine'
+    }
     if (a === 'shareScope') {
       if (props.card.source === 'platform') return isAdmin.value
       return props.scope !== 'shared'
@@ -121,15 +125,6 @@ function onAction(action: AssistantAction): void {
         </el-button>
         <el-button v-if="card.source !== 'shared'" link size="small" @click="emit('action', 'detail', card)">
           详情
-        </el-button>
-        <el-button
-          v-if="canShare"
-          link
-          type="primary"
-          size="small"
-          @click="onAction('shareScope')"
-        >
-          共享
         </el-button>
       </span>
     </div>

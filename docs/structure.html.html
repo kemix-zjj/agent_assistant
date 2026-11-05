@@ -352,7 +352,7 @@ table.data tbody tr:hover{background:#f8fbff}
     <h2 class="sec">项目速览</h2>
     <div class="grid g4">
       <div class="metric"><div class="num">13</div><div class="lbl">本期功能点</div><div class="txt">EXP 5 · LIB 2 · SHR 3 · APR 3</div></div>
-      <div class="metric"><div class="num">15</div><div class="lbl">数据库表</div><div class="txt">业务 12 张 + 支撑 3 张</div></div>
+      <div class="metric"><div class="num">14</div><div class="lbl">数据库表</div><div class="txt">业务 12 张 + 支撑 2 张</div></div>
       <div class="metric"><div class="num">29</div><div class="lbl">REST 接口</div><div class="txt">统一 /api/v1 前缀</div></div>
       <div class="metric"><div class="num">3</div><div class="lbl">角色</div><div class="txt">普通员工 · 被授权方 · 公司管理员</div></div>
     </div>
@@ -466,7 +466,7 @@ table.data tbody tr:hover{background:#f8fbff}
           <tr><td><b>D-04</b></td><td>审批类型本期只实现 <code>share</code> 与 <code>scope_change</code></td><td>下架已列为非范围，但正文出现范围变更审批</td><td><code>offline</code> 仅保留枚举位</td></tr>
           <tr><td><b>D-05</b></td><td>平台预置助理复用同一套申请单，授权人是管理员且立即生效</td><td>原型四处范围组件长相一致，后台也统一</td><td>服务层需按助理来源分支权限校验</td></tr>
           <tr><td><b>D-06</b></td><td>助理名称唯一性用「公司 + 名称 + 未删除」唯一索引兜底 + 服务层前置校验</td><td>并发创建时数据库约束是唯一可靠保证</td><td>冲突需转业务错误码</td></tr>
-          <tr><td><b>D-07</b></td><td>审批中心角标走 Redis 缓存，决策后主动失效</td><td>避免列表页每次渲染都 count</td><td>需处理缓存与库不一致兜底</td></tr>
+          <tr><td><b>D-07</b></td><td>审批中心角标按库内 <code>approval.status='pending'</code> 实时统计</td><td>角标需与列表数据严格一致，本期数据量小，不走缓存</td><td>数据量增大后需评估索引或缓存</td></tr>
           <tr><td><b>D-08</b></td><td>AI 生成不计入助理保存事务，失败仅提示不阻断</td><td>需求要求 AI 不可用时仍能保存</td><td>生成结果可能未被采纳</td></tr>
           <tr><td><b>D-09</b></td><td>头像「预签名直传对象存储 + 保存 URL」</td><td>避免 2MB 文件过服务层</td><td>需清理孤儿文件</td></tr>
           <tr><td><b>D-10</b></td><td>逻辑删除统一 <code>deleted_at</code>，删除后授权置无效、待审批单置终止</td><td>删除后不可重新订阅，历史会话仍可查看</td><td>所有查询必须带 <code>deleted_at IS NULL</code></td></tr>
@@ -1173,7 +1173,7 @@ table.data tbody tr:hover{background:#f8fbff}
         <div class="row"><div class="k">关键字段</div><div class="v"><code>approval_no</code>、<code>batch_no</code>（批量聚合）、<code>approval_type</code>、<code>status</code>、<code>assistant_id</code>、<code>assistant_version</code>（提交那一刻的版本号）、<code>submitter_*</code> / <code>approver_*</code>、<code>reject_reason</code>、<code>requested_scope_id</code>、<code>final_scope_id</code></div></div>
         <div class="row"><div class="k">枚举</div><div class="v"><code>approval_type</code>：<span class="tag blue">share</span> 首次共享 / <span class="tag blue">scope_change</span> 范围变更 / <span class="tag gray">offline</span> 下架（仅预留）<br><code>status</code>：<span class="tag orange">pending</span> / <span class="tag green">approved</span> / <span class="tag red">rejected</span> / <span class="tag gray">terminated</span>（仅因助理被删除）</div></div>
         <div class="row"><div class="k">关系</div><div class="v">N : 1 → <code>assistant</code>；1 : N → <code>share_scope</code>（申请态与调整态两张单）；<code>final_scope_id</code> 指向生效申请单</div></div>
-        <div class="row"><div class="k">关键约束</div><div class="v"><b>部分唯一索引</b> <code>uk_approval_pending_assistant (assistant_id) WHERE status='pending'</code> 保证<b>同一助理同一时间只允许一条待审批申请</b></div></div>
+        <div class="row"><div class="k">关键约束</div><div class="v"><b>唯一索引</b> <code>uk_approval_pending_assistant (assistant_id, pending_flag)</code> 保证<b>同一助理同一时间只允许一条待审批申请</b>；<code>pending_flag</code> 为 STORED 生成列（status=pending 为 1，其他为 NULL），等价实现 PG 的部分唯一索引</div></div>
         <div class="row"><div class="k">索引</div><div class="v"><code>idx_approval_pending_list (company_id, status, submit_time)</code> —— 支撑审批中心列表 ≤ 1s；<code>idx_approval_batch (batch_no)</code>、<code>idx_approval_assistant (assistant_id, submit_time DESC)</code></div></div>
       </div>
     </div>
@@ -1191,7 +1191,7 @@ table.data tbody tr:hover{background:#f8fbff}
       <div class="tcard-head"><span class="tname">sys_audit_log</span><span class="tcn">操作审计日志</span><span class="tag purple">支撑</span></div>
       <div class="tcard-body">
         <div class="row"><div class="k">干什么</div><div class="v">覆盖助理创建 / 编辑 / 删除 / 召唤、共享提交 / 重提、移除 / 重新订阅、审批通过 / 拒绝。</div></div>
-        <div class="row"><div class="k">关键字段</div><div class="v"><code>operator_*</code>、<code>action</code>、<code>object_type</code>、<code>object_id</code>、<code>before_value</code>(JSONB)、<code>after_value</code>(JSONB)、<code>client_ip</code></div></div>
+        <div class="row"><div class="k">关键字段</div><div class="v"><code>operator_*</code>、<code>action</code>、<code>object_type</code>、<code>object_id</code>、<code>before_value</code>(JSON)、<code>after_value</code>(JSON)、<code>client_ip</code></div></div>
         <div class="row"><div class="k">要点</div><div class="v"><b>分区表</b>：<code>PARTITION BY RANGE (created_at)</code>，按季度分区（如 <code>sys_audit_log_2026q4</code>），保留 ≥ 12 个月</div></div>
       </div>
     </div>
@@ -1249,8 +1249,8 @@ table.data tbody tr:hover{background:#f8fbff}
       <table class="tbl">
         <thead><tr><th style="width:60px">编号</th><th style="width:290px">规则</th><th>实现方式</th></tr></thead>
         <tbody>
-          <tr><td><b>C-01</b></td><td>同一助理同一时刻最多一条待审批单</td><td>部分唯一索引 <code>uk_approval_pending_assistant</code>；服务层提交前先查后写，冲突转 <code>ASSISTANT_STATUS_CHANGED</code></td></tr>
-          <tr><td><b>C-02</b></td><td>助理名称公司内唯一</td><td>部分唯一索引；保存冲突转 <code>ASSISTANT_NAME_DUPLICATED</code></td></tr>
+          <tr><td><b>C-01</b></td><td>同一助理同一时刻最多一条待审批单</td><td>唯一索引 <code>uk_approval_pending_assistant (assistant_id, pending_flag)</code>（生成列等价部分唯一索引）；服务层提交前先查后写，冲突转 <code>ASSISTANT_STATUS_CHANGED</code></td></tr>
+          <tr><td><b>C-02</b></td><td>助理名称公司内唯一</td><td>唯一索引 <code>uk_assistant_company_name (company_id, name, active_flag)</code>；保存冲突转 <code>ASSISTANT_NAME_DUPLICATED</code></td></tr>
           <tr><td><b>C-03</b></td><td>审批通过必须与名册展开同事务</td><td>更新 approval → 写 share_scope(effective) → upsert assistant_grant → 更新 assistant.share_status 与 authorized_count → 写版本记录</td></tr>
           <tr><td><b>C-04</b></td><td>审批决策幂等</td><td><code>UPDATE approval SET status=? WHERE id=? AND status='pending'</code>，影响行数为 0 时读当前状态返回首次结果</td></tr>
           <tr><td><b>C-05</b></td><td>范围收紧后未命中人员失效</td><td>新旧集合差集置失效，不物理删除</td></tr>
@@ -1291,9 +1291,9 @@ table.data tbody tr:hover{background:#f8fbff}
         <tbody>
           <tr><td>「全部」列表（平台 + 我的 + 已订阅共享）</td><td><code>idx_assistant_list_platform</code> 取平台；<code>idx_assistant_list_mine</code> 取自建；<code>idx_grant_user_sub</code> 取共享</td><td>三段 UNION 后内存合并排序，单页 12 条</td></tr>
           <tr><td>「我的助理」列表 + 状态筛选</td><td><code>idx_assistant_list_mine</code> + <code>idx_assistant_status</code></td><td>—</td></tr>
-          <tr><td>「共享助理」列表（已订阅 / 已移除）</td><td><code>idx_grant_user_sub</code>（partial: grant_status='valid'）</td><td>覆盖分页主键</td></tr>
+          <tr><td>「共享助理」列表（已订阅 / 已移除）</td><td><code>idx_grant_user_sub (company_id, user_id, subscribe_status)</code></td><td>覆盖分页主键</td></tr>
           <tr><td>审批中心列表（本公司、待审批、按提交时间正序）</td><td><code>idx_approval_pending_list</code></td><td>单页 20 条</td></tr>
-          <tr><td>审批中心角标</td><td>同索引 count；Redis 缓存 60s + 决策后主动失效</td><td>—</td></tr>
+          <tr><td>审批中心角标</td><td>同索引 count（实时统计，不走缓存）</td><td>—</td></tr>
           <tr><td>审批详情范围展示</td><td><code>idx_scope_approval</code> + <code>idx_scope_item_scope</code></td><td>一次 join 取四维明细</td></tr>
           <tr><td>列表关键词搜索（名称 + 标签）</td><td><code>idx_tag_name</code> + <code>uk_assistant_company_name</code> 前缀</td><td>标签命中回捞 assistant_id，与名称命中 UNION</td></tr>
           <tr><td>审计按对象追溯</td><td><code>idx_audit_object</code></td><td>分区裁剪</td></tr>

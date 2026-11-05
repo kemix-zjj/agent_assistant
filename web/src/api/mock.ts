@@ -621,9 +621,11 @@ function toCard(row: AssistantRow): AssistantCard {
     actions.push('shareScope')
   } else if (isOwn) {
     // 需求 F-EXP-004/F-EXP-005：我的助理范围内创建人可编辑、删除；
-    // 已共享的额外提供「共享范围」（需求 F-EXP-002）
+    // 未共享/已拒绝可提交共享申请，已共享可调整「共享范围」（需求 F-EXP-002）
     actions.push('summon')
     if (row.shareStatus === 'approved') actions.push('shareScope')
+    if (row.shareStatus === 'unshared') actions.push('share')
+    if (row.shareStatus === 'rejected') actions.push('resubmit')
     actions.push('edit', 'delete')
   }
 

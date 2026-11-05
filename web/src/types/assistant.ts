@@ -16,7 +16,15 @@ export type ListScope = 'all' | 'mine' | 'shared'
 export type AvatarType = 'char' | 'image'
 
 /** 卡片可执行操作（后端下发，前端据此渲染按钮） */
-export type AssistantAction = 'summon' | 'edit' | 'delete' | 'shareScope' | 'remove' | 'resubscribe'
+export type AssistantAction =
+  | 'summon'
+  | 'edit'
+  | 'delete'
+  | 'share'
+  | 'resubmit'
+  | 'shareScope'
+  | 'remove'
+  | 'resubscribe'
 
 /** 列表卡片项（GET /assistants，不含 prompt） */
 export interface AssistantCard {
