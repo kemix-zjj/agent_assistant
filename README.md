@@ -18,9 +18,9 @@
 20261026-助理管理授权/
 ├── docs/           设计与需求文档（4 份）
 ├── prototype/      UI 原型，纯静态，双击 index.html 即可运行
-├── web/            前端工程（本期以原型为基线改造接入 API）
-├── server/         后端工程（Python + FastAPI + PostgreSQL）
-└── deploy/         部署物（Dockerfile / compose / 环境变量样例）
+├── web/            前端工程（Vue 3 + Vite，已接入真实接口）
+├── server/         后端工程（Python + FastAPI + MySQL 8.0）
+└── deploy/         部署物（MySQL 建表脚本）
 ```
 
 ### docs/
@@ -57,14 +57,17 @@ UI 原型，纯静态无构建依赖，双击 `index.html` 即可评审。
 server/
 ├── app/
 │   ├── main.py              FastAPI 应用装配入口
-│   ├── api/v1/              路由层（参数校验 + 权限注解 + 响应包装）
-│   ├── core/                配置、鉴权、异常、日志、幂等、分页
-│   ├── models/              SQLAlchemy ORM 模型（对应 02-数据库设计）
+│   ├── api/                 健康检查 + v1 路由层（参数校验 + 统一响应包装）
+│   ├── core/                 配置、数据库、鉴权、异常、日志、幂等、分页
+│   ├── models/              SQLAlchemy ORM 模型（对应 02-数据库设计，15 张表）
 │   ├── schemas/             Pydantic 出入参模型
-│   ├── services/            领域服务（助理/共享/审批/订阅/范围展开/AI）
+│   ├── services/            领域服务（分类、助理 CRUD、共享提交/范围展开、审批中心、资源、召唤订阅、AI、头像）
 │   └── repositories/        数据访问层
-├── migrations/              Alembic 迁移脚本
-└── tests/                   单元测试 + 接口测试
+├── migrations/              Alembic 迁移配置（建表以 deploy/mysql 脚本为准）
+├── .env.example             环境变量样例，复制为 .env 后填写数据库密码
+├── alembic.ini
+├── scripts/                 check_schema、purge_test_data、clean_orphan_audit、reset_dev_data、e2e 验证
+└── tests/                   接口测试（骨架 / 助理 CRUD / 共享 / 审批 / 资源召唤订阅 AI 头像）
 ```
 
 分层约束：`api → services → repositories → models`，路由层不写业务判断，服务层不依赖 HTTP 对象，仓储层不写业务规则。
@@ -82,11 +85,11 @@ web/src/
 
 | 层 | 选型 |
 |----|------|
-| 后端 | Python 3.11 · FastAPI · SQLAlchemy 2.0 · Alembic |
-| 数据库 | PostgreSQL 15（主备 + 每日全量备份） |
-| 缓存 | Redis（幂等键、待审批角标、会话） |
+| 后端 | Python 3.10+ · FastAPI · SQLAlchemy 2.0 · Alembic |
+| 数据库 | MySQL 8.0（主备 + 每日全量备份） |
+| 幂等 | `sys_idempotency` 表 + `Idempotency-Key` 请求头（未引入 Redis） |
 | 前端 | Vue 3.5 · TypeScript · Vite 6 · Element Plus · Pinia · Vue Router |
-| 存储 | 对象存储（头像，预签名直传） |
+| 存储 | 对象存储（头像，预签名直传；当前返回占位地址，待接入 OSS/S3） |
 
 ## 本期范围
 
@@ -98,19 +101,41 @@ web/src/
 
 ## 本地启动
 
-```bash
-# 后端（Python）
-cd server
-python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+### 1. 初始化数据库
 
-# 前端（Vue 3 + TS，开发端口 5173，/api 代理到 8000）
+```bash
+# MySQL 8.0：执行建库建表脚本（15 张表 + 演示数据）
+mysql -u root -p < deploy/mysql/assistant_mysql.sql
+```
+
+### 2. 后端（FastAPI）
+
+```bash
+cd server
+cp .env.example .env          # 填写 DB_PASSWORD
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+- 接口文档：http://127.0.0.1:8000/docs
+- 健康检查：http://127.0.0.1:8000/health
+- 冒烟测试：`python -m pytest -q`
+
+登录态由请求头模拟（网关接入前）：`X-User-Id`、`X-Company-Id`，可选 `X-User-Name`、`X-User-Dept`（中文需 UTF-8 百分号编码，服务端自动解码）。`X-User-Id=9001` 视为公司管理员，其余为普通员工。
+
+主数据（组织 / 角色 / 岗位 / 人员）当前由 [master_data.py](server/app/services/master_data.py) 内置演示数据提供，通过 `Employee.login_id` 把登录账号映射到人员（如 `2001` → `u1 李静`），用于「共享助理」列表与授权匹配。接入真实主数据服务时，替换该模块的查询函数即可，路由层无需改动。
+
+AI 生成（`POST /ai/generate`）当前为确定性模板实现，未接大模型中台；输出符合各字段校验规则（描述 10-200 字、标签 ≤5 个且单个 ≤8 字、提示词 ≤4000 字、快速问题 ≤6 条）。接入时替换 [ai_service.py](server/app/services/ai_service.py) 的 `_generate` / `_polish` 即可，接口签名不变。
+
+### 3. 前端（Vue 3 + TS，开发端口 5173，/api 代理到 8000）
+
+```bash
 cd web
 npm install
 npm run dev
 ```
+
+> 前端默认走真实接口（`VITE_USE_MOCK=false`）。若需离线演示原型，把该变量改为 `true` 即可切回 Mock，视图层无需改动。
 
 ## 待确认事项
 
