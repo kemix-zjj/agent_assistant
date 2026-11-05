@@ -13,7 +13,7 @@ from app.models.assistant import (
 )
 from app.models.base import Base
 from app.models.scope import AssistantGrant, ShareScope, ShareScopeItem
-from app.models.system import AssistantSummon, SysAuditLog, SysIdempotency
+from app.models.system import AssistantSummon, SysAuditLog
 
 __all__ = [
     "Approval",
@@ -31,5 +31,4 @@ __all__ = [
     "ShareScope",
     "ShareScopeItem",
     "SysAuditLog",
-    "SysIdempotency",
 ]

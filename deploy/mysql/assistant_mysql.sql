@@ -1,7 +1,7 @@
 -- ============================================================
 -- 助理团助理创建与共享授权 · MySQL 8.0 建库建表脚本
--- 来源：docs/02-数据库设计.md（PostgreSQL 15）
--- 表数量：15 张（业务 12 张 + 支撑 3 张）
+-- 来源：docs/02-数据库设计.md（MySQL 8.0）
+-- 表数量：14 张（业务 12 张 + 支撑 2 张）
 -- 转换说明：
 --   1) BIGSERIAL → BIGINT AUTO_INCREMENT；TIMESTAMPTZ → DATETIME；
 --      BOOLEAN → TINYINT(1)；JSONB → JSON；COMMENT ON → 列/表 COMMENT
@@ -22,7 +22,6 @@ USE `assistant`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS `sys_idempotency`;
 DROP TABLE IF EXISTS `sys_audit_log`;
 DROP TABLE IF EXISTS `assistant_summon`;
 DROP TABLE IF EXISTS `approval`;
@@ -295,7 +294,6 @@ CREATE TABLE `approval` (
     `approver_name`      VARCHAR(64)  NULL COMMENT '审批人姓名快照，未审批时为空',
     `approve_time`       DATETIME     NULL COMMENT '审批完成时间，未审批时为空',
     `reject_reason`      VARCHAR(200) NULL COMMENT '仅 rejected 状态有值，1-200 字符，必填',
-    `idempotency_key`    VARCHAR(64)  NULL COMMENT '审批决策幂等键，与 sys_idempotency 配合使用',
     `created_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
     -- 等价 PG: uk_approval_pending_assistant ... WHERE status = 'pending'
@@ -357,23 +355,6 @@ CREATE TABLE `sys_audit_log` (
     PARTITION `p2026q4` VALUES LESS THAN ('2027-01-01'),
     PARTITION `p_max`   VALUES LESS THAN (MAXVALUE)
   );
-
--- ------------------------------------------------------------
--- 4.15 sys_idempotency · 幂等键记录
--- ------------------------------------------------------------
-CREATE TABLE `sys_idempotency` (
-    `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
-    `idempotency_key` VARCHAR(64)  NOT NULL COMMENT '幂等键，全局唯一，由客户端或服务端生成',
-    `biz_type`        VARCHAR(32)  NOT NULL COMMENT '业务类型，如 approval_approve / approval_reject / grant_subscribe',
-    `biz_id`          VARCHAR(64)  NULL COMMENT '业务对象 ID（如审批单 ID、助理 ID）',
-    `response_body`   JSON         NULL COMMENT '首次请求的响应体，重复请求直接返回该结果',
-    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `expired_at`      DATETIME     NOT NULL COMMENT '过期时间，到期后由定时任务清理',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_idem_key` (`idempotency_key`),
-    KEY `idx_idem_expire` (`expired_at`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
-  COMMENT = '审批决策、订阅操作的幂等记录，保留 24 小时后由定时任务清理';
 
 -- ============================================================
 -- 7. 初始化数据

@@ -230,8 +230,8 @@ table.data tbody tr:hover{background:#f8fbff}
     <h1>助理团 · 助理创建与共享授权 · 设计文档解读</h1>
     <p class="sub">整合《总体架构设计 v1.0》·《数据库设计 v1.0》·《接口设计 v1.0》 · 对齐原型 <code style="background:rgba(255,255,255,.2);color:#fff">../prototype/index.html</code> · 2026-11-03</p>
     <div class="badges">
-      <span>Python 3.11 + FastAPI</span><span>Vue 3.5 + TypeScript</span><span>PostgreSQL 15</span>
-      <span>15 张表</span><span>29 个接口</span><span>13 个功能点</span>
+      <span>Python 3.10 + FastAPI</span><span>Vue 3.5 + TypeScript</span><span>MySQL 8.0</span>
+      <span>14 张表</span><span>29 个接口</span><span>13 个功能点</span>
     </div>
   </div>
 </header>
@@ -590,7 +590,7 @@ table.data tbody tr:hover{background:#f8fbff}
           <li><b>列表首屏 ≤ 2s</b>：只返回卡片字段，<code>prompt</code>（≤4000 字）不进列表响应</li>
           <li><b>审批中心列表 ≤ 1s</b>：<code>(company_id, status, submit_time)</code> 复合索引</li>
           <li><b>AI 生成 ≤ 8s</b>：独立超时 8s，失败快速降级，不占用保存事务</li>
-          <li><b>并发 ≥ 200 / TPS ≥ 50</b>：无状态服务横向扩容，幂等键与角标落 Redis</li>
+          <li><b>并发 ≥ 200 / TPS ≥ 50</b>：无状态服务横向扩容，待审批角标按库内状态实时统计</li>
           <li><b>审计留存 ≥ 12 个月</b>：<code>sys_audit_log</code> 按季度分区，归档冷存储</li>
         </ul>
       </div>
@@ -617,7 +617,7 @@ table.data tbody tr:hover{background:#f8fbff}
   </div>
 
   <section class="block">
-    <h2 class="sec">15 张表总览 <small>按职责分 6 组</small></h2>
+    <h2 class="sec">14 张表总览 <small>按职责分 6 组</small></h2>
     <div class="grid g3">
       <div class="card" style="border-top:3px solid var(--primary)">
         <div class="card-title">① 助理主体 <span class="tag blue">2 张</span></div>
@@ -643,10 +643,9 @@ table.data tbody tr:hover{background:#f8fbff}
         <p style="font-size:13px"><code>approval</code><br><span style="color:var(--text-3);font-size:12px">审批单，一张单对应一个助理</span></p>
       </div>
       <div class="card" style="border-top:3px solid var(--purple)">
-        <div class="card-title">⑥ 支撑 <span class="tag purple">3 张</span></div>
+        <div class="card-title">⑥ 支撑 <span class="tag purple">2 张</span></div>
         <p style="font-size:13px"><code>assistant_summon</code><br><span style="color:var(--text-3);font-size:12px">召唤记录</span></p>
         <p style="font-size:13px;margin-top:6px"><code>sys_audit_log</code><br><span style="color:var(--text-3);font-size:12px">审计日志（分区表）</span></p>
-        <p style="font-size:13px;margin-top:6px"><code>sys_idempotency</code><br><span style="color:var(--text-3);font-size:12px">幂等键记录</span></p>
       </div>
     </div>
     <div class="callout green" style="margin-top:14px">
@@ -826,7 +825,7 @@ table.data tbody tr:hover{background:#f8fbff}
         <div class="st-t">王建国点进审批详情 → 查看助理配置与授权范围 → 点「审批通过」</div>
         <div class="st-d">
           <b>界面</b>：详情里能看能力组成（只读）与四维范围；如果只想给一部分人，可在「调整授权范围」里删人 —— 本节按<b>不调整、直接通过</b>走。<br>
-          <b>接口</b>：<code>GET /approvals/9001</code> → <code>POST /approvals/9001/approve</code>（带 <code>Idempotency-Key</code>）。<br>
+          <b>接口</b>：<code>GET /approvals/9001</code> → <code>POST /approvals/9001/approve</code>。<br>
           <b>落库（同一事务，五步）</b>：<br>
           　1. 条件更新 <code>approval#9001</code> → <code>approved</code> + 回填 <code>final_scope_id=5002</code>（<code>WHERE status='pending'</code> 保证幂等）<br>
           　2. 新增 <code>share_scope#5002</code>（<code>stage=effective</code>）+ <code>share_scope_item</code> 复制 2 行（O11、u5）<br>
@@ -1171,7 +1170,7 @@ table.data tbody tr:hover{background:#f8fbff}
       <div class="tcard-head" style="background:var(--orange-bg)"><span class="tname">approval</span><span class="tcn">审批单</span><span class="tag orange">业务</span><span class="tag red">核心</span></div>
       <div class="tcard-body">
         <div class="row"><div class="k">干什么</div><div class="v">一条审批单只对应<b>一个助理</b>；在审批中心里就是一行（列表视图）或一张卡（卡片视图）。批量勾选 N 个助理提交时，落库为 N 条审批单，共享同一个 <code>batch_no</code> 与同一份范围选择。</div></div>
-        <div class="row"><div class="k">关键字段</div><div class="v"><code>approval_no</code>、<code>batch_no</code>（批量聚合）、<code>approval_type</code>、<code>status</code>、<code>assistant_id</code>、<code>assistant_version</code>（提交那一刻的版本号）、<code>submitter_*</code> / <code>approver_*</code>、<code>reject_reason</code>、<code>requested_scope_id</code>、<code>final_scope_id</code>、<code>idempotency_key</code></div></div>
+        <div class="row"><div class="k">关键字段</div><div class="v"><code>approval_no</code>、<code>batch_no</code>（批量聚合）、<code>approval_type</code>、<code>status</code>、<code>assistant_id</code>、<code>assistant_version</code>（提交那一刻的版本号）、<code>submitter_*</code> / <code>approver_*</code>、<code>reject_reason</code>、<code>requested_scope_id</code>、<code>final_scope_id</code></div></div>
         <div class="row"><div class="k">枚举</div><div class="v"><code>approval_type</code>：<span class="tag blue">share</span> 首次共享 / <span class="tag blue">scope_change</span> 范围变更 / <span class="tag gray">offline</span> 下架（仅预留）<br><code>status</code>：<span class="tag orange">pending</span> / <span class="tag green">approved</span> / <span class="tag red">rejected</span> / <span class="tag gray">terminated</span>（仅因助理被删除）</div></div>
         <div class="row"><div class="k">关系</div><div class="v">N : 1 → <code>assistant</code>；1 : N → <code>share_scope</code>（申请态与调整态两张单）；<code>final_scope_id</code> 指向生效申请单</div></div>
         <div class="row"><div class="k">关键约束</div><div class="v"><b>部分唯一索引</b> <code>uk_approval_pending_assistant (assistant_id) WHERE status='pending'</code> 保证<b>同一助理同一时间只允许一条待审批申请</b></div></div>
@@ -1194,14 +1193,6 @@ table.data tbody tr:hover{background:#f8fbff}
         <div class="row"><div class="k">干什么</div><div class="v">覆盖助理创建 / 编辑 / 删除 / 召唤、共享提交 / 重提、移除 / 重新订阅、审批通过 / 拒绝。</div></div>
         <div class="row"><div class="k">关键字段</div><div class="v"><code>operator_*</code>、<code>action</code>、<code>object_type</code>、<code>object_id</code>、<code>before_value</code>(JSONB)、<code>after_value</code>(JSONB)、<code>client_ip</code></div></div>
         <div class="row"><div class="k">要点</div><div class="v"><b>分区表</b>：<code>PARTITION BY RANGE (created_at)</code>，按季度分区（如 <code>sys_audit_log_2026q4</code>），保留 ≥ 12 个月</div></div>
-      </div>
-    </div>
-    <div class="tcard">
-      <div class="tcard-head"><span class="tname">sys_idempotency</span><span class="tcn">幂等键记录</span><span class="tag purple">支撑</span></div>
-      <div class="tcard-body">
-        <div class="row"><div class="k">干什么</div><div class="v">支撑审批决策、订阅操作的 <code>Idempotency-Key</code>，记录首次响应 24h。</div></div>
-        <div class="row"><div class="k">关键字段</div><div class="v"><code>idempotency_key</code>（唯一）、<code>biz_type</code>、<code>biz_id</code>、<code>response_body</code>(JSONB)、<code>expired_at</code></div></div>
-        <div class="row"><div class="k">要点</div><div class="v">由定时任务按 <code>expired_at</code> 清理</div></div>
       </div>
     </div>
   </section>
@@ -1923,7 +1914,6 @@ table.data tbody tr:hover{background:#f8fbff}
           <tr><td><code>GRANT_INVALID</code></td><td>409</td><td>重新订阅授权已失效的助理</td></tr>
           <tr><td><code>REJECT_REASON_REQUIRED</code></td><td>400</td><td>拒绝原因为空</td></tr>
           <tr><td><code>AI_GENERATE_FAILED</code></td><td>502</td><td>大模型中台异常 / 超时</td></tr>
-          <tr><td><code>IDEMPOTENT_REPLAY</code></td><td>200</td><td>幂等命中，<code>data</code> 为首次响应</td></tr>
         </tbody>
       </table>
     </div>
@@ -2012,7 +2002,7 @@ table.data tbody tr:hover{background:#f8fbff}
 
     <div class="card">
       <div class="card-title"><span class="m post">POST</span> <code>/approvals/{approvalId}/approve</code> 审批通过</div>
-      <p class="note">Header <code>Idempotency-Key</code>（推荐）。对应审批详情页底部「审批通过」。</p>
+      <p class="note">重复提交由条件更新保证幂等。对应审批详情页底部「审批通过」。</p>
       <div class="steps">
         <div class="step"><div class="st-t">条件更新状态</div><div class="st-d"><code>UPDATE approval SET status='approved', approver_*, final_scope_id=? WHERE id=? AND status='pending'</code>；影响行数为 0 时读当前状态，已是已通过则返回首次结果（幂等），否则 <code>APPROVAL_ALREADY_HANDLED</code></div></div>
         <div class="step"><div class="st-t">确定最终范围</div><div class="st-d">优先取调整态，否则取申请态；为空时降级为申请态</div></div>
@@ -2081,7 +2071,7 @@ table.data tbody tr:hover{background:#f8fbff}
         <div class="card-title">防抖与幂等</div>
         <ul class="clean">
           <li>提交类按钮请求期间 loading 且禁用</li>
-          <li>审批与订阅接口额外带 <code>Idempotency-Key</code></li>
+          <li>审批与订阅接口由服务端条件更新保证重复提交返回首次结果</li>
         </ul>
       </div>
       <div class="card">

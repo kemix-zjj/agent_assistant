@@ -40,7 +40,6 @@ class Approval(Base):
     approver_name: Mapped[str | None] = mapped_column(String(64))
     approve_time: Mapped[datetime | None] = mapped_column(DateTime)
     reject_reason: Mapped[str | None] = mapped_column(String(200))
-    idempotency_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.current_timestamp()
     )

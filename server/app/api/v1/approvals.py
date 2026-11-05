@@ -1,10 +1,9 @@
 """共享审批路由（对应 docs/03 接口 22 ~ 27）。"""
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.idempotency import replay_if_hit, save_result
 from app.core.pagination import PageParams
 from app.core.response import ok
 from app.core.security import CurrentUser, get_current_user
@@ -67,18 +66,12 @@ def adjust_approval_scope(
 def approve(
     approvalId: int,  # noqa: N803
     payload: ApprovePayload,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
-    cached = replay_if_hit(db, idempotency_key, "approval_approve")
-    if cached is not None:
-        return ok(cached)
-
     service = ApprovalService(db)
     result = service.approve(approvalId, payload.comment, user)
     body = result.model_dump(by_alias=True)
-    save_result(db, idempotency_key, "approval_approve", str(approvalId), body)
     db.commit()
     return ok(body)
 
@@ -87,17 +80,11 @@ def approve(
 def reject(
     approvalId: int,  # noqa: N803
     payload: RejectPayload,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
-    cached = replay_if_hit(db, idempotency_key, "approval_reject")
-    if cached is not None:
-        return ok(cached)
-
     service = ApprovalService(db)
     result = service.reject(approvalId, payload.reject_reason, user)
     body = result.model_dump(by_alias=True)
-    save_result(db, idempotency_key, "approval_reject", str(approvalId), body)
     db.commit()
     return ok(body)

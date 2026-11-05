@@ -29,8 +29,8 @@
 |------|------|
 | `需求说明书-v1.2.md` | 13 个功能点、EARS 需求列表、验收标准 |
 | `01-总体架构设计.md` | 分层架构、模块划分、关键设计决策、权限模型、状态机、核心链路时序 |
-| `02-数据库设计.md` | ER 图、15 张表 DDL、索引与性能、数据一致性规则 |
-| `03-接口设计.md` | 29 个接口清单、出入参、28 个错误码、页面映射 |
+| `02-数据库设计.md` | ER 图、14 张表 DDL、索引与性能、数据一致性规则 |
+| `03-接口设计.md` | 29 个接口清单、出入参、26 个错误码、页面映射 |
 
 ### prototype/
 
@@ -58,8 +58,8 @@ server/
 ├── app/
 │   ├── main.py              FastAPI 应用装配入口
 │   ├── api/                 健康检查 + v1 路由层（参数校验 + 统一响应包装）
-│   ├── core/                 配置、数据库、鉴权、异常、日志、幂等、分页
-│   ├── models/              SQLAlchemy ORM 模型（对应 02-数据库设计，15 张表）
+│   ├── core/                 配置、数据库、鉴权、异常、日志、分页
+│   ├── models/              SQLAlchemy ORM 模型（对应 02-数据库设计，14 张表）
 │   ├── schemas/             Pydantic 出入参模型
 │   ├── services/            领域服务（分类、助理 CRUD、共享提交/范围展开、审批中心、资源、召唤订阅、AI、头像）
 │   └── repositories/        数据访问层
@@ -87,7 +87,7 @@ web/src/
 |----|------|
 | 后端 | Python 3.10+ · FastAPI · SQLAlchemy 2.0 · Alembic |
 | 数据库 | MySQL 8.0（主备 + 每日全量备份） |
-| 幂等 | `sys_idempotency` 表 + `Idempotency-Key` 请求头（未引入 Redis） |
+| 幂等 | 审批决策与订阅操作以条件更新 + 状态回放保证，重复请求返回首次结果（无独立幂等表） |
 | 前端 | Vue 3.5 · TypeScript · Vite 6 · Element Plus · Pinia · Vue Router |
 | 存储 | 对象存储（头像，预签名直传；当前返回占位地址，待接入 OSS/S3） |
 
@@ -104,7 +104,7 @@ web/src/
 ### 1. 初始化数据库
 
 ```bash
-# MySQL 8.0：执行建库建表脚本（15 张表 + 演示数据）
+# MySQL 8.0：执行建库建表脚本（14 张表 + 演示数据）
 mysql -u root -p < deploy/mysql/assistant_mysql.sql
 ```
 

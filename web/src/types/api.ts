@@ -47,7 +47,6 @@ export type ApiErrorCode =
   | 'CATEGORY_NAME_TOO_LONG'
   | 'AVATAR_TOO_LARGE'
   | 'AVATAR_TYPE_INVALID'
-  | 'IDEMPOTENT_REPLAY'
   | 'INTERNAL_ERROR'
 
 /** 业务异常：携带 code 与 data，便于页面做字段级定位 */

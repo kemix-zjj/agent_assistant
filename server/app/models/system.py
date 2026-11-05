@@ -1,4 +1,4 @@
-"""支撑表：召唤记录、审计日志、幂等键（对应 docs/02 4.13 ~ 4.15）。"""
+"""支撑表：召唤记录、审计日志（对应 docs/02 4.13 ~ 4.14）。"""
 
 from datetime import datetime
 from typing import Any
@@ -47,20 +47,4 @@ class SysAuditLog(Base):
     )
 
 
-class SysIdempotency(Base):
-    """幂等键记录，保留 24 小时后清理。"""
-
-    __tablename__ = "sys_idempotency"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
-    biz_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    biz_id: Mapped[str | None] = mapped_column(String(64))
-    response_body: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-    expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
-
-__all__ = ["AssistantSummon", "SysAuditLog", "SysIdempotency"]
+__all__ = ["AssistantSummon", "SysAuditLog"]
