@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>助理共享授权 · 全链路数据流向大图</title>
+<style>
+:root {
+  --primary: #3685F2;
+  --primary-dark: #1f66d0;
+  --primary-light: #e8f1fe;
+  --text: #1f2733;
+  --text-2: #5a6577;
+  --text-3: #8a94a6;
+  --border: #e3e8ef;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --green: #0f9960;
+  --green-bg: #e7f6ee;
+  --orange: #d97706;
+  --orange-bg: #fef3e2;
+  --red: #dc2626;
+  --red-bg: #fdeaea;
+  --purple: #7c3aed;
+  --purple-bg: #f1ebfe;
+  --teal: #0d9488;
+  --teal-bg: #e6f7f5;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  padding: 20px;
+}
+.header {
+  max-width: 1400px;
+  margin: 0 auto 20px;
+  text-align: center;
+}
+.header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.header p {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.flow-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(16,32,64,.08);
+  padding: 30px 24px 40px;
+  overflow-x: auto;
+}
+
+/* 阶段行 */
+.stage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 6px;
+  position: relative;
+}
+.stage-row:last-child { margin-bottom: 0; }
+
+/* 左侧阶段标签 */
+.stage-label {
+  flex: 0 0 132px;
+  text-align: right;
+  padding-top: 10px;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #fff;
+}
+.stage-label .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.stage-label .name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+.stage-label .desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* 右侧表卡片区 */
+.stage-body {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+/* 表卡片 */
+.tbl-card {
+  flex: 1 1 200px;
+  min-width: 190px;
+  background: #fbfcfe;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: box-shadow .2s;
+}
+.tbl-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(54,133,242,.12);
+}
+.tbl-card.header-only {
+  background: #f7f9fc;
+  border-style: dashed;
+}
+.tbl-card.green {
+  background: #f4fbf7;
+  border-color: #9fd7bd;
+}
+.tbl-card.orange {
+  background: #fffaf3;
+  border-color: #f5cf9a;
+}
+.tbl-card.purple {
+  background: #faf7ff;
+  border-color: #c9b6f5;
+}
+.tbl-card.teal {
+  background: #f2fcfb;
+  border-color: #9adfd7;
+}
+
+.tbl-card .tbl-name {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 2px;
+}
+.tbl-card .tbl-cn {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+/* 字段行 */
+.field-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px dashed #eef2f7;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.field-row:last-child { border-bottom: none; }
+.field-row .fname {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: #2a4d8f;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.field-row .fcn {
+  color: var(--text-2);
+  flex: 1;
+  min-width: 0;
+}
+.field-row .fval {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.fval.add { background: var(--green-bg); color: var(--green); }
+.fval.chg { background: var(--orange-bg); color: var(--orange); }
+.fval.del { background: var(--red-bg); color: var(--red); }
+.fval.none { background: #eef1f6; color: var(--text-3); }
+.fval.new { background: var(--primary-light); color: var(--primary-dark); }
+
+/* 箭头 */
+.arrow-down {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 4px;
+  color: var(--primary);
+  font-size: 18px;
+  line-height: 1;
+  width: 100%;
+}
+
+/* 连接线 */
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2px 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.connector .line {
+  height: 2px;
+  width: 40px;
+  background: var(--primary);
+  opacity: .4;
+  border-radius: 1px;
+}
+.connector .txt {
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+/* 说明区 */
+.legend {
+  max-width: 1400px;
+  margin: 18px auto 0;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.legend .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.legend .swatch.add { background: var(--green-bg); border-color: #9fd7bd; }
+.legend .swatch.chg { background: var(--orange-bg); border-color: #f5cf9a; }
+.legend .swatch.del { background: var(--red-bg); border-color: #f3b4b4; }
+.legend .swatch.new { background: var(--primary-light); border-color: #a9c9f2; }
+.legend .swatch.none { background: #eef1f6; }
+
+.note-box {
+  max-width: 1400px;
+  margin: 16px auto 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.8;
+}
+.note-box b { color: var(--text); }
+.note-box .key {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>助理共享授权 · 全链路数据流向大图</h1>
+  <p>从创建、提交共享、审批、订阅到删除 · 五张核心表在各阶段的字段变化</p>
+</div>
+
+<div class="flow-container">
+
+  <!-- ==================== 阶段 0 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">0</div>
+      <div class="name">创建助理</div>
+      <div class="desc">私有，不共享</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card active" style="flex:1 1 260px;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">name</span><span class="fcn">助理名称</span><span class="fval new">"招聘面试助理"</span></div>
+        <div class="field-row"><span class="fname">owner_user_id</span><span class="fcn">创建人ID</span><span class="fval new">3001</span></div>
+        <div class="field-row"><span class="fname">owner_name</span><span class="fcn">创建人姓名</span><span class="fval new">"王晓明"</span></div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval add">unshared</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval new">v1.0</span></div>
+        <div class="field-row"><span class="fname">source</span><span class="fcn">来源</span><span class="fval new">custom</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fval none">0 行</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fval none">0 行</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fval none">0 行</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fval none">0 行</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 1 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">1</div>
+      <div class="name">提交共享</div>
+      <div class="desc">POST /shares</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card active" style="flex:1 1 220px;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval chg">pending</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval new">v1.2</span></div>
+        <div class="field-row"><span class="fname">authorized_count</span><span class="fcn">授权人数</span><span class="fval none">0</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 230px;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#5001</span></div>
+        <div class="field-row"><span class="fname">stage</span><span class="fcn">阶段</span><span class="fval add">requested</span></div>
+        <div class="field-row"><span class="fname">scope_mode</span><span class="fcn">共享方式</span><span class="fval new">RANGE</span></div>
+        <div class="field-row"><span class="fname">org_count</span><span class="fcn">组织数</span><span class="fval new">1</span></div>
+        <div class="field-row"><span class="fname">user_count</span><span class="fcn">人员数</span><span class="fval new">1</span></div>
+        <div class="field-row"><span class="fname">grant_total</span><span class="fcn">展开总人数</span><span class="fval new">2</span></div>
+        <div class="field-row"><span class="fname">approval_id</span><span class="fcn">关联审批单</span><span class="fval new">#9001</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 230px;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#1</span></div>
+        <div class="field-row"><span class="fname">scope_id</span><span class="fcn">所属申请单</span><span class="fval new">#5001</span></div>
+        <div class="field-row"><span class="fname">dim</span><span class="fcn">维度</span><span class="fval add">org</span></div>
+        <div class="field-row"><span class="fname">item_id</span><span class="fcn">组织ID</span><span class="fval new">O11</span></div>
+        <div class="field-row"><span class="fname">item_name</span><span class="fcn">组织名称</span><span class="fval new">"人力资源部"</span></div>
+        <div class="field-row" style="margin-top:4px; padding-top:6px; border-top:1px dashed #cddaf0;"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#2</span></div>
+        <div class="field-row"><span class="fname">scope_id</span><span class="fcn">所属申请单</span><span class="fval new">#5001</span></div>
+        <div class="field-row"><span class="fname">dim</span><span class="fcn">维度</span><span class="fval add">user</span></div>
+        <div class="field-row"><span class="fname">item_id</span><span class="fcn">人员ID</span><span class="fval new">u5</span></div>
+        <div class="field-row"><span class="fname">item_name</span><span class="fcn">人员名称</span><span class="fval new">"林晓"</span></div>
+      </div>
+      <div class="tbl-card active orange" style="flex:1 1 230px;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#9001</span></div>
+        <div class="field-row"><span class="fname">approval_type</span><span class="fcn">类型</span><span class="fval add">share</span></div>
+        <div class="field-row"><span class="fname">status</span><span class="fcn">状态</span><span class="fval add">pending</span></div>
+        <div class="field-row"><span class="fname">expert_id</span><span class="fcn">关联助理</span><span class="fval new">#1001</span></div>
+        <div class="field-row"><span class="fname">submitter_name</span><span class="fcn">提交人</span><span class="fval new">"王晓明"</span></div>
+        <div class="field-row"><span class="fname">requested_scope_id</span><span class="fcn">申请范围</span><span class="fval new">#5001</span></div>
+        <div class="field-row"><span class="fname">final_scope_id</span><span class="fcn">生效范围</span><span class="fval none">NULL</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fval none">0 行（未审批不展开）</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 2 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">2</div>
+      <div class="name">审批前调整</div>
+      <div class="desc">PUT /approvals/{id}/scope</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval none">pending（不变）</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 220px;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#5001-A</span></div>
+        <div class="field-row"><span class="fname">stage</span><span class="fcn">阶段</span><span class="fval add">adjusted</span></div>
+        <div class="field-row"><span class="fname">grant_total</span><span class="fcn">调整后人数</span><span class="fval new">1</span></div>
+        <div class="field-row"><span class="fname">approval_id</span><span class="fcn">关联审批单</span><span class="fval new">#9001</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 220px;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fname">scope_id</span><span class="fcn">所属单</span><span class="fval new">#5001-A</span></div>
+        <div class="field-row"><span class="fname">dim</span><span class="fcn">维度</span><span class="fval add">org</span></div>
+        <div class="field-row"><span class="fname">item_id</span><span class="fcn">组织ID</span><span class="fval new">O11</span></div>
+        <div class="field-row"><span class="fname">item_name</span><span class="fcn">组织名称</span><span class="fval new">"人力资源部"</span></div>
+        <div class="field-row" style="margin-top:4px; padding-top:6px; border-top:1px dashed #cddaf0; color:var(--text-3); font-size:11px;">（林晓被管理员移除，明细只剩1行）</div>
+      </div>
+      <div class="tbl-card active orange" style="flex:1 1 200px;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fname">status</span><span class="fcn">状态</span><span class="fval none">pending（不变）</span></div>
+        <div class="field-row"><span class="fname">approval_type</span><span class="fcn">类型</span><span class="fval none">share（不变）</span></div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fval none">0 行（仍未审批）</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 3 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">3</div>
+      <div class="name">审批通过</div>
+      <div class="desc">POST /approvals/{id}/approve</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card active" style="flex:1 1 220px;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval chg">approved</span></div>
+        <div class="field-row"><span class="fname">authorized_count</span><span class="fcn">授权人数</span><span class="fval chg">1（或2）</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">v1.3</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 230px;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#5002</span></div>
+        <div class="field-row"><span class="fname">stage</span><span class="fcn">阶段</span><span class="fval add">effective</span></div>
+        <div class="field-row"><span class="fname">grant_total</span><span class="fcn">最终人数</span><span class="fval new">1（或2）</span></div>
+        <div class="field-row"><span class="fname">approval_id</span><span class="fcn">关联审批单</span><span class="fval new">#9001</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 230px;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fname">scope_id</span><span class="fcn">所属单</span><span class="fval new">#5002</span></div>
+        <div class="field-row"><span class="fname">dim</span><span class="fcn">维度</span><span class="fval add">org</span></div>
+        <div class="field-row"><span class="fname">item_id</span><span class="fcn">组织ID</span><span class="fval new">O11</span></div>
+        <div class="field-row"><span class="fname">item_name</span><span class="fcn">组织名称</span><span class="fval new">"人力资源部"</span></div>
+        <div class="field-row" style="margin-top:4px; padding-top:6px; border-top:1px dashed #cddaf0; font-size:11px; color:var(--text-3);">明细复制自最终生效单（若调整过则来自 adjusted）</div>
+      </div>
+      <div class="tbl-card active orange" style="flex:1 1 220px;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fname">status</span><span class="fcn">状态</span><span class="fval chg">approved</span></div>
+        <div class="field-row"><span class="fname">final_scope_id</span><span class="fcn">生效范围</span><span class="fval new">#5002</span></div>
+        <div class="field-row"><span class="fname">approver_name</span><span class="fcn">审批人</span><span class="fval new">"王建国"</span></div>
+        <div class="field-row"><span class="fname">approve_time</span><span class="fcn">审批时间</span><span class="fval new">2026-10-30 15:40</span></div>
+      </div>
+      <div class="tbl-card active purple" style="flex:1 1 230px;">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#1</span></div>
+        <div class="field-row"><span class="fname">user_id</span><span class="fcn">被授权人ID</span><span class="fval new">u1</span></div>
+        <div class="field-row"><span class="fname">user_name</span><span class="fcn">姓名</span><span class="fval new">"李静"</span></div>
+        <div class="field-row"><span class="fname">grant_status</span><span class="fcn">授权状态</span><span class="fval add">valid</span></div>
+        <div class="field-row"><span class="fname">subscribe_status</span><span class="fcn">订阅状态</span><span class="fval add">subscribed</span></div>
+        <div class="field-row"><span class="fname">source_scope_id</span><span class="fcn">来源范围单</span><span class="fval new">#5002</span></div>
+        <div class="field-row" style="margin-top:4px; padding-top:6px; border-top:1px dashed #e0d4f5;"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#2</span></div>
+        <div class="field-row"><span class="fname">user_id</span><span class="fcn">被授权人ID</span><span class="fval new">u5</span></div>
+        <div class="field-row"><span class="fname">user_name</span><span class="fcn">姓名</span><span class="fval new">"林晓"</span></div>
+        <div class="field-row"><span class="fname">grant_status</span><span class="fcn">授权状态</span><span class="fval add">valid</span></div>
+        <div class="field-row"><span class="fname">subscribe_status</span><span class="fcn">订阅状态</span><span class="fval add">subscribed</span></div>
+        <div class="field-row"><span class="fname">source_scope_id</span><span class="fcn">来源范围单</span><span class="fval new">#5002</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 4 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">4</div>
+      <div class="name">移除 / 重订</div>
+      <div class="desc">PUT /experts/{id}/subscription</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval none">approved（不变）</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fval none">不变</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fval none">不变</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fval none">不变</span></div>
+      </div>
+      <div class="tbl-card active purple" style="flex:1 1 240px; border-color: var(--purple);">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册（唯一变化）</div>
+        <div class="field-row"><span class="fname">user_id</span><span class="fcn">被授权人</span><span class="fval new">u1 李静</span></div>
+        <div class="field-row"><span class="fname">grant_status</span><span class="fcn">授权状态</span><span class="fval none">valid（不变）</span></div>
+        <div class="field-row"><span class="fname">subscribe_status</span><span class="fcn">订阅状态</span><span class="fval chg">removed</span></div>
+        <div class="field-row"><span class="fname">subscribe_time</span><span class="fcn">操作时间</span><span class="fval new">2026-10-30 15:31</span></div>
+        <div class="field-row" style="margin-top:4px; padding-top:6px; border-top:1px dashed #e0d4f5; color:var(--text-3); font-size:11px;">林晓那行完全不受影响</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 5 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">5</div>
+      <div class="name">删除助理</div>
+      <div class="desc">DELETE /experts/{id}</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card active" style="flex:1 1 220px; border-color: var(--red);">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">deleted_at</span><span class="fcn">逻辑删除标记</span><span class="fval del">2026-10-30 16:00</span></div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval none">不变</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fval none">历史保留，不删除</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; opacity:.55;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fval none">历史保留</span></div>
+      </div>
+      <div class="tbl-card active orange" style="flex:1 1 220px; border-color: var(--red);">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fname">status</span><span class="fcn">状态</span><span class="fval del">terminated</span></div>
+        <div class="field-row" style="font-size:11px; color:var(--text-3);">仅 pending 的单会变成 terminated；已 approved/rejected 的历史保留</div>
+      </div>
+      <div class="tbl-card active purple" style="flex:1 1 240px; border-color: var(--red);">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fname">grant_status</span><span class="fcn">授权状态</span><span class="fval del">invalid（全部行）</span></div>
+        <div class="field-row"><span class="fname">subscribe_status</span><span class="fcn">订阅状态</span><span class="fval none">不变</span></div>
+        <div class="field-row" style="font-size:11px; color:var(--text-3);">行保留，不物理删除；被授权方不可再重新订阅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 阶段 6 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num">6</div>
+      <div class="name">管理员直改</div>
+      <div class="desc">PUT /experts/{id}/share-scope</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card active" style="flex:1 1 220px;">
+        <div class="tbl-name">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval none">approved（不变）</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">v1.4</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 220px; border-color: #9fd7bd;">
+        <div class="tbl-name">share_scope</div>
+        <div class="tbl-cn">范围申请单</div>
+        <div class="field-row"><span class="fname">id</span><span class="fcn">主键</span><span class="fval new">#5003</span></div>
+        <div class="field-row"><span class="fname">stage</span><span class="fcn">阶段</span><span class="fval add">effective</span></div>
+        <div class="field-row"><span class="fname">approval_id</span><span class="fcn">关联审批单</span><span class="fval none">NULL（无审批）</span></div>
+      </div>
+      <div class="tbl-card active green" style="flex:1 1 220px; border-color: #9fd7bd;">
+        <div class="tbl-name">share_scope_item</div>
+        <div class="tbl-cn">范围明细</div>
+        <div class="field-row"><span class="fname">scope_id</span><span class="fcn">所属单</span><span class="fval new">#5003</span></div>
+        <div class="field-row"><span class="fname">dim</span><span class="fcn">维度</span><span class="fval add">org</span></div>
+        <div class="field-row"><span class="fname">item_id</span><span class="fcn">组织ID</span><span class="fval new">O11</span></div>
+        <div class="field-row" style="font-size:11px; color:var(--text-3);">管理员可直接修改范围，不产生审批单</div>
+      </div>
+      <div class="tbl-card header-only" style="flex:1 1 180px; opacity:.45;">
+        <div class="tbl-name">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fval none">无新行（管理员直配不走审批）</span></div>
+      </div>
+      <div class="tbl-card active purple" style="flex:1 1 240px;">
+        <div class="tbl-name">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fname">user_id</span><span class="fcn">被授权人</span><span class="fval new">u5 林晓</span></div>
+        <div class="field-row"><span class="fname">grant_status</span><span class="fcn">授权状态</span><span class="fval del">invalid（差集失效）</span></div>
+        <div class="field-row"><span class="fname">subscribe_status</span><span class="fcn">订阅状态</span><span class="fval chg">removed</span></div>
+        <div class="field-row" style="font-size:11px; color:var(--text-3);">管理员收紧范围后，未命中人员置为 invalid</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ==================== 稳态 ==================== -->
+  <div class="stage-row">
+    <div class="stage-label">
+      <div class="num" style="background:#8a94a6;">✓</div>
+      <div class="name">稳态</div>
+      <div class="desc">数据一致</div>
+    </div>
+    <div class="stage-body">
+      <div class="tbl-card" style="flex:1 1 200px; background:#f7f9fc; border-style:dashed;">
+        <div class="tbl-name" style="color:var(--text-3);">expert</div>
+        <div class="tbl-cn">助理主表</div>
+        <div class="field-row"><span class="fcn" style="color:var(--text-3);">当前有效状态</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; background:#f7f9fc; border-style:dashed;">
+        <div class="tbl-name" style="color:var(--text-3);">share_scope + item</div>
+        <div class="tbl-cn">范围申请单与明细</div>
+        <div class="field-row"><span class="fcn" style="color:var(--text-3);">历史版本全部保留</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; background:#f7f9fc; border-style:dashed;">
+        <div class="tbl-name" style="color:var(--text-3);">approval</div>
+        <div class="tbl-cn">审批单</div>
+        <div class="field-row"><span class="fcn" style="color:var(--text-3);">终态不可再流转</span></div>
+      </div>
+      <div class="tbl-card" style="flex:1 1 200px; background:#f7f9fc; border-style:dashed;">
+        <div class="tbl-name" style="color:var(--text-3);">expert_grant</div>
+        <div class="tbl-cn">授权名册</div>
+        <div class="field-row"><span class="fcn" style="color:var(--text-3);">人员级状态就绪</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="item"><span class="swatch new"></span> 新增行 / 新值</div>
+  <div class="item"><span class="swatch add"></span> 关键状态值（新增行取值）</div>
+  <div class="item"><span class="swatch chg"></span> 字段值发生变化</div>
+  <div class="item"><span class="swatch del"></span> 失效 / 逻辑删除</div>
+  <div class="item"><span class="swatch none"></span> 不变 / 未生成</div>
+</div>
+
+<!-- 说明区 -->
+<div class="note-box">
+  <p><b>核心设计要点：</b></p>
+  <p>1. <span class="key">share_scope</span> 是范围申请单，<span class="key">stage</span> 三态（requested / adjusted / effective）记录范围从提交到生效的完整过程，只增不改。</p>
+  <p>2. <span class="key">share_scope_item</span> 是范围明细，1 张申请单对应 N 行，按 dim（org / role / position / user）存储四维选择。</p>
+  <p>3. <span class="key">approval</span> 是审批单，记录审批状态流转（pending → approved / rejected / terminated），<span class="key">approval_type</span> 区分 share（首次共享）和 scope_change（范围变更）。</p>
+  <p>4. <span class="key">expert_grant</span> 是授权名册，只在审批通过或管理员直改时，将 <span class="key">effective</span> 单的维度明细按人展开写入，一人一行，带 <span class="key">grant_status</span>（授权有效性）和 <span class="key">subscribe_status</span>（被授权方订阅状态）两个正交维度。</p>
+  <p>5. 创建助理不共享时，不写任何共享表，绑定关系由 <span class="key">expert.owner_user_id</span> 表达。</p>
+</div>
+
+</body>
+</html>
