@@ -99,27 +99,43 @@ web/src/
 
 > 原型中另有「下架申请」「第三方接入」「版本记录详情」等能力，需求说明书 v1.2 已列为非范围；架构上仅做字段与枚举预留，不建接口与流程。详见 [总体架构设计 §4.2](docs/01-总体架构设计.md)。
 
-## 本地启动
+## 本地运行
 
-### 1. 初始化数据库
+### 1. 环境要求
 
-```bash
+| 项 | 版本 | 说明 |
+|----|------|------|
+| Python | 3.10+ | 本机为 `D:\Miniconda\envs\Agent\python.exe` |
+| Node.js | 18+ | 随附 npm |
+| MySQL | 8.0 | 默认 `127.0.0.1:3306`，库名 `assistant` |
+
+### 2. 初始化数据库
+
+```powershell
 # MySQL 8.0：执行建库建表脚本（14 张表 + 演示数据）
 mysql -u root -p < deploy/mysql/assistant_mysql.sql
 ```
 
-### 2. 后端（FastAPI）
+### 3. 后端（FastAPI，端口 8000）
 
-```bash
-cd server
-cp .env.example .env          # 填写 DB_PASSWORD
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+```powershell
+conda activate Agent          # 本项目依赖装在 Agent 环境
+cd e:\agent-code\agent_expert\server
+copy .env.example .env        # 填写 DB_PASSWORD
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
 ```
 
-- 接口文档：http://127.0.0.1:8000/docs
-- 健康检查：http://127.0.0.1:8000/health
-- 冒烟测试：`python -m pytest -q`
+> 必须先切到 `Agent` 环境。`python` 默认指向 conda 的 base 环境（`D:\Miniconda\python.exe`），那里没装本项目依赖，直接运行会报 `No module named uvicorn`。不想激活环境时，用绝对路径启动：`D:\Miniconda\envs\Agent\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app`。
+
+| 用途 | 地址 |
+|------|------|
+| 接口文档（Swagger UI） | http://127.0.0.1:8000/docs |
+| 接口文档（ReDoc） | http://127.0.0.1:8000/redoc |
+| OpenAPI 描述文件 | http://127.0.0.1:8000/openapi.json |
+| 健康检查 | http://127.0.0.1:8000/health |
+
+> 以上三个文档地址均由 FastAPI 从代码自动生成，不是手写文件；生成机制见 [03-接口设计 §1.2](docs/03-接口设计.md#12-接口文档的生成方式)。
 
 登录态由请求头模拟（网关接入前）：`X-User-Id`、`X-Company-Id`，可选 `X-User-Name`、`X-User-Dept`（中文需 UTF-8 百分号编码，服务端自动解码）。`X-User-Id=9001` 视为公司管理员，其余为普通员工。
 
@@ -127,15 +143,27 @@ python -m uvicorn app.main:app --reload --port 8000
 
 AI 生成（`POST /ai/generate`）当前为确定性模板实现，未接大模型中台；输出符合各字段校验规则（描述 10-200 字、标签 ≤5 个且单个 ≤8 字、提示词 ≤4000 字、快速问题 ≤6 条）。接入时替换 [ai_service.py](server/app/services/ai_service.py) 的 `_generate` / `_polish` 即可，接口签名不变。
 
-### 3. 前端（Vue 3 + TS，开发端口 5173，/api 代理到 8000）
+### 4. 前端（Vue 3 + TS，端口 5173，`/api` 代理到 8000）
 
-```bash
-cd web
+```powershell
+cd e:\agent-code\agent_expert\web
 npm install
 npm run dev
 ```
 
-> 前端默认走真实接口（`VITE_USE_MOCK=false`）。若需离线演示原型，把该变量改为 `true` 即可切回 Mock，视图层无需改动。
+> 前端默认走真实接口（`VITE_USE_MOCK=false`）。若需离线演示原型，把该变量改为 `true` 即可切回 Mock，视图层无需改动。代理目标由 `web/.env.development` 的 `VITE_PROXY_TARGET` 控制，默认 `http://127.0.0.1:8000`。
+
+### 5. 常用命令
+
+| 目的 | 命令 | 工作目录 |
+|------|------|----------|
+| 启动后端 | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app` | `server/` |
+| 启动前端 | `npm run dev` | `web/` |
+| 后端接口测试（99 项） | `python -m pytest -q` | `server/` |
+| 前端类型检查 | `npm run type-check` | `web/` |
+| 前端构建 | `npm run build` | `web/` |
+
+> 后端 `--reload` 在本机偶发不生效（改过模型或删过表后接口仍按旧代码报错）。遇到「代码已改但行为未变」，先看控制台有没有 `Reloading...`，没有就手动重启后端进程。
 
 ## 待确认事项
 
