@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+import { ROLE_OPTIONS, useUserStore } from '@/stores/user'
+import type { ViewRole } from '@/stores/user'
 import { useApprovalStore } from '@/stores/approval'
 
 const route = useRoute()
@@ -10,12 +11,9 @@ const approvalStore = useApprovalStore()
 
 const activeMenu = computed(() => route.path)
 
-const roleOptions = [
-  { label: '视角：普通员工 · 王晓明', value: 'user' as const },
-  { label: '视角：公司管理员 · 王建国', value: 'admin' as const }
-]
+const roleOptions = ROLE_OPTIONS
 
-function handleRoleChange(value: 'user' | 'admin') {
+function handleRoleChange(value: ViewRole) {
   userStore.switchRole(value)
   approvalStore.refreshPendingCount()
 }

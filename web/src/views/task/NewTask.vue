@@ -41,14 +41,15 @@ const grouped = computed(() => {
   ].filter((g) => g.items.length)
 })
 
-async function selectAssistant(assistantId: number): Promise<void> {
+/** createSession=false 表示会话已由入口创建（如列表页召唤），此处只加载助理详情，避免重复召唤 */
+async function selectAssistant(assistantId: number, createSession = true): Promise<void> {
   try {
-    const [detail, summon] = await Promise.all([getAssistantDetail(assistantId), summonAssistantApi(assistantId, 'picker')])
+    const detail = await getAssistantDetail(assistantId)
+    const session = createSession ? (await summonAssistantApi(assistantId, 'picker')).sessionId : String(route.query.session ?? '')
     current.value = detail
     messages.value = []
     pickerOpen.value = false
-    void summon
-    router.replace({ path: '/new-task', query: { assistant: String(assistantId) } })
+    router.replace({ path: '/new-task', query: { assistant: String(assistantId), session } })
   } catch {
     ElMessage.error('助理加载失败，请稍后重试')
   }
@@ -67,7 +68,8 @@ onMounted(async () => {
   await loadCandidates()
   const q = route.query.assistant
   if (q) {
-    await selectAssistant(Number(q))
+    // 带 session 说明入口（列表页召唤 / 页面刷新）已建过会话，不再重复召唤
+    await selectAssistant(Number(q), !route.query.session)
   }
 })
 

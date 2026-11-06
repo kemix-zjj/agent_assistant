@@ -120,7 +120,7 @@ mysql -u root -p < deploy/mysql/assistant_mysql.sql
 
 ```powershell
 conda activate Agent          # 本项目依赖装在 Agent 环境
-cd e:\agent-code\agent_expert\server
+cd e:\agent-code\agent_assistant\server
 copy .env.example .env        # 填写 DB_PASSWORD
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
@@ -146,7 +146,7 @@ AI 生成（`POST /ai/generate`）当前为确定性模板实现，未接大模�
 ### 4. 前端（Vue 3 + TS，端口 5173，`/api` 代理到 8000）
 
 ```powershell
-cd e:\agent-code\agent_expert\web
+cd e:\agent-code\agent_assistant\web
 npm install
 npm run dev
 ```

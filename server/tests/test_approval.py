@@ -6,7 +6,9 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
+from app.core.database import engine
 from app.main import app
 
 client = TestClient(app)
@@ -243,6 +245,19 @@ def test_approve_applies_scope_and_grants() -> None:
         # 列表不再出现该审批
         listed = client.get("/api/v1/approvals", headers=ADMIN).json()["data"]
         assert approval_id not in [c["approvalId"] for c in listed["list"]]
+
+        # C-03 / C-08：审批通过必须落一张 stage=effective 快照
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT stage, approval_id FROM share_scope"
+                    " WHERE assistant_id = :aid AND stage = 'effective'"
+                    " ORDER BY id DESC LIMIT 1"
+                ),
+                {"aid": aid},
+            ).first()
+        assert row is not None, "审批通过后应生成 stage=effective 的范围快照"
+        assert row[1] == approval_id
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 

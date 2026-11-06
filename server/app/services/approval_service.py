@@ -271,6 +271,7 @@ class ApprovalService:
         final_scope_id = self._adjusted_scope_id(row.id) or row.requested_scope_id
 
         # 条件更新保证并发安全；受影响行数为 0 时按当前状态判断是否幂等回放
+        # final_scope_id 在下面落 effective 快照后回填，指向真正生效的那张单
         result = self.db.execute(
             update(Approval)
             .where(Approval.id == row.id, Approval.status == "pending")
@@ -279,7 +280,6 @@ class ApprovalService:
                 approver_id=user.user_id,
                 approver_name=user.name,
                 approve_time=now,
-                final_scope_id=final_scope_id,
                 change_note=comment or row.change_note,
                 updated_at=now,
             )
@@ -301,8 +301,18 @@ class ApprovalService:
         )
         grant_total = 0
         if payload is not None:
+            # C-03 / C-08：落一张 effective 快照（明细复制自最终范围），授权名册指向它
+            effective = self.scopes.create_snapshot(
+                company_id=user.company_id,
+                assistant_id=assistant.id,
+                stage="effective",
+                payload=payload,
+                created_by=user.user_id,
+                approval_id=row.id,
+            )
+            refreshed.final_scope_id = effective.id
             grant_total = self.scopes.rebuild_grants(
-                assistant, final_scope_id, payload, now
+                assistant, effective.id, payload, now
             )
 
         assistant.share_status = "approved"
@@ -332,7 +342,7 @@ class ApprovalService:
             after={
                 "status": "approved",
                 "assistantId": assistant.id,
-                "finalScopeId": final_scope_id,
+                "finalScopeId": refreshed.final_scope_id,
                 "grantTotal": grant_total,
                 "comment": comment,
             },

@@ -466,8 +466,13 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
             </div>
             <div class="tf-search tf-search-hidden" />
             <div class="tf-list">
-              <div v-for="it in rightItems" :key="it.id" class="tf-row">
-                <el-checkbox :model-value="leftChecked.includes(it.id)" class="tf-cb" @click.prevent="toggleLeftCheck(it.id)" />
+              <div
+                v-for="it in rightItems"
+                :key="it.id"
+                class="tf-row"
+                @click.prevent="toggleLeftCheck(it.id)"
+              >
+                <el-checkbox :model-value="leftChecked.includes(it.id)" class="tf-cb" />
                 <span class="tf-name">{{ it.name }}</span>
                 <template v-if="activeDim === 'user'">
                   <span v-for="t in srcTagsOf(it.id)" :key="t" class="tf-src">{{ t }}</span>

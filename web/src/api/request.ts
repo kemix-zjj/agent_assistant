@@ -14,14 +14,19 @@ const instance: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// 网关接好前，前端按当前视角模拟登录态；中文姓名需百分号编码后再放进请求头
-const ROLE_PROFILE: Record<'user' | 'admin', { id: string; name: string; dept: string }> = {
+/**
+ * 网关接好前，前端按当前视角模拟登录态；中文姓名需百分号编码后再放进请求头。
+ * 账号 ID 与后端 master_data 的人员登录号对应，李静/林晓可验证共享助理链路。
+ */
+const ROLE_PROFILE: Record<string, { id: string; name: string; dept: string }> = {
   user: { id: '1001', name: '王晓明', dept: '人力资源部 · 招聘组' },
-  admin: { id: '9001', name: '王建国', dept: '人力资源部' }
+  admin: { id: '9001', name: '王建国', dept: '人力资源部' },
+  lijing: { id: '2001', name: '李静', dept: '人力资源部 · 招聘组' },
+  linxiao: { id: '2002', name: '林晓', dept: '人力资源部 · 薪酬绩效组' }
 }
 
 instance.interceptors.request.use((config) => {
-  const role = (localStorage.getItem('at_role') as 'user' | 'admin') || 'user'
+  const role = localStorage.getItem('at_role') || 'user'
   const profile = ROLE_PROFILE[role] ?? ROLE_PROFILE.user
   config.headers.set('X-User-Id', profile.id)
   config.headers.set('X-Company-Id', '1')
