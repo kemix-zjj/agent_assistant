@@ -3,14 +3,14 @@ import type { Scope, ScopePayload } from './scope'
 /** 助理来源（docs/03 §3.1；shared 为查询派生，不落库） */
 export type AssistantSource = 'platform' | 'custom' | 'thirdparty' | 'shared'
 
-/** 共享状态（需求 4.0 共享状态与文案统一） */
-export type ShareStatus = 'unshared' | 'pending' | 'approved' | 'rejected'
+/** 共享状态（需求 4.0 共享状态与文案统一；offline_pending / offline 为下架流程） */
+export type ShareStatus = 'unshared' | 'pending' | 'approved' | 'rejected' | 'offline_pending' | 'offline'
 
 /** 订阅状态（被授权方自主开关） */
 export type SubscribeStatus = 'subscribed' | 'removed'
 
 /** 列表范围 */
-export type ListScope = 'all' | 'mine' | 'shared'
+export type ListScope = 'all' | 'mine' | 'shared' | 'auth'
 
 /** 头像形态 */
 export type AvatarType = 'char' | 'image'
@@ -23,8 +23,16 @@ export type AssistantAction =
   | 'share'
   | 'resubmit'
   | 'shareScope'
+  | 'offline'
   | 'remove'
   | 'resubscribe'
+
+/** 授权管理卡片上的范围摘要（仅 scope=auth 返回） */
+export interface ShareScopeSummary {
+  scopeMode: 'RANGE' | 'PUBLIC'
+  summary: string
+  grantTotal: number
+}
 
 /** 列表卡片项（GET /assistants，不含 prompt） */
 export interface AssistantCard {
@@ -52,6 +60,7 @@ export interface AssistantCard {
   authorizedCount: number
   createdAt: string
   updatedAt: string
+  shareScope?: ShareScopeSummary | null
   actions: AssistantAction[]
 }
 

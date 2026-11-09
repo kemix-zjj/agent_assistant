@@ -72,7 +72,7 @@
     '回答要求：先给结论，再给制度依据，涉及个人数据时须提示员工自行核对；\n' +
     '无法确认的问题必须说明"需人工确认"，不得编造条款编号。';
 
-  var assistantS = [
+  var EXPERTS = [
     /* ---- 自建助理（我的助理）---- */
     {
       id: 'E1001', name: '招聘面试助理', avatar: '招', color: '#3685F2', source: 'custom', category: '人资',
@@ -174,7 +174,7 @@
   /* 审批单类型：share 共享申请 / offline 下架申请 / scope 授权范围变更 */
   var APPROVALS = [
     {
-      id: 'AP20261025001', type: 'share', assistantId: 'X9001', assistantName: '车间排班助理', avatar: '排', color: '#5E9DF5',
+      id: 'AP20261025001', type: 'share', expertId: 'X9001', expertName: '车间排班助理', avatar: '排', color: '#5E9DF5',
       category: '人资', tags: ['排班', '考勤'], desc: '按产线节拍与人员技能矩阵生成排班建议，输出缺岗预警。',
       prompt: '你是生产车间排班助理，负责依据节拍与技能矩阵生成排班建议。',
       skills: ['s4'], mcps: ['m3'], kbs: ['k3'], version: 'v1.0',
@@ -184,7 +184,7 @@
       scope: { orgs: ['O11', 'O121'], users: ['u6'] }, status: 'pending'
     },
     {
-      id: 'AP20261025002', type: 'share', assistantId: 'X9002', assistantName: '关务合规问答助理', avatar: '关', color: '#3685F2',
+      id: 'AP20261025002', type: 'share', expertId: 'X9002', expertName: '关务合规问答助理', avatar: '关', color: '#3685F2',
       category: '智慧云仓', tags: ['关务', '合规'], desc: '解答进出口报关资料要求与合规风险点，输出资料清单。',
       prompt: '你是关务合规问答助理，负责解答报关资料与合规风险问题。',
       skills: ['s4'], mcps: ['m5'], kbs: ['k4'], version: 'v1.0',
@@ -205,7 +205,7 @@
 
   var STORE = {
     role: localStorage.getItem('at_role') || 'user',
-    assistants: assistantS,
+    experts: EXPERTS,
     approvals: APPROVALS,
     categories: CATEGORIES,
     orgTree: ORG_TREE,
@@ -587,9 +587,9 @@
      index.html?page=D-AT-NEWTASK&assistant=E1001 */
   var qs = new URLSearchParams(location.search);
   var qPage = qs.get('page');
-  var qAssistant = qs.get('assistant') || qs.get('assistant');
+  var qAssistant = qs.get('assistant') || qs.get('expert');
   if (qAssistant) {
-    var hit = STORE.assistants.filter(function (e) { return e.id === qAssistant; })[0];
+    var hit = STORE.experts.filter(function (e) { return e.id === qAssistant; })[0];
     if (hit) {
       STORE.session = {
         assistantId: hit.id, title: '与' + hit.name + '的对话',

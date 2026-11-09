@@ -186,7 +186,7 @@ CREATE TABLE `assistant_version_history` (
     `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
     `assistant_id`     BIGINT       NOT NULL COMMENT '助理 ID，外键指向 assistant.id，级联删除',
     `version`       VARCHAR(16)  NOT NULL COMMENT '如 v1.0 / v1.1；编辑一次 minor +1，管理员范围调整与审批通过也记一条',
-    `action`        VARCHAR(32)  NOT NULL COMMENT '操作类型：create 创建 / update 编辑 / share_submit 共享提交 / share_approve 审批通过 / share_reject 审批拒绝 / scope_change 范围调整 / delete 删除',
+    `action`        VARCHAR(32)  NOT NULL COMMENT '操作类型：create 创建 / update 编辑 / share_submit 共享提交 / share_approve 审批通过 / share_reject 审批拒绝 / scope_change 范围调整 / offline_submit 提交下架 / offline_approve 下架生效 / offline_reject 下架被拒 / delete 删除',
     `operator_id`   BIGINT       NULL COMMENT '操作人用户 ID；系统自动记录（如审批回写）为空',
     `operator_name` VARCHAR(64)  NOT NULL COMMENT '操作人姓名快照；系统记录填「系统」',
     `remark`        VARCHAR(200) NULL COMMENT '操作备注，如审批意见摘要、调整说明',
@@ -194,7 +194,7 @@ CREATE TABLE `assistant_version_history` (
     PRIMARY KEY (`id`),
     KEY `idx_version_assistant` (`assistant_id`, `created_at` DESC),
     CONSTRAINT `fk_version_assistant` FOREIGN KEY (`assistant_id`) REFERENCES `assistant` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `ck_version_action` CHECK (`action` IN ('create', 'update', 'share_submit', 'share_approve', 'share_reject', 'scope_change', 'delete'))
+    CONSTRAINT `ck_version_action` CHECK (`action` IN ('create', 'update', 'share_submit', 'share_approve', 'share_reject', 'scope_change', 'offline_submit', 'offline_approve', 'offline_reject', 'delete'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
   COMMENT = '助理版本与操作流水，用于详情页版本记录展示；不存配置快照，不支持回滚';
 

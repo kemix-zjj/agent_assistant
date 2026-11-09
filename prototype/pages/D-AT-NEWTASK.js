@@ -17,7 +17,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
 
   /* 可召唤的助理：我的助理（已共享 / 未共享 / 待审批）+ 平台预置 + 已订阅的共享助理 */
   function available() {
-    return store.assistants.filter(function (e) {
+    return store.experts.filter(function (e) {
       if (e.source === 'platform') return true;
       if (e.source === 'custom' || e.source === 'thirdparty') {
         return e.owner === me.name && e.status !== 'offline' && e.status !== 'offline_pending';
@@ -27,11 +27,13 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
   }
 
   function findAssistant(id) {
-    return store.assistants.filter(function (e) { return e.id === id; })[0] || null;
+    return store.experts.filter(function (e) { return e.id === id; })[0] || null;
   }
 
   function current() { return findAssistant(state.assistantId); }
 
+  /* 新建任务页使用视口填充布局 */
+  container.classList.add('is-fill-page');
   container.innerHTML =
     '<div class="nt-wrap">' +
       '<div class="nt-head">' +
@@ -71,7 +73,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
       return;
     }
     chipEl.innerHTML =
-      '<span class="nt-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.esc(a.avatar || a.name.slice(0, 1)) + '</span>' +
+      '<span class="nt-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.__avatarImg(a) + '</span>' +
       '<span class="nt-select-name">' + window.esc(a.name) + '</span>' +
       '<span class="nt-select-ver">' + window.esc(a.version || 'v1.0') + '</span>' +
       '<span class="nt-select-x" id="chipClear">' + window.Icon('icon-x') + '</span>';
@@ -97,7 +99,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
       if (!arr.length) return '';
       return '<div class="nt-picker-group">' + title + '</div>' + arr.map(function (a) {
         return '<div class="nt-picker-item' + (a.id === state.assistantId ? ' active' : '') + '" data-pick="' + a.id + '">' +
-          '<span class="nt-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.esc(a.avatar || a.name.slice(0, 1)) + '</span>' +
+          '<span class="nt-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.__avatarImg(a) + '</span>' +
           '<span class="nt-picker-name">' + window.esc(a.name) + '</span>' +
           '<span class="nt-picker-meta">' + window.esc(a.source === 'platform' ? '平台预置' : a.source === 'shared' ? '共享自' + a.owner : '我的助理') + '</span>' +
           '</div>';
@@ -151,7 +153,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
       bodyEl.innerHTML =
         '<div class="nt-hero">' +
           '<div class="nt-hero-avatar" style="background:' + (a ? (a.color || '#3685F2') : '#DDE6F2') + '">' +
-            (a ? window.esc(a.avatar || a.name.slice(0, 1)) : window.Icon('icon-message', 'icon-lg')) + '</div>' +
+            (a ? window.__avatarImg(a) : window.Icon('icon-message', 'icon-lg')) + '</div>' +
           '<div class="nt-hero-title">' + (a ? '你好，我是' + window.esc(a.name) : '选择助理，开始一个新任务') + '</div>' +
           '<div class="nt-hero-sub">' + (a
             ? window.esc(a.desc || '直接描述你的问题，我会给出结论与依据。')
@@ -172,11 +174,12 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
     }
 
     bodyEl.innerHTML = '<div class="nt-msgs">' + state.messages.map(function (m) {
-      var who = m.me ? me : (a || { avatar: '助', color: '#3685F2' });
+      var who = m.me ? me : (a || { id: 'sys', name: '助', avatar: '助', color: '#3685F2' });
       return '<div class="msg' + (m.me ? ' me' : '') + '">' +
-        '<div class="assistant-avatar" style="width:28px;height:28px;flex:0 0 28px;font-size:12px;background:' +
-          (m.me ? '#7C8493' : (who.color || '#3685F2')) + '">' +
-          (m.me ? '我' : window.esc(who.avatar || '助')) + '</div>' +
+        (m.me
+          ? '<div class="expert-avatar" style="width:28px;height:28px;flex:0 0 28px;font-size:12px;background:#7C8493">我</div>'
+          : '<div class="expert-avatar expert-avatar-person" style="width:28px;height:28px;flex:0 0 28px;background:' +
+            (who.color || '#3685F2') + '">' + window.__avatarImg(who) + '</div>') +
         '<div class="bubble">' + window.esc(m.text) + '</div></div>';
     }).join('') + '</div>';
     bodyEl.scrollTop = bodyEl.scrollHeight;

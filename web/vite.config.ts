@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target,
           changeOrigin: true
+        },
+        // 后端本地上传的头像等静态资源
+        '/static': {
+          target,
+          changeOrigin: true
         }
       }
     },

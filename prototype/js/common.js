@@ -30,7 +30,7 @@
     ]
   }];
 
-  /* 人员是最小授权颗粒：组织 / 岗位 / 角色 仅用于批量展开人员 */
+  /* 人员是最小授权颗粒：组织 / 角色 / 岗位 仅用于批量展开人员 */
   var USERS = [
     { id: 'u1', name: '李静', dept: '人力资源部 · 招聘组', orgId: 'O111', positionId: 'p1', roles: ['r3', 'r4', 'r8'] },
     { id: 'u2', name: '陈志远', dept: '智慧云仓事业部 · 仓储运营部', orgId: 'O121', positionId: 'p3', roles: ['r2', 'r8'] },
@@ -40,7 +40,7 @@
     { id: 'u6', name: '吴磊', dept: '智慧云仓事业部 · 物流调度部', orgId: 'O122', positionId: 'p4', roles: ['r8'] }
   ];
 
-  /* 授权维度：岗位 / 角色（组织、人员复用 ORG_TREE、USERS） */
+  /* 授权维度：角色 / 岗位（组织、人员复用 ORG_TREE、USERS） */
   var ROLES = [
     { id: 'r1', name: '公司管理员', desc: '具备助理审批与全局授权权限' },
     { id: 'r2', name: '部门负责人', desc: '查看本部门数据与审批结果' },
@@ -107,7 +107,7 @@
     '回答要求：先给结论，再给制度依据，涉及个人数据时须提示员工自行核对；\n' +
     '无法确认的问题必须说明"需人工确认"，不得编造条款编号。';
 
-  var ASSISTANTS = [
+  var EXPERTS = [
     /* ---- 自建助理（我的助理）---- */
     {
       id: 'E1001', name: '招聘面试助理', avatar: '招', color: '#3685F2', source: 'custom', category: '人资',
@@ -115,7 +115,7 @@
       desc: '面向候选人与面试官的双向问答助理，可生成面试提纲、评估维度与面评意见，并解释招聘制度条款。',
       prompt: PROMPT_TPL.replace('{0}', '招聘面试助理').replace('{1}', '招聘流程、面试评估与录用规则'),
       skills: ['s1', 's2', 's4'], mcps: ['m1', 'm2'], kbs: ['k1'],
-      status: 'approved', authorizedCount: 2, createTime: '2026-10-18 09:24', updateTime: '2026-10-23 16:40',
+      status: 'approved', authorizedCount: 2, usageCount: 128, createTime: '2026-10-18 09:24', updateTime: '2026-10-23 16:40',
       version: 'v1.2', scope: { orgs: ['O11'], users: ['u5'] },
       quickQuestions: ['校招面试提问清单怎么设计？', '如何评估候选人的稳定性？', '录用审批需要准备哪些材料？'],
       history: [
@@ -130,7 +130,7 @@
       desc: '按月解释薪资结构与个税口径，核对薪资异常项并给出调整建议，支持按部门维度汇总。',
       prompt: PROMPT_TPL.replace('{0}', '薪酬核算助理').replace('{1}', '薪资结构、个税与社保公积金口径'),
       skills: ['s3', 's4'], mcps: ['m2', 'm4'], kbs: ['k2'],
-      status: 'approved', authorizedCount: 6, createTime: '2026-10-15 14:02', updateTime: '2026-10-22 10:08',
+      status: 'approved', authorizedCount: 6, usageCount: 46, createTime: '2026-10-15 14:02', updateTime: '2026-10-22 10:08',
       version: 'v1.0', scope: { orgs: ['O1'], users: [] },
       quickQuestions: ['本月薪资异常项怎么核对？', '个税专项附加扣除怎么处理？'],
       history: [
@@ -143,7 +143,7 @@
       desc: '解答请假、调休、加班与补卡规则，可按制度条款给出依据，并提示需要走流程的场景。',
       prompt: PROMPT_TPL.replace('{0}', '考勤答疑助理').replace('{1}', '请假、调休、加班与补卡规则'),
       skills: ['s4'], mcps: ['m3'], kbs: ['k3'],
-      status: 'unshared', authorizedCount: 0, createTime: '2026-10-21 11:16', updateTime: '2026-10-21 11:16',
+      status: 'unshared', authorizedCount: 0, usageCount: 3, createTime: '2026-10-21 11:16', updateTime: '2026-10-21 11:16',
       version: 'v1.0', scope: { orgs: [], users: [] },
       history: [
         { version: 'v1.0', action: '创建', operator: '王晓明', time: '2026-10-21 11:16', remark: '手动创建' }
@@ -155,7 +155,7 @@
       desc: '输出车间巡检清单与隐患整改建议，可按厂区维度汇总隐患分布与整改完成率。',
       prompt: PROMPT_TPL.replace('{0}', '环安巡检助理').replace('{1}', '车间巡检标准与隐患整改要求'),
       skills: ['s5'], mcps: ['m6'], kbs: ['k5'],
-      status: 'rejected', authorizedCount: 0, createTime: '2026-10-19 16:30', updateTime: '2026-10-24 15:02',
+      status: 'rejected', authorizedCount: 0, usageCount: 0, createTime: '2026-10-19 16:30', updateTime: '2026-10-24 15:02',
       rejectReason: '授权范围包含外协单位组织节点，请收敛至本公司部门后重新提交。',
       approver: '王建国', approveTime: '2026-10-24 15:02', lastScope: { orgs: ['O1'], users: ['u2'] },
       version: 'v1.1', scope: { orgs: ['O1'], users: ['u2'] },
@@ -165,12 +165,12 @@
       ]
     },
     /* ---- 平台预置助理 ---- */
-    { id: 'P01', name: '智能会议助理', avatar: '会', color: '#5E9DF5', source: 'platform', category: '协同办公', tags: ['会议', '纪要'], desc: '会议前生成议程，会议中记录要点，会议后输出纪要与待办，并同步到日程。', status: 'platform', version: 'v1.6' },
-    { id: 'P02', name: 'AI 陪练助理', avatar: '练', color: '#04D999', source: 'platform', category: '人资', tags: ['培训', '陪练'], desc: '按岗位场景模拟客户或员工对话，实时评分并给出改进建议。', status: 'platform', version: 'v2.1' },
-    { id: 'P03', name: 'AI 面试助理', avatar: '面', color: '#FF813B', source: 'platform', category: '人资', tags: ['面试', '评估'], desc: '按岗位模板发起结构化面试，输出候选人能力画像与面评报告。', status: 'platform', version: 'v1.9' },
-    { id: 'P04', name: '人效分析助理', avatar: '效', color: '#3685F2', source: 'platform', category: '人资', tags: ['人效', '分析'], desc: '汇总人力投入与产出数据，输出部门人效对比与改善建议。', status: 'platform', version: 'v1.3' },
-    { id: 'P05', name: '智慧云仓助理', avatar: '仓', color: '#2468F2', source: 'platform', category: '智慧云仓', tags: ['仓储', '调度'], desc: '解答库存、盘点与调度规则，支持按库区维度汇总异常。', status: 'platform', version: 'v1.2' },
-    { id: 'P06', name: '环安合规助理', avatar: '安', color: '#00B780', source: 'platform', category: '环安', tags: ['环安', '合规'], desc: '检索环安法规与内部标准，输出合规检查项与整改建议。', status: 'platform', version: 'v1.1' },
+    { id: 'P01', name: '智能会议助理', avatar: '会', color: '#5E9DF5', source: 'platform', category: '协同办公', tags: ['会议', '纪要'], desc: '会议前生成议程，会议中记录要点，会议后输出纪要与待办，并同步到日程。', status: 'platform', version: 'v1.6', usageCount: 856 },
+    { id: 'P02', name: 'AI 陪练助理', avatar: '练', color: '#04D999', source: 'platform', category: '人资', tags: ['培训', '陪练'], desc: '按岗位场景模拟客户或员工对话，实时评分并给出改进建议。', status: 'platform', version: 'v2.1', usageCount: 423 },
+    { id: 'P03', name: 'AI 面试助理', avatar: '面', color: '#FF813B', source: 'platform', category: '人资', tags: ['面试', '评估'], desc: '按岗位模板发起结构化面试，输出候选人能力画像与面评报告。', status: 'platform', version: 'v1.9', usageCount: 317 },
+    { id: 'P04', name: '人效分析助理', avatar: '效', color: '#3685F2', source: 'platform', category: '人资', tags: ['人效', '分析'], desc: '汇总人力投入与产出数据，输出部门人效对比与改善建议。', status: 'platform', version: 'v1.3', usageCount: 189 },
+    { id: 'P05', name: '智慧云仓助理', avatar: '仓', color: '#2468F2', source: 'platform', category: '智慧云仓', tags: ['仓储', '调度'], desc: '解答库存、盘点与调度规则，支持按库区维度汇总异常。', status: 'platform', version: 'v1.2', usageCount: 95 },
+    { id: 'P06', name: '环安合规助理', avatar: '安', color: '#00B780', source: 'platform', category: '环安', tags: ['环安', '合规'], desc: '检索环安法规与内部标准，输出合规检查项与整改建议。', status: 'platform', version: 'v1.1', usageCount: 64 },
     /* ---- 被授权共享助理 ---- */
     {
       id: 'S2001', name: '员工关系咨询助理', avatar: '员', color: '#3685F2', source: 'shared', category: '人资',
@@ -178,7 +178,7 @@
       desc: '解答劳动合同、转正、调岗与离职相关问题，输出处理路径与风险提示。',
       prompt: '你是九牧集团员工关系咨询助理，负责解答劳动合同与用工风险问题。',
       skills: ['s4'], mcps: ['m2'], kbs: ['k3'],
-      subscribed: true, authorizedAt: '2026-10-12 09:00', version: 'v1.1'
+      subscribed: true, authorizedAt: '2026-10-12 09:00', version: 'v1.1', usageCount: 87
     },
     {
       id: 'S2002', name: '仓储盘点助理', avatar: '盘', color: '#2468F2', source: 'shared', category: '智慧云仓',
@@ -186,7 +186,7 @@
       desc: '指导盘点作业流程，解释差异处理规则，输出盘点复盘要点。',
       prompt: '你是智慧云仓仓储盘点助理，负责指导盘点作业与差异处理。',
       skills: ['s5'], mcps: ['m5'], kbs: ['k4'],
-      subscribed: true, authorizedAt: '2026-10-10 15:20', version: 'v1.0'
+      subscribed: true, authorizedAt: '2026-10-10 15:20', version: 'v1.0', usageCount: 52
     },
     {
       id: 'S2003', name: '安全培训助理', avatar: '培', color: '#FF813B', source: 'shared', category: '环安',
@@ -194,7 +194,7 @@
       desc: '按岗位输出安全培训大纲与考试题，支持生成培训签到与考核清单。',
       prompt: '你是环安管理部安全培训助理，负责输出培训大纲与考核题。',
       skills: ['s8'], mcps: [], kbs: ['k5'],
-      subscribed: true, authorizedAt: '2026-10-08 10:05', version: 'v1.3'
+      subscribed: true, authorizedAt: '2026-10-08 10:05', version: 'v1.3', usageCount: 31
     },
     {
       id: 'S2004', name: '客户报价助理', avatar: '报', color: '#FF4D5D', source: 'shared', category: '经营管理',
@@ -202,14 +202,14 @@
       desc: '按价格政策校验报价单，解释折扣审批口径，输出报价风险提示。',
       prompt: '你是经营管理中心客户报价助理，负责校验报价单与折扣政策。',
       skills: ['s7'], mcps: [], kbs: ['k6'],
-      subscribed: false, authorizedAt: '2026-09-28 17:40', version: 'v1.0'
+      subscribed: false, authorizedAt: '2026-09-28 17:40', version: 'v1.0', usageCount: 12
     }
   ];
 
   /* 审批单类型：share 共享申请 / offline 下架申请 / scope 授权范围变更 */
   var APPROVALS = [
     {
-      id: 'AP20261025001', type: 'share', assistantId: 'X9001', assistantName: '车间排班助理', avatar: '排', color: '#5E9DF5',
+      id: 'AP20261025001', type: 'share', expertId: 'X9001', expertName: '车间排班助理', avatar: '排', color: '#5E9DF5',
       category: '人资', tags: ['排班', '考勤'], desc: '按产线节拍与人员技能矩阵生成排班建议，输出缺岗预警。',
       prompt: '你是生产车间排班助理，负责依据节拍与技能矩阵生成排班建议。',
       skills: ['s4'], mcps: ['m3'], kbs: ['k3'], version: 'v1.0',
@@ -219,7 +219,7 @@
       scope: { orgs: ['O11', 'O121'], users: ['u6'] }, status: 'pending'
     },
     {
-      id: 'AP20261025002', type: 'share', assistantId: 'X9002', assistantName: '关务合规问答助理', avatar: '关', color: '#3685F2',
+      id: 'AP20261025002', type: 'share', expertId: 'X9002', expertName: '关务合规问答助理', avatar: '关', color: '#3685F2',
       category: '智慧云仓', tags: ['关务', '合规'], desc: '解答进出口报关资料要求与合规风险点，输出资料清单。',
       prompt: '你是关务合规问答助理，负责解答报关资料与合规风险问题。',
       skills: ['s4'], mcps: ['m5'], kbs: ['k4'], version: 'v1.0',
@@ -238,9 +238,71 @@
     admin: { name: '王建国', title: '公司管理员', dept: '人力资源部', avatar: '管' }
   };
 
+  /* ============================================================
+   * 默认头像：卡通人像（6 款，按 seed 稳定分配），表达"助理 = 人"
+   * ============================================================ */
+  var PERSON_AVATARS = [
+    { tint: '#E8F1FF', main: '#3685F2', skin: '#FFDFC4', hair: '#3A3F4A', style: 'short' },
+    { tint: '#E3F8F1', main: '#00B780', skin: '#F6CFA8', hair: '#5A3A22', style: 'long' },
+    { tint: '#FFF0E5', main: '#FF813B', skin: '#FFE3C9', hair: '#7A4B2A', style: 'bob' },
+    { tint: '#E6EEFF', main: '#2468F2', skin: '#F1C9A5', hair: '#1F232E', style: 'pony' },
+    { tint: '#F0EBFF', main: '#7B61FF', skin: '#FFDFC4', hair: '#2B2118', style: 'long' },
+    { tint: '#FFEBEC', main: '#FF4D5D', skin: '#F6CFA8', hair: '#3A3F4A', style: 'pony' }
+  ];
+  /* 各款人像主色，供创建向导选中默认头像时同步记录 */
+  window.__PERSON_COLORS = PERSON_AVATARS.map(function (v) { return v.main; });
+  window.__personAvatar = function (seed) {
+    var s = String(seed || ''), n = 0;
+    for (var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) % 99991;
+    var idx = n % 6;
+    /* 优先使用本地卡通人像图片（img/avatars/），加载失败回退到内置 SVG */
+    return '<img src="img/avatars/avatar-0' + (idx + 1) + '.png" alt="" data-idx="' + idx + '"' +
+      ' style="display:block;width:100%;height:100%;object-fit:cover"' +
+      ' onerror="window.__personAvatarFallback(this)">';
+  };
+  /* 图片加载失败时的 SVG 兜底头像 */
+  window.__personAvatarFallback = function (img) {
+    var idx = parseInt(img.getAttribute('data-idx'), 10) || 0;
+    var v = PERSON_AVATARS[idx % PERSON_AVATARS.length];
+    var extra = '';
+    if (v.style === 'bob') {
+      extra = '<rect x="24" y="33" width="5" height="15" rx="2.5" fill="' + v.hair + '"/>' +
+        '<rect x="51" y="33" width="5" height="15" rx="2.5" fill="' + v.hair + '"/>';
+    } else if (v.style === 'long') {
+      extra = '<rect x="24" y="33" width="5" height="22" rx="2.5" fill="' + v.hair + '"/>' +
+        '<rect x="51" y="33" width="5" height="22" rx="2.5" fill="' + v.hair + '"/>';
+    } else if (v.style === 'pony') {
+      extra = '<circle cx="40" cy="18" r="5.5" fill="' + v.hair + '"/>';
+    }
+    img.outerHTML = '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%">' +
+      '<rect width="80" height="80" fill="' + v.tint + '"/>' +
+      '<rect x="34" y="48" width="12" height="12" rx="4" fill="' + v.skin + '"/>' +
+      '<path d="M13 80c0-15 12-23 27-23s27 8 27 23z" fill="' + v.main + '"/>' +
+      '<circle cx="40" cy="37" r="14" fill="' + v.skin + '"/>' +
+      '<path d="M25 36a15 15 0 0 1 30 0z" fill="' + v.hair + '"/>' +
+      extra +
+      '<circle cx="34.5" cy="39" r="1.7" fill="#3A3F4A"/><circle cx="45.5" cy="39" r="1.7" fill="#3A3F4A"/>' +
+      '<circle cx="30.5" cy="43.5" r="2.4" fill="#FF9C9C" opacity=".55"/><circle cx="49.5" cy="43.5" r="2.4" fill="#FF9C9C" opacity=".55"/>' +
+      '<path d="M36.5 44.5q3.5 3 7 0" stroke="#3A3F4A" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
+      '</svg>';
+  };
+  /* 统一头像内容：上传图片（dataURL）或 P# 预设人像优先，否则按 id 稳定分配卡通人像 */
+  window.__avatarImg = function (e) {
+    var av = e && e.avatar ? String(e.avatar) : '';
+    if (av.indexOf('data:image') === 0) {
+      return '<img src="' + av + '" alt="" style="display:block;width:100%;height:100%;object-fit:cover">';
+    }
+    var m = /^P([1-6])$/.exec(av);
+    if (m) {
+      return '<img src="img/avatars/avatar-0' + m[1] + '.png" alt="" data-idx="' + (Number(m[1]) - 1) + '"' +
+        ' style="display:block;width:100%;height:100%;object-fit:cover" onerror="window.__personAvatarFallback(this)">';
+    }
+    return window.__personAvatar((e && (e.id || e.name)) || '助');
+  };
+
   var STORE = {
     role: localStorage.getItem('at_role') || 'user',
-    assistants: ASSISTANTS,
+    experts: EXPERTS,
     approvals: APPROVALS,
     categories: CATEGORIES,
     orgTree: ORG_TREE,
@@ -309,14 +371,14 @@
   };
 
   /* ============================================================
-   * 授权范围（按组织 / 岗位 / 角色 / 人员）— 穿梭框
+   * 授权范围（按组织 / 角色 / 岗位 / 人员）— 穿梭框
    * 规范：JMBOS UIUE · 边框 #D2D7E1 · 圆角 4px · 正文 13px
    * 面板头 36px(#F4F7F9) · 行高 32px · 复选框 14px
    * ============================================================ */
   var SCOPE_DIMS = [
     { key: 'orgs', label: '按组织' },
-    { key: 'positions', label: '按岗位' },
     { key: 'roles', label: '按角色' },
+    { key: 'positions', label: '按岗位' },
     { key: 'users', label: '按人员' }
   ];
 
@@ -374,11 +436,11 @@
       var sub = window.orgIdsUnder(oid);
       STORE.users.forEach(function (u) { if (sub.indexOf(u.orgId) >= 0) picked[u.id] = true; });
     });
-    (scope.positions || []).forEach(function (pid) {
-      STORE.users.forEach(function (u) { if (u.positionId === pid) picked[u.id] = true; });
-    });
     (scope.roles || []).forEach(function (rid) {
       STORE.users.forEach(function (u) { if ((u.roles || []).indexOf(rid) >= 0) picked[u.id] = true; });
+    });
+    (scope.positions || []).forEach(function (pid) {
+      STORE.users.forEach(function (u) { if (u.positionId === pid) picked[u.id] = true; });
     });
     (scope.users || []).forEach(function (uid) { picked[uid] = true; });
     (scope.excluded || []).forEach(function (uid) { delete picked[uid]; });
@@ -391,7 +453,7 @@
     return window.scopePeople(scope).length;
   };
 
-  /* 只读展示：人员 6（组织 1 · 岗位 1） */
+  /* 只读展示：人员 6（组织 1 · 角色 1） */
   window.scopeSummary = function (scope) {
     scope = scope || {};
     var n = window.scopeCount(scope);
@@ -399,8 +461,8 @@
     var src = [];
     if (scope.public) src.push('公开');
     if ((scope.orgs || []).length) src.push('组织 ' + scope.orgs.length);
-    if ((scope.positions || []).length) src.push('岗位 ' + scope.positions.length);
     if ((scope.roles || []).length) src.push('角色 ' + scope.roles.length);
+    if ((scope.positions || []).length) src.push('岗位 ' + scope.positions.length);
     if ((scope.users || []).length) src.push('单独添加 ' + scope.users.length);
     return '人员 ' + n + (src.length ? '（' + src.join(' · ') + '）' : '');
   };
@@ -416,13 +478,13 @@
       var n = window.findOrg(id);
       html += '<span class="scope-chip scope-chip-src">组织 · ' + esc(n ? n.name : id) + '</span>';
     });
-    (scope.positions || []).forEach(function (id) {
-      var p = window.findPosition(id);
-      html += '<span class="scope-chip scope-chip-src">岗位 · ' + esc(p ? p.name : id) + '</span>';
-    });
     (scope.roles || []).forEach(function (id) {
       var r = window.findRole(id);
       html += '<span class="scope-chip scope-chip-src">角色 · ' + esc(r ? r.name : id) + '</span>';
+    });
+    (scope.positions || []).forEach(function (id) {
+      var p = window.findPosition(id);
+      html += '<span class="scope-chip scope-chip-src">岗位 · ' + esc(p ? p.name : id) + '</span>';
     });
     window.scopePeople(scope).forEach(function (id) {
       var u = window.findUser(id);
@@ -434,8 +496,8 @@
 
   /* 穿梭框组件：先插入 html，再 mount(root) 绑定交互，返回 { get(), people() }
    * 交互：按页签切换维度，每个页签都是「左侧未选择 / 右侧已选择 + 中间转移按钮」
-   * 语义：组织 / 岗位 / 角色 只是批量选择方式，最终授权颗粒是人；
-   *       切换「按人员」时，已选组织/岗位/角色下的人员会自动出现在右侧，可继续增删。
+   * 语义：组织 / 角色 / 岗位 只是批量选择方式，最终授权颗粒是人；
+   *       切换「按人员」时，已选组织/角色/岗位下的人员会自动出现在右侧，可继续增删。
    * opts.dims   仅展示指定维度，如 ['orgs', 'users']，默认四类全展示
    * opts.limits 各维度选择上限，如 { orgs: 50, users: 200 }，默认不限
    */
@@ -507,18 +569,18 @@
         return Object.keys(map || {}).filter(function (k) { return map[k]; });
       }
 
-      /* 来源维度（组织含下级 / 岗位 / 角色）展开出的人员 */
+      /* 来源维度（组织含下级 / 角色 / 岗位）展开出的人员 */
       function derivedMap() {
         var out = {};
         idsOf(srcSel.orgs).forEach(function (oid) {
           var sub = window.orgIdsUnder(oid);
           STORE.users.forEach(function (u) { if (sub.indexOf(u.orgId) >= 0) out[u.id] = true; });
         });
-        idsOf(srcSel.positions).forEach(function (pid) {
-          STORE.users.forEach(function (u) { if (u.positionId === pid) out[u.id] = true; });
-        });
         idsOf(srcSel.roles).forEach(function (rid) {
           STORE.users.forEach(function (u) { if ((u.roles || []).indexOf(rid) >= 0) out[u.id] = true; });
+        });
+        idsOf(srcSel.positions).forEach(function (pid) {
+          STORE.users.forEach(function (u) { if (u.positionId === pid) out[u.id] = true; });
         });
         return out;
       }
@@ -556,14 +618,14 @@
         Object.keys(excluded).forEach(function (id) { if (!d[id]) delete excluded[id]; });
       }
 
-      /* 该人员的授权来源标签：组织 / 岗位 / 角色 / 直接添加 */
+      /* 该人员的授权来源标签：组织 / 角色 / 岗位 / 直接添加 */
       function sourceTagsOf(userId) {
         var u = window.findUser(userId);
         if (!u) return [];
         var tags = [];
         if (idsOf(srcSel.orgs).some(function (oid) { return window.orgIdsUnder(oid).indexOf(u.orgId) >= 0; })) tags.push('组织');
-        if (idsOf(srcSel.positions).some(function (pid) { return u.positionId === pid; })) tags.push('岗位');
         if (idsOf(srcSel.roles).some(function (rid) { return (u.roles || []).indexOf(rid) >= 0; })) tags.push('角色');
+        if (idsOf(srcSel.positions).some(function (pid) { return u.positionId === pid; })) tags.push('岗位');
         if (manualOnlyMap()[userId]) tags.push('直接添加');
         return tags;
       }
@@ -588,7 +650,7 @@
 
       function renderHint() {
         box.querySelector('[data-hint]').innerHTML = activeDim === 'users'
-          ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织/岗位/角色仍在授权范围内，也不再对其生效。'
+          ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织/角色/岗位仍在授权范围内，也不再对其生效。'
           : '在左侧勾选后点击 › 移入右侧；所选' + labelOf(activeDim).replace('按', '') + '下的人员会自动带入「按人员」，可在人员页签继续增删。';
       }
 
@@ -645,8 +707,8 @@
         var people = idsOf(effectiveMap()).length;
         var src = [];
         if (idsOf(srcSel.orgs).length) src.push('组织 ' + idsOf(srcSel.orgs).length);
-        if (idsOf(srcSel.positions).length) src.push('岗位 ' + idsOf(srcSel.positions).length);
         if (idsOf(srcSel.roles).length) src.push('角色 ' + idsOf(srcSel.roles).length);
+        if (idsOf(srcSel.positions).length) src.push('岗位 ' + idsOf(srcSel.positions).length);
         if (idsOf(manualOnlyMap()).length) src.push('单独添加 ' + idsOf(manualOnlyMap()).length);
         var ex = idsOf(excluded).length;
         box.querySelector('[data-summary]').innerHTML =
@@ -1057,6 +1119,7 @@
       var render = window.__pages && window.__pages[pageId];
       if (typeof render === 'function') {
         pageContent.innerHTML = '';
+        pageContent.classList.remove('is-fill-page');
         try {
           render(pageContent);
         } catch (e) {
@@ -1108,9 +1171,9 @@
      index.html?page=D-AT-NEWTASK&assistant=E1001 */
   var qs = new URLSearchParams(location.search);
   var qPage = qs.get('page');
-  var qAssistant = qs.get('assistant') || qs.get('assistant');
+  var qAssistant = qs.get('assistant') || qs.get('expert');
   if (qAssistant) {
-    var hit = STORE.assistants.filter(function (e) { return e.id === qAssistant; })[0];
+    var hit = STORE.experts.filter(function (e) { return e.id === qAssistant; })[0];
     if (hit) {
       STORE.session = {
         assistantId: hit.id, title: '与' + hit.name + '的对话',

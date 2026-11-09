@@ -44,7 +44,7 @@ from app.services.scope_service import ScopeService
 logger = logging.getLogger("app.approval")
 
 TYPE_NAME = {"share": "共享申请", "scope_change": "范围变更", "offline": "下架申请"}
-VALID_TYPES = {"share", "scope_change"}
+VALID_TYPES = {"share", "scope_change", "offline"}
 
 
 def _fmt(value: datetime | None) -> str:
@@ -142,6 +142,15 @@ class ApprovalService:
         active_scope_id = adjusted or row.requested_scope_id
         scope = self.scopes.load_snapshot(active_scope_id) if active_scope_id else None
 
+        # 范围变更：回显变更前范围；下架申请：回显当前生效范围（供详情展示）
+        previous_scope = None
+        if row.approval_type in ("scope_change", "offline"):
+            prev_id = self.assistants.find_effective_scope_ids([row.assistant_id]).get(
+                row.assistant_id
+            )
+            if prev_id:
+                previous_scope = self.scopes.load_snapshot(prev_id)
+
         diff = None
         if adjusted is not None:
             before = (
@@ -165,6 +174,7 @@ class ApprovalService:
             approval_type=row.approval_type,
             approval_type_name=TYPE_NAME.get(row.approval_type, row.approval_type),
             status=row.status,
+            change_note=row.change_note,
             assistant=ApprovalAssistantDetail(
                 assistant_id=assistant.id,
                 name=assistant.name,
@@ -195,6 +205,7 @@ class ApprovalService:
             submit_time=_fmt(row.submit_time),
             scope_adjusted=adjusted is not None,
             scope=scope,
+            previous_scope=previous_scope,
             scope_diff=diff,
             assistant_config_changed=row.assistant_version != assistant.version,
         )
@@ -296,6 +307,10 @@ class ApprovalService:
         if assistant is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
 
+        # 下架审批：助理置为已下架，授权全部失效，不再走范围生效与授权重算
+        if refreshed.approval_type == "offline":
+            return self._approve_offline(refreshed, assistant, comment, user, now)
+
         payload = (
             self.scopes.payload_of_snapshot(final_scope_id) if final_scope_id else None
         )
@@ -366,6 +381,61 @@ class ApprovalService:
 
     # ============================ 审批拒绝 ============================
 
+    def _approve_offline(
+        self,
+        approval: Approval,
+        assistant: Assistant,
+        comment: str | None,
+        user: CurrentUser,
+        now: datetime,
+    ) -> "ApprovalDecisionResult":
+        """下架申请通过：助理置为已下架，全部授权失效并从被授权方助理库移除。"""
+        invalidated = self.assistants.invalidate_grants(assistant.id)
+        assistant.share_status = "offline"
+        assistant.authorized_count = 0
+        assistant.last_approver_name = user.name
+        assistant.last_approve_time = now
+        assistant.updated_at = now
+
+        self.assistants.add_version_history(
+            assistant,
+            version=assistant.version,
+            action="offline_approve",
+            operator_id=user.user_id,
+            operator_name=user.name,
+            remark=comment or approval.change_note or "下架审批通过",
+            created_at=now,
+        )
+        audit.record(
+            self.db,
+            user=user,
+            action="approval_approve",
+            object_type="approval",
+            object_id=approval.id,
+            before={"status": "pending", "shareStatus": "offline_pending"},
+            after={
+                "status": "approved",
+                "assistantId": assistant.id,
+                "shareStatus": "offline",
+                "invalidatedGrants": invalidated,
+            },
+        )
+        self.db.commit()
+        logger.info(
+            "下架审批通过 approval=%s assistant=%s invalidated=%s",
+            approval.id,
+            assistant.id,
+            invalidated,
+        )
+        return ApprovalDecisionResult(
+            approval_id=approval.id,
+            status="approved",
+            assistant_id=assistant.id,
+            share_status="offline",
+            grant_total=0,
+            approve_time=_fmt(now),
+        )
+
     def reject(
         self, approval_id: int, reason: str, user: CurrentUser
     ) -> ApprovalDecisionResult:
@@ -408,7 +478,15 @@ class ApprovalService:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
 
         # 拒绝：adjusted 快照保留但不生效，不写 grant
-        assistant.share_status = "rejected"
+        if refreshed.approval_type == "offline":
+            # 下架申请被拒：助理恢复为已共享，授权保持不变
+            assistant.share_status = "approved"
+            action = "offline_reject"
+        elif refreshed.approval_type == "scope_change":
+            action = "share_reject"
+        else:
+            assistant.share_status = "rejected"
+            action = "share_reject"
         assistant.last_reject_reason = reason
         assistant.last_approver_name = user.name
         assistant.last_approve_time = now
@@ -417,7 +495,7 @@ class ApprovalService:
         self.assistants.add_version_history(
             assistant,
             version=assistant.version,
-            action="share_reject",
+            action=action,
             operator_id=user.user_id,
             operator_name=user.name,
             remark=reason,
@@ -443,7 +521,8 @@ class ApprovalService:
             approval_id=row.id,
             status="rejected",
             assistant_id=assistant.id,
-            share_status="rejected",
+            # 下架申请被拒后助理回到 approved，其余类型才是 rejected
+            share_status=assistant.share_status,
             reject_reason=reason,
             approve_time=_fmt(now),
         )

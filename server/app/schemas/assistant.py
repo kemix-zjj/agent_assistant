@@ -110,6 +110,14 @@ class SharedFrom(CamelModel):
     owner_dept_name: str | None = None
 
 
+class ShareScopeSummary(CamelModel):
+    """授权管理页签卡片上的范围摘要（仅 scope=auth 返回）。"""
+
+    scope_mode: Literal["RANGE", "PUBLIC"]
+    summary: str
+    grant_total: int
+
+
 class AssistantCard(CamelModel):
     """列表卡片：不含提示词与能力组成明细。"""
 
@@ -137,6 +145,7 @@ class AssistantCard(CamelModel):
     created_at: str
     updated_at: str
     authorized_at: str | None = None
+    share_scope: ShareScopeSummary | None = None
     actions: list[AssistantAction] = []
 
     @computed_field  # type: ignore[prop-decorator]

@@ -478,3 +478,147 @@ def test_scope_update_rejects_empty_range() -> None:
         assert "至少保留一个" in resp.json()["message"]
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+# ============================ 下架申请 ============================
+
+
+def _publish(aid: int) -> None:
+    """提交共享并由管理员通过，使助理进入 approved。"""
+    submitted = client.post(
+        "/api/v1/shares",
+        headers=OWNER,
+        json={"assistantIds": [aid], "scope": _scope(users=["u1"])},
+    )
+    assert submitted.status_code == 201, submitted.text
+    approval_id = submitted.json()["data"]["approvalIds"][0]
+    approved = client.post(
+        f"/api/v1/approvals/{approval_id}/approve", headers=ADMIN, json={}
+    )
+    assert approved.status_code == 200, approved.text
+
+
+def test_offline_submit_moves_to_offline_pending() -> None:
+    aid = _create("共享提交助理下架甲")
+    try:
+        _publish(aid)
+        resp = client.post(
+            f"/api/v1/assistants/{aid}/offline",
+            headers=OWNER,
+            json={"reason": "规则调整，需要下架后重建"},
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()["data"]
+        assert data["shareStatus"] == "offline_pending"
+        assert data["approvalId"] > 0
+
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["shareStatus"] == "offline_pending"
+        assert detail["versionHistory"][0]["action"] == "offline_submit"
+
+        # 进入管理员待审批列表，类型为下架申请
+        pending = client.get(
+            "/api/v1/approvals",
+            headers=ADMIN,
+            params={"status": "pending", "approvalType": "offline", "pageSize": 50},
+        ).json()["data"]["list"]
+        hit = next((row for row in pending if row["assistantId"] == aid), None)
+        assert hit is not None
+        assert hit["approvalType"] == "offline"
+        assert hit["approvalTypeName"] == "下架申请"
+        assert hit["changeNote"] == "规则调整，需要下架后重建"
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_offline_approve_marks_offline_and_invalidates_grants() -> None:
+    aid = _create("共享提交助理下架乙")
+    try:
+        _publish(aid)
+        # 李静（u1）此时能看到该共享助理
+        before = client.get(
+            "/api/v1/assistants", headers=_h("2001", "李静"), params={"scope": "shared"}
+        ).json()["data"]["list"]
+        assert aid in [c["assistantId"] for c in before]
+
+        submitted = client.post(
+            f"/api/v1/assistants/{aid}/offline",
+            headers=OWNER,
+            json={"reason": "能力合并"},
+        )
+        approval_id = submitted.json()["data"]["approvalId"]
+        approved = client.post(
+            f"/api/v1/approvals/{approval_id}/approve", headers=ADMIN, json={}
+        )
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["data"]["shareStatus"] == "offline"
+
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["shareStatus"] == "offline"
+        assert detail["versionHistory"][0]["action"] == "offline_approve"
+
+        # 被授权方列表中已移除
+        after = client.get(
+            "/api/v1/assistants", headers=_h("2001", "李静"), params={"scope": "shared"}
+        ).json()["data"]["list"]
+        assert aid not in [c["assistantId"] for c in after]
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_offline_reject_restores_approved() -> None:
+    aid = _create("共享提交助理下架丙")
+    try:
+        _publish(aid)
+        submitted = client.post(
+            f"/api/v1/assistants/{aid}/offline",
+            headers=OWNER,
+            json={"reason": "临时下架试试"},
+        )
+        approval_id = submitted.json()["data"]["approvalId"]
+        rejected = client.post(
+            f"/api/v1/approvals/{approval_id}/reject",
+            headers=ADMIN,
+            json={"rejectReason": "业务仍在使用，暂不下架"},
+        )
+        assert rejected.status_code == 200, rejected.text
+        assert rejected.json()["data"]["shareStatus"] == "approved"
+
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["shareStatus"] == "approved"
+        assert detail["versionHistory"][0]["action"] == "offline_reject"
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_offline_submit_requires_shared_and_owner() -> None:
+    aid = _create("共享提交助理下架丁")
+    try:
+        # 未共享不可申请下架
+        resp = client.post(
+            f"/api/v1/assistants/{aid}/offline", headers=OWNER, json={"reason": "测试"}
+        )
+        assert resp.status_code == 409
+        assert resp.json()["code"] == "ASSISTANT_STATUS_CHANGED"
+
+        _publish(aid)
+        # 非创建人不可申请下架
+        denied = client.post(
+            f"/api/v1/assistants/{aid}/offline", headers=OTHER, json={"reason": "测试"}
+        )
+        assert denied.status_code == 403
+        assert denied.json()["code"] == "NO_PERMISSION"
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_offline_submit_rejects_empty_reason() -> None:
+    aid = _create("共享提交助理下架戊")
+    try:
+        _publish(aid)
+        resp = client.post(
+            f"/api/v1/assistants/{aid}/offline", headers=OWNER, json={"reason": "   "}
+        )
+        assert resp.status_code == 400
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)

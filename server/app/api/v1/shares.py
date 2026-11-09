@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.response import ok
 from app.core.security import CurrentUser, get_current_user
+from app.schemas.common import OfflineSubmitPayload
 from app.schemas.scope import ShareScopeUpdatePayload, ShareSubmitPayload
 from app.services.share_service import ShareService
 
@@ -47,4 +48,20 @@ def update_share_scope(
 ) -> dict:
     service = ShareService(db)
     result = service.update_share_scope(assistantId, payload, user)
+    return ok(result.model_dump(by_alias=True))
+
+
+@router.post(
+    "/assistants/{assistantId}/offline",
+    summary="申请下架已共享助理",
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_offline(
+    assistantId: int,  # noqa: N803
+    payload: OfflineSubmitPayload,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    service = ShareService(db)
+    result = service.submit_offline(assistantId, payload.reason, user)
     return ok(result.model_dump(by_alias=True))

@@ -11,7 +11,7 @@ import type { ScopeDim, ScopePayload, ScopeMode } from '@/types/scope'
  * ① 创建向导共享设置 ② 共享提交弹窗 ③ 已共享助理范围弹窗 ④ 审批详情范围调整
  *
  * 交互对齐 prototype（common.js ScopeTransfer）：
- * 按页签先做批量选择 → 组织 / 岗位 / 角色展开出的人员自动带入「按人员」→
+ * 按页签先做批量选择 → 组织 / 角色 / 岗位展开出的人员自动带入「按人员」→
  * 每个页签均为「左侧可选 / 中间转移按钮 / 右侧已选」，最终生效颗粒是人。
  */
 const props = withDefaults(
@@ -32,8 +32,8 @@ const LIMITS: Record<ScopeDim, number> = { org: 50, role: 50, position: 50, user
 
 const DIMS: Array<{ key: ScopeDim; label: string }> = [
   { key: 'org', label: '按组织' },
-  { key: 'position', label: '按岗位' },
   { key: 'role', label: '按角色' },
+  { key: 'position', label: '按岗位' },
   { key: 'user', label: '按人员' }
 ]
 
@@ -189,7 +189,7 @@ const leftItems = computed(() => {
 
 const rightItems = computed(() => allItems.value.filter((it) => selectedIds.value.includes(it.id)))
 
-/** 已选人员身上的来源标签（组织 / 岗位 / 角色 / 直接添加） */
+/** 已选人员身上的来源标签（组织 / 角色 / 岗位 / 直接添加） */
 function srcTagsOf(userId: string): string[] {
   return sourcesOfUser(
     userId,
@@ -208,8 +208,8 @@ function srcTagsOf(userId: string): string[] {
 const summaryText = computed(() => {
   const src: string[] = []
   if (srcSel.value.org.length) src.push(`组织 ${srcSel.value.org.length}`)
-  if (srcSel.value.position.length) src.push(`岗位 ${srcSel.value.position.length}`)
   if (srcSel.value.role.length) src.push(`角色 ${srcSel.value.role.length}`)
+  if (srcSel.value.position.length) src.push(`岗位 ${srcSel.value.position.length}`)
   if (manualOnlyIds.value.length) src.push(`单独添加 ${manualOnlyIds.value.length}`)
   return { people: effectiveIds.value.length, src, excluded: excluded.value.length }
 })
@@ -218,8 +218,8 @@ const summaryText = computed(() => {
 const previewChips = computed(() => {
   const srcChips: Array<{ dim: 'org' | 'role' | 'position'; id: string; label: string }> = [
     ...srcSel.value.org.map((id) => ({ dim: 'org' as const, id, label: `组织 · ${NAME_MAP.value.org.get(id) ?? id}` })),
-    ...srcSel.value.position.map((id) => ({ dim: 'position' as const, id, label: `岗位 · ${NAME_MAP.value.position.get(id) ?? id}` })),
-    ...srcSel.value.role.map((id) => ({ dim: 'role' as const, id, label: `角色 · ${NAME_MAP.value.role.get(id) ?? id}` }))
+    ...srcSel.value.role.map((id) => ({ dim: 'role' as const, id, label: `角色 · ${NAME_MAP.value.role.get(id) ?? id}` })),
+    ...srcSel.value.position.map((id) => ({ dim: 'position' as const, id, label: `岗位 · ${NAME_MAP.value.position.get(id) ?? id}` }))
   ]
   const userChips = effectiveIds.value.map((id) => ({
     id,
@@ -239,7 +239,7 @@ const dimLabel = computed(() => DIMS.find((d) => d.key === activeDim.value)?.lab
 
 const hintText = computed(() =>
   activeDim.value === 'user'
-    ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织 / 岗位 / 角色仍在授权范围内，也不再对其生效。'
+    ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织 / 角色 / 岗位仍在授权范围内，也不再对其生效。'
     : `在左侧勾选后点击 › 移入右侧；所选${dimLabel.value}下的人员会自动带入「按人员」，可在人员页签继续增删。`
 )
 
@@ -394,12 +394,12 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
       <el-radio value="PUBLIC">公开</el-radio>
     </el-radio-group>
 
-    <div class="scope-mode-hint">「范围授权」需指定可用的组织、岗位、角色或人员；「公开」全公司可用，无需选择范围。</div>
+    <div class="scope-mode-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>
 
     <div v-if="scopeMode === 'PUBLIC'" class="public-tip">公开 · 全公司可用，无需选择范围</div>
 
     <template v-else>
-      <div class="tf-tip">{{ tip || '按页签先做批量选择：组织、岗位、角色会把人展开带进「按人员」，最终生效颗粒是人员，可在人员页签继续增删。' }}</div>
+      <div class="tf-tip">{{ tip || '按页签先做批量选择：组织、角色、岗位会把人展开带进「按人员」，最终生效颗粒是人员，可在人员页签继续增删。' }}</div>
 
       <div v-loading="loading" class="tf">
         <!-- 页签 -->

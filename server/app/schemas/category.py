@@ -18,3 +18,13 @@ class CategoryListResponse(BaseModel):
 
 class CategoryCreatePayload(BaseModel):
     name: str = Field(min_length=1, max_length=10)
+
+
+class CategoryUpdatePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=10)
+
+
+class CategoryDeleteResult(BaseModel):
+    categoryId: int
+    deleted: bool
+    affectedAssistantCount: int = 0

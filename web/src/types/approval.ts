@@ -40,6 +40,8 @@ export interface ApprovalDetail {
   approvalNo: string
   approvalType: ApprovalType
   status: ApprovalStatus
+  /** 下架申请的申请原因；共享 / 范围变更申请为变更说明 */
+  changeNote?: string | null
   assistant: {
     assistantId: number
     name: string
@@ -59,7 +61,10 @@ export interface ApprovalDetail {
   submitterDept: string
   submitTime: string
   scopeAdjusted: boolean
-  scope: Scope
+  /** 下架申请没有授权范围，可能为 null */
+  scope: Scope | null
+  /** 范围变更申请：变更前的生效范围；其他类型为 null */
+  previousScope?: Scope | null
   scopeDiff: ScopeDiff | null
   assistantConfigChanged?: boolean
 }

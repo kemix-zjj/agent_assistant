@@ -450,6 +450,192 @@ def test_ai_invalid_field() -> None:
     assert resp.status_code == 422 or resp.status_code == 400
 
 
+# ============================ 列表范围边界 ============================
+
+
+def test_mine_scope_includes_unshared_and_rejected() -> None:
+    """未共享 / 已拒绝的助理只出现在「我的助理」，不出现在全部与共享。"""
+    unshared = _create("补全测试助理未共享态")
+    rejected = _create("补全测试助理已拒绝态")
+    try:
+        # 制造一条已拒绝：提交共享后由管理员拒绝
+        submitted = client.post(
+            "/api/v1/shares",
+            headers=OWNER,
+            json={"assistantIds": [rejected], "scope": _scope(users=["u1"])},
+        )
+        assert submitted.status_code == 201, submitted.text
+        approval_id = submitted.json()["data"]["approvalIds"][0]
+        client.post(
+            f"/api/v1/approvals/{approval_id}/reject",
+            headers=ADMIN,
+            json={"rejectReason": "范围过大，请收敛"},
+        )
+
+        mine_ids = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=OWNER,
+                params={"scope": "mine", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert unshared in mine_ids
+        assert rejected in mine_ids
+
+        all_ids = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=OWNER,
+                params={"scope": "all", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert unshared not in all_ids
+        assert rejected not in all_ids
+
+        shared_ids = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=OWNER,
+                params={"scope": "shared", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert unshared not in shared_ids
+        assert rejected not in shared_ids
+    finally:
+        client.delete(f"/api/v1/assistants/{unshared}", headers=OWNER)
+        client.delete(f"/api/v1/assistants/{rejected}", headers=OWNER)
+
+
+def test_all_scope_contains_only_approved_self_built() -> None:
+    """「全部」只含已共享的自建助理，不含未共享 / 待审批。"""
+    unshared = _create("补全测试助理全部边界")
+    pending = _create("补全测试助理待审批态")
+    approved = _create("补全测试助理已共享态")
+    try:
+        client.post(
+            "/api/v1/shares",
+            headers=OWNER,
+            json={"assistantIds": [pending], "scope": _scope(users=["u1"])},
+        )
+        _publish(approved)
+
+        all_ids = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=OWNER,
+                params={"scope": "all", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert approved in all_ids
+        assert unshared not in all_ids
+        assert pending not in all_ids
+    finally:
+        client.delete(f"/api/v1/assistants/{unshared}", headers=OWNER)
+        client.delete(f"/api/v1/assistants/{pending}", headers=OWNER)
+        client.delete(f"/api/v1/assistants/{approved}", headers=OWNER)
+
+
+def test_shared_scope_excludes_own_assistants() -> None:
+    """共享助理只含别人共享给我的，创建人自己不应出现在自己的共享页签。"""
+    aid = _create("补全测试助理自授权")
+    try:
+        _publish(aid, _scope(users=["u1"]))  # u1 映射登录号 2001 李静
+        grantee = _h("2001", "李静")
+
+        grantee_shared = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=grantee,
+                params={"scope": "shared", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert aid in grantee_shared
+
+        owner_shared = [
+            c["assistantId"]
+            for c in client.get(
+                "/api/v1/assistants",
+                headers=OWNER,
+                params={"scope": "shared", "pageSize": 50},
+            ).json()["data"]["list"]
+        ]
+        assert aid not in owner_shared
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_all_scope_three_card_kinds() -> None:
+    """「全部」只应出现三类：平台预置 / 我创建的已共享 / 别人共享给我且已订阅。"""
+    mine_approved = _create("补全测试助理全部三类")
+    try:
+        _publish(mine_approved, _scope(users=["u1"]))
+
+        # 李静视角：平台预置 + 已订阅（别人创建）
+        grantee = _h("2001", "李静")
+        grantee_rows = client.get(
+            "/api/v1/assistants", headers=grantee, params={"scope": "all", "pageSize": 50}
+        ).json()["data"]["list"]
+        for row in grantee_rows:
+            if row["source"] == "platform":
+                continue
+            assert row["source"] == "shared", row
+            assert row["subscribeStatus"] == "subscribed", row
+            assert row["ownerName"] != "李静", row
+
+        # 创建人视角：平台预置 + 自己创建的已共享（不出现 shared 视图）
+        owner_rows = client.get(
+            "/api/v1/assistants", headers=OWNER, params={"scope": "all", "pageSize": 50}
+        ).json()["data"]["list"]
+        owner_sources = {row["source"] for row in owner_rows}
+        assert owner_sources <= {"platform", "custom", "thirdparty"}, owner_sources
+        assert mine_approved in [row["assistantId"] for row in owner_rows]
+    finally:
+        client.delete(f"/api/v1/assistants/{mine_approved}", headers=OWNER)
+
+
+# ============================ 授权管理（管理员） ============================
+
+
+def test_auth_scope_lists_shared_assistants_with_scope_summary() -> None:
+    """scope=auth：列出全部已共享助理，并在卡片上带授权范围摘要。"""
+    aid = _create("补全测试助理授权管理")
+    try:
+        _publish(aid)
+        resp = client.get(
+            "/api/v1/assistants", headers=ADMIN, params={"scope": "auth", "pageSize": 50}
+        )
+        assert resp.status_code == 200, resp.text
+        row = next(
+            (c for c in resp.json()["data"]["list"] if c["assistantId"] == aid), None
+        )
+        assert row is not None
+        assert row["source"] == "custom"
+        assert row["shareStatus"] == "approved"
+        assert row["actions"] == ["shareScope"]
+        assert row["shareScope"] is not None
+        assert row["shareScope"]["grantTotal"] >= 1
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_auth_scope_excludes_unshared_and_rejected() -> None:
+    """未共享的助理不出现在授权管理列表。"""
+    aid = _create("补全测试助理未共享")
+    try:
+        resp = client.get(
+            "/api/v1/assistants", headers=ADMIN, params={"scope": "auth", "pageSize": 50}
+        )
+        ids = [c["assistantId"] for c in resp.json()["data"]["list"]]
+        assert aid not in ids
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
 # ============================ 头像预签名 ============================
 
 
@@ -487,6 +673,56 @@ def test_avatar_presign_rejects_oversize() -> None:
             "contentType": "image/png",
             "fileSize": 2097153,
         },
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "AVATAR_TOO_LARGE"
+
+
+# ============================ 头像上传（本地存储） ============================
+
+PNG_BYTES = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000a49444154789c6300010000050001"
+    "0d0a2db40000000049454e44ae426082"
+)
+
+
+def test_avatar_upload_returns_short_url(monkeypatch, tmp_path) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(type(settings), "static_dir", property(lambda self: tmp_path))
+
+    resp = client.post(
+        "/api/v1/common/avatar-upload",
+        headers=OWNER,
+        files={"file": ("avatar.png", PNG_BYTES, "image/png")},
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["objectKey"].startswith("avatar/")
+    assert data["objectKey"].endswith(".png")
+    # 落盘路径可直接拼在 /static 后面，且远小于 avatarUrl 的 512 字符上限
+    assert data["avatarUrl"] == f"/static/{data['objectKey']}"
+    assert len(data["avatarUrl"]) < 512
+    assert (tmp_path / data["objectKey"]).is_file()
+
+
+def test_avatar_upload_rejects_non_image() -> None:
+    resp = client.post(
+        "/api/v1/common/avatar-upload",
+        headers=OWNER,
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "AVATAR_TYPE_INVALID"
+
+
+def test_avatar_upload_rejects_oversize() -> None:
+    big = b"\x89PNG\r\n\x1a\n" + b"0" * (2 * 1024 * 1024)
+    resp = client.post(
+        "/api/v1/common/avatar-upload",
+        headers=OWNER,
+        files={"file": ("avatar.png", big, "image/png")},
     )
     assert resp.status_code == 400
     assert resp.json()["code"] == "AVATAR_TOO_LARGE"

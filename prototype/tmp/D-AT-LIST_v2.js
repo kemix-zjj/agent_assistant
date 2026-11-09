@@ -40,6 +40,11 @@ window.__pages['D-AT-LIST'] = function (container) {
   function verTag(e) {
     return e.version ? '<span class="ver-tag">' + window.esc(e.version) + '</span>' : '';
   }
+  /* 使用量标签：点击召唤一次即计一次使用 */
+  function usageTag(e) {
+    var n = e.usageCount || 0;
+    return '<span class="usage-tag" title="点击召唤一次计一次使用">' + window.Icon('icon-zap') + '使用 ' + n + ' 次</span>';
+  }
   /* 自建与第三方接入的助理都归创建人所有 */
   function isMine(e) {
     return (e.source === 'custom' || e.source === 'thirdparty') && e.owner === me().name;
@@ -50,12 +55,24 @@ window.__pages['D-AT-LIST'] = function (container) {
       return hit ? hit.name : id;
     }).join('、') || '未配置';
   }
+  /* 头像：上传图片（dataURL）优先，默认渲染卡通人像（6 款随机分配），表达"助理 = 人" */
+  function avatarHtml(e, style, tag) {
+    var t = tag || 'div';
+    var av = e.avatar || '';
+    var isImg = av && String(av).indexOf('data:image') === 0;
+    if (isImg) {
+      return '<' + t + ' class="expert-avatar expert-avatar-img"' + (style ? ' style="' + style + '"' : '') +
+        '><img src="' + av + '" alt=""></' + t + '>';
+    }
+    return '<' + t + ' class="expert-avatar expert-avatar-person"' + (style ? ' style="' + style + '"' : '') + '>' +
+      window.__personAvatar(e.id || e.name) + '</' + t + '>';
+  }
 
   /* ---------- 数据切片 ---------- */
-  function myAssistants() { return store.assistants.filter(isMine); }
-  function sharedAssistants() { return store.assistants.filter(function (e) { return e.source === 'shared'; }); }
+  function myAssistants() { return store.experts.filter(isMine); }
+  function sharedAssistants() { return store.experts.filter(function (e) { return e.source === 'shared'; }); }
   function allAssistants() {
-    return store.assistants.filter(function (e) {
+    return store.experts.filter(function (e) {
       if (e.source === 'platform') return true;
       if (e.source === 'custom' || e.source === 'thirdparty') return e.owner === me().name;
       return e.subscribed;
@@ -145,7 +162,7 @@ window.__pages['D-AT-LIST'] = function (container) {
           '<button class="btn btn-primary" id="btnShare">' + window.Icon('icon-share') + '共享</button>' +
           '<button class="btn btn-text" id="btnClearSel">清空</button></div>' +
       '</div>' +
-      '<div class="assistant-grid" id="grid"></div>' +
+      '<div class="expert-grid" id="grid"></div>' +
     '</div>';
 
   /* ---------- 顶部事件 ---------- */
@@ -155,13 +172,6 @@ window.__pages['D-AT-LIST'] = function (container) {
       S.selected = {};
       if (S.scope !== 'mine') S.statusFilter = 'all';
       if (S.scope === 'shared') S.subFilter = 'all';
-      paint();
-    });
-  });
-  container.querySelectorAll('#catTabs .cat-tab').forEach(function (el) {
-    el.addEventListener('click', function () {
-      S.category = el.getAttribute('data-cat');
-      container.querySelectorAll('#catTabs .cat-tab').forEach(function (t) { t.classList.toggle('active', t === el); });
       paint();
     });
   });
@@ -178,7 +188,7 @@ window.__pages['D-AT-LIST'] = function (container) {
   });
   container.querySelector('#btnAdd').addEventListener('click', function () { openCreateChooser(); });
   var btnApproval = container.querySelector('#btnApproval');
-  if (btnApproval) btnApproval.addEventListener('click', function () { openApprovalList(); });
+  if (btnApproval) btnApproval.addEventListener('click', function () { window.__switchPage('D-AT-APPR'); });
 
   container.querySelector('#btnShare').addEventListener('click', function () {
     var ids = Object.keys(S.selected).filter(function (k) { return S.selected[k]; });
@@ -194,6 +204,20 @@ window.__pages['D-AT-LIST'] = function (container) {
   paint();
 
   function paint() {
+    /* 分类页签：随新增分类动态刷新 */
+    var catTabs = container.querySelector('#catTabs');
+    catTabs.innerHTML = CATS.map(function (c) {
+      return '<div class="cat-tab' + (S.category === c ? ' active' : '') + '" data-cat="' + window.esc(c) + '">' +
+        window.esc(c) + '</div>';
+    }).join('');
+    catTabs.querySelectorAll('.cat-tab').forEach(function (el) {
+      el.addEventListener('click', function () {
+        S.category = el.getAttribute('data-cat');
+        catTabs.querySelectorAll('.cat-tab').forEach(function (t) { t.classList.toggle('active', t === el); });
+        paint();
+      });
+    });
+
     container.querySelectorAll('#scopeTabs .seg').forEach(function (el) {
       el.classList.toggle('active', el.getAttribute('data-scope') === S.scope);
     });
@@ -265,6 +289,8 @@ window.__pages['D-AT-LIST'] = function (container) {
     var act = [];
     if (isPlatform) {
       act.push(btn('detail', e, '详情'));
+      /* 管理员可对平台预置助理做范围授权 */
+      if (window.__isAdmin()) act.push(btn('scope', e, '授权范围'));
       act.push(btn('summon', e, '召唤', true));
     } else if (shared) {
       act.push(btn('detail', e, '详情'));
@@ -272,7 +298,7 @@ window.__pages['D-AT-LIST'] = function (container) {
       act.push(e.subscribed ? btn('summon', e, '召唤', true) : '');
     } else if (mine) {
       if (e.status === 'approved') {
-        act.push(btn('scope', e, '授权范围'));
+        act.push(btn('scope', e, '共享范围'));
         act.push(btn('detail', e, '详情'));
         act.push(btn('offline', e, '下架', false, true));
         act.push(btn('summon', e, '召唤', true));
@@ -303,20 +329,20 @@ window.__pages['D-AT-LIST'] = function (container) {
         '<span class="r-toggle" data-act="toggleReject" data-id="' + e.id + '">' + (open ? '收起' : '展开') + '</span></div>';
     }
 
-    return '<div class="assistant-card' + (showCheck ? ' has-check' : '') + (checked ? ' selected' : '') + '">' +
+    return '<div class="expert-card' + (showCheck ? ' has-check' : '') + (checked ? ' selected' : '') + '">' +
       (showCheck ? '<label class="checkbox-item card-check"><input type="checkbox" data-check="' + e.id + '"' + (checked ? ' checked' : '') + '></label>' : '') +
-      '<div class="assistant-card-top">' +
-        '<div class="assistant-avatar" style="background:' + (e.color || '#3685F2') + '">' + window.esc(e.avatar || e.name.slice(0, 1)) + '</div>' +
-        '<div class="assistant-name-wrap">' +
-          '<div class="assistant-name" data-act="detail" data-id="' + e.id + '">' + window.esc(e.name) +
-            statusTag(e) + verTag(e) + '</div>' +
-          '<div class="assistant-tags">' + tags + '</div>' +
+      '<div class="expert-card-top person">' +
+        avatarHtml(e, 'width:64px;height:64px;flex:0 0 64px') +
+        '<div class="expert-name-wrap">' +
+          '<div class="expert-name" data-act="detail" data-id="' + e.id + '">' + window.esc(e.name) +
+            statusTag(e) + verTag(e) + usageTag(e) + '</div>' +
+          '<div class="expert-tags">' + tags + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="assistant-desc">' + window.esc((e.desc || '').slice(0, 60)) + ((e.desc || '').length > 60 ? '…' : '') + '</div>' +
+      '<div class="expert-desc">' + window.esc((e.desc || '').slice(0, 60)) + ((e.desc || '').length > 60 ? '…' : '') + '</div>' +
       rejectBar +
-      '<div class="assistant-foot"><span class="assistant-owner">' + window.Icon('icon-user') + ownerLine + '</span>' +
-        '<span class="assistant-actions">' + act.join('') + '</span></div>' +
+      '<div class="expert-foot"><span class="expert-owner">' + window.Icon('icon-user') + ownerLine + '</span>' +
+        '<span class="expert-actions">' + act.join('') + '</span></div>' +
     '</div>';
   }
 
@@ -337,7 +363,7 @@ window.__pages['D-AT-LIST'] = function (container) {
         ev.stopPropagation();
         var id = el.getAttribute('data-id');
         var act = el.getAttribute('data-act');
-        var e = store.assistants.filter(function (x) { return x.id === id; })[0];
+        var e = store.experts.filter(function (x) { return x.id === id; })[0];
         if (act === 'toggleReject') {
           S.expandedReject[id] = !S.expandedReject[id];
           paint();
@@ -364,6 +390,8 @@ window.__pages['D-AT-LIST'] = function (container) {
       window.toast('该助理已下架，无法召唤', 'error');
       return;
     }
+    /* 使用量：点击召唤一次计一次使用 */
+    a.usageCount = (a.usageCount || 0) + 1;
     store.session = {
       assistantId: a.id, title: '与' + a.name + '的对话',
       at: nowStr(), messages: []
@@ -381,14 +409,7 @@ window.__pages['D-AT-LIST'] = function (container) {
     var canEdit = mine && e.status !== 'offline_pending' && e.status !== 'offline';
     var canScope = (e.status === 'approved' || e.status === 'offline_pending') && (mine || window.__isAdmin());
 
-    var orgNames = (e.scope && e.scope.orgs || []).map(function (id) {
-      var n = window.findOrg(id); return n ? n.name : id;
-    });
-    var userNames = (e.scope && e.scope.users || []).map(function (id) {
-      var u = window.findUser(id); return u ? u.name : id;
-    });
-    var scopeChips = orgNames.map(function (n) { return '<span class="scope-chip">组织 · ' + window.esc(n) + '</span>'; })
-      .concat(userNames.map(function (n) { return '<span class="scope-chip">人员 · ' + window.esc(n) + '</span>'; })).join('');
+    var scopeChips = window.scopeChipsHtml(e.scope || {});
 
     var history = (e.history || []).map(function (h) {
       return '<div class="ver-item">' +
@@ -400,15 +421,14 @@ window.__pages['D-AT-LIST'] = function (container) {
 
     var body =
       '<div class="detail-head">' +
-        '<div class="assistant-avatar" style="width:52px;height:52px;flex:0 0 52px;font-size:20px;background:' + (e.color || '#3685F2') + '">' +
-          window.esc(e.avatar || e.name.slice(0, 1)) + '</div>' +
+        avatarHtml(e, 'width:52px;height:52px;flex:0 0 52px;font-size:20px;background:' + (e.color || '#3685F2')) +
         '<div style="flex:1;min-width:0">' +
           '<div class="detail-name">' + window.esc(e.name) + statusTag(e) + verTag(e) + '</div>' +
           '<div class="detail-meta">' + window.esc(e.category || '') + ' · ' +
             (e.source === 'platform' ? '平台预置' : e.source === 'shared' ? '共享自 ' + e.owner
               : (e.source === 'thirdparty' ? '第三方接入 · ' + (e.platform || '自定义') : '创建人 ' + e.owner)) +
             ' · 更新于 ' + window.esc(e.updateTime || e.createTime || '-') + '</div>' +
-          '<div class="assistant-tags">' + (e.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
+          '<div class="expert-tags">' + (e.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
         '</div>' +
       '</div>' +
 
@@ -423,6 +443,8 @@ window.__pages['D-AT-LIST'] = function (container) {
           ? '<div class="reject-bar"><span class="r-text">拒绝原因：' + window.esc(e.rejectReason) + '</span></div>' : '') +
         (e.status === 'offline_pending' && e.offlineReason
           ? '<div class="notice-bar">' + window.Icon('icon-alert') + '<span>下架原因：' + window.esc(e.offlineReason) + '（等待管理员审批）</span></div>' : '') +
+        '<div class="cap-item"><div class="cap-title">使用量</div><div class="cap-body">' + usageTag(e) +
+          '<span class="form-hint" style="margin-left:8px">点击「召唤」进入任务即计一次使用</span></div></div>' +
       '</div>' +
 
       '<div class="detail-section">' +
@@ -443,7 +465,7 @@ window.__pages['D-AT-LIST'] = function (container) {
             '<div class="detail-section-title">授权范围' +
               '<button class="btn btn-text" id="btnEditScope">' + (canScope ? '修改授权范围' : '查看') + '</button></div>' +
             '<div class="scope-chips">' + (scopeChips || '<span class="scope-empty">未设置授权范围</span>') + '</div>' +
-            '<div class="form-hint">已授权 ' + (e.authorizedCount || 0) + ' 个对象</div>' +
+            '<div class="form-hint">已授权 ' + window.scopeCount(e.scope) + ' 个对象（' + window.scopeSummary(e.scope) + '）</div>' +
           '</div>'
         : '') +
 
@@ -501,9 +523,9 @@ window.__pages['D-AT-LIST'] = function (container) {
       okText: '确认删除',
       danger: true,
       onOk: function () {
-        store.assistants = store.assistants.filter(function (x) { return x.id !== e.id; });
+        store.experts = store.experts.filter(function (x) { return x.id !== e.id; });
         store.approvals.forEach(function (a) {
-          if (a.assistantId === e.id && a.status === 'pending') a.status = 'terminated';
+          if (a.expertId === e.id && a.status === 'pending') a.status = 'terminated';
         });
         delete S.selected[e.id];
         paint();
@@ -545,7 +567,7 @@ window.__pages['D-AT-LIST'] = function (container) {
           logHistory(e, e.version, '提交下架申请', reason);
           pushApproval({
             id: 'AP' + Date.now(), type: 'offline',
-            assistantId: e.id, assistantName: e.name, avatar: e.avatar, color: e.color,
+            expertId: e.id, expertName: e.name, avatar: e.avatar, color: e.color,
             category: e.category, tags: e.tags, desc: e.desc, version: e.version,
             owner: e.owner, ownerDept: e.ownerDept,
             submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
@@ -565,129 +587,100 @@ window.__pages['D-AT-LIST'] = function (container) {
    * ============================================================ */
   function openScope(e) {
     var isAdmin = window.__isAdmin();
-    var selOrg = {}, selUser = {};
-    ((e.scope && e.scope.orgs) || []).forEach(function (o) { selOrg[o] = true; });
-    ((e.scope && e.scope.users) || []).forEach(function (u) { selUser[u] = true; });
+    var saveBtn = null;
+    var rootEl = null;
+    function isPublicMode() {
+      var r = rootEl && rootEl.querySelector('input[name="scopeAuthRadio"]:checked');
+      return !!r && r.value === 'public';
+    }
+    var tf = window.ScopeTransfer({
+      scope: e.scope || {},
+      prefix: 'scopeTf',
+      onChange: function (v) {
+        if (saveBtn && !isPublicMode()) saveBtn.disabled = window.scopeCount(v) === 0;
+      }
+    });
 
-    var body =
-      '<div class="notice-bar info">' + window.Icon('icon-info') +
-        '<span>' + (isAdmin ? '你是公司管理员，修改后立即生效。' : '修改授权范围需提交审批，管理员通过后生效。') + '</span></div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">选择组织<span class="text-xs tertiary">最多 50 个节点</span></div>' +
-        '<div class="picker-box" id="orgPicker">' + orgRows(store.orgTree, selOrg, 0) + '</div>' +
-        '<div class="scope-chips" id="orgChips"></div>' +
-      '</div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">选择人员<span class="text-xs tertiary">最多 200 人</span></div>' +
-        '<div class="picker-box" id="userPicker">' + userRows(store.users, selUser) + '</div>' +
-        '<div class="scope-chips" id="userChips"></div>' +
-      '</div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">调整后范围预览</div>' +
-        '<div class="scope-chips" id="previewChips"></div>' +
-        '<div class="scope-empty" id="previewEmpty">尚未选择授权对象</div>' +
-      '</div>';
-
+    var isShared = e.status === 'approved';
+    var initPublic = !!(e.scope && e.scope.public);
     window.openModal({
-      title: '修改授权范围 · ' + e.name,
-      width: 640,
-      body: body,
+      title: (isShared ? '共享范围 · ' : '修改授权范围 · ') + e.name,
+      width: 760,
+      body:
+        '<div class="notice-bar info">' + window.Icon('icon-info') +
+          '<span>' + (isAdmin ? '你是公司管理员，修改后立即生效。' : (isShared ? '修改共享范围需提交审批，管理员通过后生效。' : '修改授权范围需提交审批，管理员通过后生效。')) + '</span></div>' +
+        '<div class="detail-section-title">' + (isShared ? '共享范围' : '授权范围') + '</div>' +
+        '<div class="flex gap-lg" style="margin:8px 0 4px">' +
+          '<label class="checkbox-item"><input type="radio" name="scopeAuthRadio" value="scope"' + (initPublic ? '' : ' checked') + '><span>范围授权</span></label>' +
+          '<label class="checkbox-item"><input type="radio" name="scopeAuthRadio" value="public"' + (initPublic ? ' checked' : '') + '><span>公开</span></label>' +
+        '</div>' +
+        '<div class="form-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>' +
+        '<div id="scopeModeDetail"' + (initPublic ? ' style="display:none"' : '') + '>' +
+          '<div class="tf-tip">按页签先做批量选择：组织、角色、岗位会把人展开带进「按人员」，最终生效颗粒是人员，可在人员页签继续增删。</div>' +
+          tf.html +
+          '<div class="scope-block" style="margin-top:16px">' +
+            '<div class="scope-block-title">授权范围预览</div>' +
+            '<div class="scope-chips" id="scopePreviewChips"></div>' +
+            '<div class="scope-empty" id="scopePreviewEmpty">尚未选择授权对象，请至少选择一个组织或人员</div>' +
+          '</div>' +
+        '</div>',
       footer: '<button class="btn btn-default" data-close>取消</button>' +
-        '<button class="btn btn-primary" id="scopeSave" disabled>' + (isAdmin ? '保存并生效' : '提交变更申请') + '</button>',
+        '<button class="btn btn-primary" id="scopeSave"' + (initPublic ? '' : ' disabled') + '>' + (isAdmin ? '保存并生效' : '提交变更申请') + '</button>',
       onMount: function (root, api) {
-        var save = root.querySelector('#scopeSave');
+        rootEl = root;
+        saveBtn = root.querySelector('#scopeSave');
+        var tfApi = tf.mount(root);
 
-        function refresh() {
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-
-          root.querySelector('#orgChips').innerHTML = orgIds.map(function (id) {
-            var n = window.findOrg(id);
-            return '<span class="scope-chip">' + window.esc(n ? n.name : id) + '<span class="x" data-del-org="' + id + '">×</span></span>';
-          }).join('');
-          root.querySelector('#userChips').innerHTML = userIds.map(function (id) {
-            var u = window.findUser(id);
-            return '<span class="scope-chip">' + window.esc(u ? u.name : id) + '<span class="x" data-del-user="' + id + '">×</span></span>';
-          }).join('');
-
-          var all = orgIds.map(function (id) {
-            var n = window.findOrg(id);
-            return '<span class="scope-chip">组织 · ' + window.esc(n ? n.name : id) + '</span>';
-          }).concat(userIds.map(function (id) {
-            var u = window.findUser(id);
-            return '<span class="scope-chip">人员 · ' + window.esc(u ? u.name : id) + '</span>';
-          })).join('');
-          root.querySelector('#previewChips').innerHTML = all;
-          root.querySelector('#previewEmpty').style.display = (orgIds.length + userIds.length) ? 'none' : '';
-          save.disabled = (orgIds.length + userIds.length) === 0;
-
-          root.querySelectorAll('[data-del-org]').forEach(function (el) {
-            el.addEventListener('click', function () {
-              var id = el.getAttribute('data-del-org');
-              delete selOrg[id];
-              var cb = root.querySelector('input[data-oid="' + id + '"]');
-              if (cb) cb.checked = false;
-              refresh();
-            });
-          });
-          root.querySelectorAll('[data-del-user]').forEach(function (el) {
-            el.addEventListener('click', function () {
-              var id = el.getAttribute('data-del-user');
-              delete selUser[id];
-              var cb = root.querySelector('input[data-uid="' + id + '"]');
-              if (cb) cb.checked = false;
-              refresh();
-            });
-          });
+        function refreshPreview(v) {
+          var total = window.scopeCount(v);
+          root.querySelector('#scopePreviewChips').innerHTML = total ? window.scopeChipsHtml(v) : '';
+          root.querySelector('#scopePreviewEmpty').style.display = total ? 'none' : '';
         }
+        refreshPreview(initPublic ? { public: true } : tfApi.get());
 
-        root.querySelectorAll('#orgPicker input[data-oid]').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            var node = window.findOrg(cb.getAttribute('data-oid'));
-            collectIds(node).forEach(function (id) { selOrg[id] = cb.checked; });
-            root.querySelectorAll('#orgPicker input[data-oid]').forEach(function (x) {
-              if (selOrg[x.getAttribute('data-oid')]) x.checked = true;
-            });
-            refresh();
+        /* 共享方式：范围授权 / 公开（与创建向导、共享提交弹窗一致） */
+        root.querySelectorAll('input[name="scopeAuthRadio"]').forEach(function (r) {
+          r.addEventListener('change', function () {
+            var pub = isPublicMode();
+            root.querySelector('#scopeModeDetail').style.display = pub ? 'none' : '';
+            if (pub) {
+              refreshPreview({ public: true });
+              saveBtn.disabled = false;
+            } else {
+              refreshPreview(tfApi.get());
+              saveBtn.disabled = window.scopeCount(tfApi.get()) === 0;
+            }
           });
         });
-        root.querySelectorAll('#userPicker input[data-uid]').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            selUser[cb.getAttribute('data-uid')] = cb.checked;
-            refresh();
-          });
-        });
 
-        save.addEventListener('click', function () {
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-          if (!orgIds.length && !userIds.length) { window.toast('请至少选择一个组织或人员', 'error'); return; }
+        saveBtn.addEventListener('click', function () {
+          var pub = isPublicMode();
+          var v = pub ? { public: true } : tfApi.get();
+          if (!window.scopeCount(v)) { window.toast('请至少选择一个授权对象，最终授权对象为人员', 'error'); return; }
 
           if (isAdmin) {
-            e.scope = { orgs: orgIds, users: userIds };
-            e.authorizedCount = orgIds.length + userIds.length;
+            e.scope = cloneScope(v);
+            e.authorizedCount = window.scopeCount(v);
             e.updateTime = nowStr();
-            logHistory(e, e.version, '授权范围变更（管理员直接生效）', '对象 ' + e.authorizedCount + ' 个');
+            logHistory(e, e.version, (pub ? '共享范围变更（公开）' : '授权范围变更') + '（管理员直接生效）', window.scopeSummary(v));
             api.close();
             window.__reload();
-            window.toast('授权范围已更新并立即生效');
+            window.toast(pub ? '共享范围已更新为「公开」并立即生效' : '授权范围已更新并立即生效');
           } else {
             pushApproval({
               id: 'AP' + Date.now(), type: 'scope',
-              assistantId: e.id, assistantName: e.name, avatar: e.avatar, color: e.color,
+              expertId: e.id, expertName: e.name, avatar: e.avatar, color: e.color,
               category: e.category, tags: e.tags, desc: e.desc, version: e.version,
               owner: e.owner, ownerDept: e.ownerDept,
               submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
-              scope: { orgs: orgIds, users: userIds },
-              oldScope: e.scope || { orgs: [], users: [] },
+              scope: cloneScope(v),
+              oldScope: cloneScope(e.scope),
               status: 'pending'
             });
             api.close();
-            window.toast('已提交授权范围变更申请，等待管理员审批');
+            window.toast('已提交共享范围变更申请，等待管理员审批');
           }
         });
-
-        refresh();
       }
     });
   }
@@ -782,7 +775,18 @@ window.__pages['D-AT-LIST'] = function (container) {
       kbs: editing ? (editing.kbs || []).slice() : []
     };
     var resTab = 'skill';
+    var resMarket = 'internal';
+    var resKw = '';
     var needReapprove = isEdit && editing.status === 'approved';
+
+    /* 共享范围（仅新建时可选）：与授权范围改版保持一致，统一用穿梭框 */
+    var wzRefreshPreview = null;
+    var wzScope = cloneScope({});
+    var wzShareTf = window.ScopeTransfer({
+      prefix: 'wzShareTf',
+      limits: { orgs: 50, roles: 50, positions: 50, users: 200 },
+      onChange: function (v) { if (wzRefreshPreview) wzRefreshPreview(v); }
+    });
 
     var body =
       '<div class="wizard-steps">' +
@@ -797,26 +801,27 @@ window.__pages['D-AT-LIST'] = function (container) {
       '<div class="wz-pane" data-pane="1">' +
         '<div class="modal-form-row"><div class="modal-form-item">' +
           '<label class="modal-form-label required">头像</label>' +
-          '<div class="avatar-picker" id="avatarPicker">' + AVATARS.map(function (v, i) {
-            return '<div class="avatar-opt' + (draft.avatar === v.a ? ' active' : '') + '" data-avatar="' + i +
-              '" style="background:' + v.c + '">' + v.a + '</div>';
-          }).join('') + '</div></div></div>' +
+          '<div class="avatar-picker" id="avatarPicker"></div>' +
+          '<div class="form-hint">点选预设头像，或点击「＋」上传图片（不超过 2MB，按现有头像尺寸展示）</div></div></div>' +
         '<div class="modal-form-row">' +
           '<div class="modal-form-item"><label class="modal-form-label required">助理名称</label>' +
             '<input class="modal-form-input" id="wzName" maxlength="20" placeholder="2-20 个字符，同一公司内唯一" value="' +
               window.esc(editing ? editing.name : '') + '">' +
             '<div class="input-counter"><span id="nameCount">0</span>/20</div></div>' +
           '<div class="modal-form-item"><label class="modal-form-label required">所属分类</label>' +
-            '<select class="modal-form-select" id="wzCat">' + store.categories.map(function (c) {
-              return '<option' + (editing && editing.category === c ? ' selected' : '') + '>' + c + '</option>';
-            }).join('') + '</select></div>' +
+            '<select class="modal-form-select" id="wzCat"></select>' +
+            (window.__isAdmin() ? '<div class="form-hint">管理员可在下拉中选择「＋ 新增分类」手动添加分类</div>' : '') + '</div>' +
         '</div>' +
         '<div class="modal-form-row"><div class="modal-form-item">' +
-          '<label class="modal-form-label required">描述</label>' +
+          '<div class="prompt-tools"><label class="modal-form-label required" style="margin:0">描述</label>' +
+            '<button type="button" class="btn-ai" id="btnAiDesc" title="根据名称、分类生成描述草稿">' +
+              window.Icon('icon-ai-spark') + 'AI 生成</button></div>' +
           '<textarea class="modal-form-textarea" id="wzDesc" rows="3" maxlength="200" placeholder="10-200 个字符，说明该助理能解决什么问题">' +
             window.esc(editing ? editing.desc : '') + '</textarea></div></div>' +
         '<div class="modal-form-row"><div class="modal-form-item">' +
-          '<label class="modal-form-label">自定义标签</label>' +
+          '<div class="prompt-tools"><label class="modal-form-label" style="margin:0">自定义标签</label>' +
+            '<button type="button" class="btn-ai" id="btnAiTag" title="根据助理名称与描述生成标签建议">' +
+              window.Icon('icon-ai-spark') + 'AI 生成</button></div>' +
           '<div class="tag-input-wrap" id="tagWrap"></div>' +
           '<div class="form-hint">最多 5 个，单个标签不超过 8 个字符</div></div></div>' +
       '</div>' +
@@ -824,7 +829,11 @@ window.__pages['D-AT-LIST'] = function (container) {
       /* --- 步骤 2 --- */
       '<div class="wz-pane" data-pane="2" style="display:none">' +
         '<div class="prompt-tools"><label class="modal-form-label required" style="margin:0">提示词</label>' +
-          '<span class="prompt-counter"><span id="promptCount">0</span>/4000</span></div>' +
+          '<span style="display:inline-flex;align-items:center;gap:8px">' +
+            '<button type="button" class="btn-ai" id="btnAiPrompt" title="根据名称、分类、描述生成提示词草稿">' +
+              window.Icon('icon-ai-spark') + 'AI 生成</button>' +
+            '<span class="prompt-counter"><span id="promptCount">0</span>/4000</span>' +
+          '</span></div>' +
         '<textarea class="modal-form-textarea" id="wzPrompt" rows="6" maxlength="4000" placeholder="描述助理的角色设定、回答规则与能力边界">' +
           window.esc(editing ? editing.prompt : '') + '</textarea>' +
         '<div class="divider"></div>' +
@@ -836,11 +845,22 @@ window.__pages['D-AT-LIST'] = function (container) {
           '</div>' +
           '<span class="form-hint">均为选填，每项最多 20 个</span>' +
         '</div>' +
+        '<div class="res-toolbar">' +
+          '<div class="seg-group" id="resMarketTabs">' +
+            '<div class="seg active" data-market="internal">内部市场</div>' +
+            '<div class="seg" data-market="external">外部市场</div>' +
+          '</div>' +
+          '<input class="res-search-input" id="resSearch" placeholder="搜索名称">' +
+        '</div>' +
         '<div class="res-list" id="resList"></div>' +
         '<div class="divider"></div>' +
         '<div class="flex-between mb-base">' +
           '<label class="modal-form-label" style="margin:0">召唤快速问题</label>' +
-          '<span class="form-hint">选填，最多 6 条；召唤后展示在新建任务页，可一键填入</span>' +
+          '<span style="display:inline-flex;align-items:center;gap:8px">' +
+            '<button type="button" class="btn-ai" id="btnAiQq" title="根据名称、分类生成快速问题建议">' +
+              window.Icon('icon-ai-spark') + 'AI 生成</button>' +
+            '<span class="form-hint">选填，最多 6 条</span>' +
+          '</span>' +
         '</div>' +
         '<div class="tag-input-wrap" id="qqWrap"></div>' +
       '</div>' +
@@ -863,17 +883,18 @@ window.__pages['D-AT-LIST'] = function (container) {
               '<div id="shareScopeBox" style="display:none">' +
                 '<div class="divider"></div>' +
                 '<div class="detail-section-title">共享范围</div>' +
-                '<div class="scope-block">' +
-                  '<div class="scope-block-title">选择组织<span class="text-xs tertiary">最多 50 个节点</span></div>' +
-                  '<div class="picker-box" id="wzOrgPicker">' + orgRows(store.orgTree, {}, 0) + '</div>' +
+                '<div class="flex gap-lg" style="margin:8px 0 4px">' +
+                  '<label class="checkbox-item"><input type="radio" name="shareAuth" value="scope" checked><span>范围授权</span></label>' +
+                  '<label class="checkbox-item"><input type="radio" name="shareAuth" value="public"><span>公开</span></label>' +
                 '</div>' +
-                '<div class="scope-block">' +
-                  '<div class="scope-block-title">选择人员<span class="text-xs tertiary">最多 200 人</span></div>' +
-                  '<div class="picker-box" id="wzUserPicker">' + userRows(store.users, {}) + '</div>' +
+                '<div class="form-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>' +
+                '<div id="wzScopeDetail">' +
+                  '<div class="tf-tip">按组织、角色、岗位、人员批量选择，来源维度会把人展开带进「按人员」；最终共享对象是人员。上限：组织 50 个节点、角色/岗位各 50 项、人员 200 人。</div>' +
+                  wzShareTf.html +
+                  '<div class="scope-block" style="margin-top:16px"><div class="scope-block-title">授权范围预览</div>' +
+                    '<div class="scope-chips" id="wzScopePreview"></div>' +
+                    '<div class="scope-empty" id="wzScopeEmpty">尚未选择授权对象</div></div>' +
                 '</div>' +
-                '<div class="scope-block"><div class="scope-block-title">授权范围预览</div>' +
-                  '<div class="scope-chips" id="wzScopePreview"></div>' +
-                  '<div class="scope-empty" id="wzScopeEmpty">尚未选择授权对象</div></div>' +
               '</div>')) +
         (isEdit ? '' : '<div class="form-hint mt-base">创建后将生成版本 v1.0</div>') +
       '</div>';
@@ -894,8 +915,6 @@ window.__pages['D-AT-LIST'] = function (container) {
         var prevBtn = root.querySelector('#wzPrev');
         var nextBtn = root.querySelector('#wzNext');
 
-        var selOrg = {}, selUser = {};
-
         function syncCount() {
           root.querySelector('#nameCount').textContent = nameEl.value.length;
           root.querySelector('#promptCount').textContent = promptEl.value.length;
@@ -904,13 +923,92 @@ window.__pages['D-AT-LIST'] = function (container) {
         nameEl.addEventListener('input', syncCount);
         promptEl.addEventListener('input', syncCount);
 
-        /* 头像 */
-        root.querySelectorAll('.avatar-opt').forEach(function (opt) {
-          opt.addEventListener('click', function () {
-            var v = AVATARS[Number(opt.getAttribute('data-avatar'))];
-            draft.avatar = v.a; draft.color = v.c;
-            root.querySelectorAll('.avatar-opt').forEach(function (x) { x.classList.toggle('active', x === opt); });
+        /* 头像：预设字符 + 手动上传（图片按现有头像尺寸展示） */
+        function renderAvatarPicker() {
+          var picker = root.querySelector('#avatarPicker');
+          var isImg = draft.avatar && draft.avatar.indexOf('data:image') === 0;
+          picker.innerHTML = AVATARS.map(function (v, i) {
+            return '<div class="avatar-opt' + (!isImg && draft.avatar === v.a ? ' active' : '') +
+              '" data-avatar="' + i + '" style="background:' + v.c + '">' + v.a + '</div>';
+          }).join('') +
+            '<label class="avatar-opt avatar-upload' + (isImg ? ' active' : '') + '" title="上传图片头像">' +
+              (isImg ? '<img src="' + draft.avatar + '" alt="">' : window.Icon('icon-plus')) +
+              '<input type="file" accept="image/*" id="avatarFile" style="display:none">' +
+            '</label>';
+
+          picker.querySelectorAll('.avatar-opt[data-avatar]').forEach(function (opt) {
+            opt.addEventListener('click', function () {
+              var v = AVATARS[Number(opt.getAttribute('data-avatar'))];
+              draft.avatar = v.a; draft.color = v.c;
+              renderAvatarPicker();
+            });
           });
+          var fileInput = picker.querySelector('#avatarFile');
+          fileInput.addEventListener('change', function () {
+            var f = fileInput.files && fileInput.files[0];
+            fileInput.value = '';
+            if (!f) return;
+            if ((f.type || '').indexOf('image/') !== 0) { window.toast('请选择图片文件', 'error'); return; }
+            if (f.size > 2 * 1024 * 1024) { window.toast('图片大小不超过 2MB', 'error'); return; }
+            var reader = new FileReader();
+            reader.onload = function () {
+              draft.avatar = String(reader.result || '');
+              renderAvatarPicker();
+              window.toast('头像已上传，保存后生效', 'success');
+            };
+            reader.onerror = function () { window.toast('图片读取失败，请重试', 'error'); };
+            reader.readAsDataURL(f);
+          });
+        }
+        renderAvatarPicker();
+
+        /* 所属分类：管理员可手动新增 */
+        function renderCatOptions(selected) {
+          catEl.innerHTML = store.categories.map(function (c) {
+            return '<option' + (c === selected ? ' selected' : '') + '>' + window.esc(c) + '</option>';
+          }).join('') + (window.__isAdmin() ? '<option value="__new__">＋ 新增分类</option>' : '');
+          catEl.setAttribute('data-prev', selected || ''); /* 同步“上一个有效分类”，供取消新增时恢复 */
+        }
+        renderCatOptions(editing ? editing.category : store.categories[0]);
+        catEl.addEventListener('change', function () {
+          if (catEl.value !== '__new__') {
+            catEl.setAttribute('data-prev', catEl.value);
+            return;
+          }
+          var prevCat = catEl.getAttribute('data-prev') || store.categories[0];
+          var added = false;
+          var addApi = window.openModal({
+            title: '新增分类',
+            width: 420,
+            body: '<div class="form-item"><label class="form-label">分类名称</label>' +
+              '<input class="modal-form-input" id="newCatName" maxlength="10" placeholder="不超过 10 个字符，如：协同办公">' +
+              '<div class="form-hint">新增后全公司可见，可用于助理归类与列表筛选</div></div>',
+            footer: '<button class="btn btn-default" data-close>取消</button>' +
+              '<button class="btn btn-primary" id="btnSaveCat">确认新增</button>',
+            onClosed: function () { if (!added) renderCatOptions(prevCat); },
+            onMount: function (mroot, mapi) {
+              mroot.querySelector('#newCatName').focus();
+              mroot.querySelector('#newCatName').addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter') mroot.querySelector('#btnSaveCat').click();
+              });
+              mroot.querySelector('#btnSaveCat').addEventListener('click', function () {
+                var input = mroot.querySelector('#newCatName');
+                var name = input.value.trim();
+                if (!name) { input.classList.add('invalid'); window.toast('请输入分类名称', 'error'); return; }
+                if (store.categories.indexOf(name) >= 0) {
+                  input.classList.add('invalid'); window.toast('该分类已存在', 'error'); return;
+                }
+                store.categories.push(name);
+                CATS.push(name);
+                added = true;
+                renderCatOptions(name);
+                paint(); /* 列表分类筛选页签同步出现新分类 */
+                mapi.close();
+                window.toast('分类「' + name + '」已新增', 'success');
+              });
+            }
+          });
+          void addApi;
         });
 
         /* 标签 */
@@ -941,6 +1039,38 @@ window.__pages['D-AT-LIST'] = function (container) {
           });
         }
         renderTags();
+
+        /* AI 生成：自定义标签（根据名称与描述提取，生成至多 5 个） */
+        root.querySelector('#btnAiTag').addEventListener('click', function () {
+          var name = nameEl.value.trim() || '业务助理';
+          var desc = descEl.value.trim();
+          var cat = catEl.value;
+          var pool = [];
+          var base = name.replace(/助理$/, '');
+          if (base) pool.push(base.slice(0, 8));                         /* 名称提取 */
+          if (cat && cat !== '__new__' && pool.indexOf(cat) < 0) pool.push(cat.slice(0, 8)); /* 分类 */
+          var HITS = [
+            { kw: '制度', tag: '制度问答' }, { kw: '流程', tag: '流程指引' }, { kw: '指引', tag: '流程指引' },
+            { kw: '数据', tag: '数据汇总' }, { kw: '汇总', tag: '数据汇总' }, { kw: '审批', tag: '审批助手' },
+            { kw: '知识', tag: '知识检索' }, { kw: '答疑', tag: '智能问答' }, { kw: '问题', tag: '智能问答' },
+            { kw: '服务', tag: '员工服务' }, { kw: '巡检', tag: '安全巡检' }, { kw: '薪资', tag: '薪酬核算' }
+          ];
+          HITS.forEach(function (h) {                                    /* 描述关键词提取 */
+            if (desc && desc.indexOf(h.kw) >= 0 && pool.indexOf(h.tag) < 0) pool.push(h.tag);
+          });
+          ['智能问答', '流程指引', '员工服务', '效率工具', '知识检索'].forEach(function (k) {
+            if (pool.length < 5 && pool.indexOf(k) < 0) pool.push(k);   /* 常用标签补位 */
+          });
+          var merged = draft.tags.slice();
+          pool.forEach(function (t) {
+            if (merged.length < 5 && t && merged.indexOf(t) < 0) merged.push(t);
+          });
+          var added = merged.length - draft.tags.length;
+          draft.tags = merged;
+          renderTags();
+          var n = tagWrap.querySelector('#tagInput'); if (n) n.focus();
+          window.toast(added ? ('已生成 ' + added + ' 个标签建议，可继续编辑') : '标签已满 5 个', added ? 'success' : 'error');
+        });
 
         /* 召唤快速问题清单 */
         var qqWrap = root.querySelector('#qqWrap');
@@ -974,17 +1104,37 @@ window.__pages['D-AT-LIST'] = function (container) {
         }
         renderQq();
 
-        /* 资源多选 */
+        /* 资源多选：市场切换 + 搜索（技能/连接器分内部、外部市场；知识库支持按文件名搜索） */
         function renderRes() {
+          var isKb = resTab === 'kb';
           var catalog = resTab === 'skill' ? store.skills : resTab === 'mcp' ? store.mcps : store.kbs;
           var selArr = resTab === 'skill' ? draft.skills : resTab === 'mcp' ? draft.mcps : draft.kbs;
-          root.querySelector('#resList').innerHTML = catalog.map(function (x) {
+          var kw = resKw.trim().toLowerCase();
+
+          var list = catalog.filter(function (x) {
+            if (!isKb && (x.market || 'internal') !== resMarket) return false;
+            if (!kw) return true;
+            if ((x.name + ' ' + (x.desc || x.type || '')).toLowerCase().indexOf(kw) >= 0) return true;
+            if (isKb && (x.files || []).some(function (f) { return f.toLowerCase().indexOf(kw) >= 0; })) return true;
+            return false;
+          });
+
+          root.querySelector('#resList').innerHTML = list.length ? list.map(function (x) {
             var checked = selArr.indexOf(x.id) >= 0;
-            var sub = resTab === 'kb' ? (x.count + ' 篇文档') : (resTab === 'mcp' ? (x.type || '') : (x.desc || ''));
+            var sub;
+            if (isKb) {
+              var hits = kw ? (x.files || []).filter(function (f) { return f.toLowerCase().indexOf(kw) >= 0; }) : [];
+              sub = hits.length
+                ? '<span class="res-file-hit">匹配文件：' + window.esc(hits.join('、')) + '</span>'
+                : (x.count + ' 篇文档 · ' + window.esc((x.files || []).slice(0, 2).join('、')));
+            } else {
+              sub = window.esc(resTab === 'mcp' ? (x.type || '') : (x.desc || ''));
+            }
             return '<label class="res-item"><input type="checkbox" data-res="' + x.id + '"' + (checked ? ' checked' : '') + '>' +
               '<span class="res-main"><span class="res-name">' + window.esc(x.name) + '</span>' +
-              '<span class="res-desc">' + window.esc(sub) + '</span></span></label>';
-          }).join('');
+              '<span class="res-desc">' + sub + '</span></span></label>';
+          }).join('') : '<div class="res-empty">没有匹配的' + (isKb ? '知识库或文件' : resTab === 'skill' ? '技能' : '连接器') + '</div>';
+
           root.querySelectorAll('#resList input[data-res]').forEach(function (cb) {
             cb.addEventListener('change', function () {
               var id = cb.getAttribute('data-res');
@@ -1005,10 +1155,85 @@ window.__pages['D-AT-LIST'] = function (container) {
           seg.addEventListener('click', function () {
             resTab = seg.getAttribute('data-res');
             root.querySelectorAll('#resTabs .seg').forEach(function (x) { x.classList.toggle('active', x === seg); });
+            resKw = '';
+            resMarket = 'internal';
+            root.querySelectorAll('#resMarketTabs .seg').forEach(function (x) {
+              x.classList.toggle('active', x.getAttribute('data-market') === 'internal');
+            });
+            var searchInput = root.querySelector('#resSearch');
+            if (searchInput) {
+              searchInput.value = '';
+              searchInput.placeholder = resTab === 'kb' ? '搜索知识库或文件名'
+                : resTab === 'mcp' ? '搜索连接器名称' : '搜索技能名称';
+            }
+            root.querySelector('#resMarketTabs').style.display = resTab === 'kb' ? 'none' : '';
             renderRes();
           });
         });
+        root.querySelectorAll('#resMarketTabs .seg').forEach(function (seg) {
+          seg.addEventListener('click', function () {
+            resMarket = seg.getAttribute('data-market');
+            root.querySelectorAll('#resMarketTabs .seg').forEach(function (x) {
+              x.classList.toggle('active', x === seg);
+            });
+            renderRes();
+          });
+        });
+        root.querySelector('#resSearch').addEventListener('input', function (e) {
+          resKw = e.target.value;
+          renderRes();
+        });
         renderRes();
+
+        /* AI 生成：提示词 / 快速问题 */
+        function aiPromptDraft() {
+          var name = nameEl.value.trim() || '业务助理';
+          var cat = catEl.value;
+          var desc = descEl.value.trim() || '为员工提供相关业务的问答与操作指引';
+          return '你是九牧集团' + cat + '条的「' + name + '」。\n' +
+            '职责：' + desc + '。\n' +
+            '回答要求：\n' +
+            '1. 先给结论，再给出对应的制度或流程依据；\n' +
+            '2. 涉及员工个人数据时，提示员工自行核对；\n' +
+            '3. 无法确认的问题必须说明「需人工确认」，不得编造条款编号；\n' +
+            '4. 需要走流程的场景，明确指引对应的审批入口。';
+        }
+        root.querySelector('#btnAiPrompt').addEventListener('click', function () {
+          promptEl.value = aiPromptDraft();
+          promptEl.dispatchEvent(new window.Event('input', { bubbles: true }));
+          window.toast('已生成提示词草稿，可继续编辑', 'success');
+        });
+
+        /* AI 生成：描述 */
+        root.querySelector('#btnAiDesc').addEventListener('click', function () {
+          var name = nameEl.value.trim() || '业务助理';
+          var cat = catEl.value;
+          descEl.value = '「' + name + '」面向' + cat + '场景，可解答常见问题、讲解制度要点并给出办理指引；' +
+            '回答先给结论、再附依据，涉及个人数据时提醒员工自行核对，无法确认时明确提示转人工处理。';
+          descEl.classList.remove('invalid');
+          descEl.dispatchEvent(new window.Event('input', { bubbles: true }));
+          window.toast('已生成描述草稿，可继续编辑', 'success');
+        });
+
+        root.querySelector('#btnAiQq').addEventListener('click', function () {
+          var name = nameEl.value.trim() || '本助理';
+          var pool = [
+            name + '能帮我做什么？',
+            '如何用「' + name + '」发起一次任务？',
+            name + '配置了哪些技能和知识库？',
+            '「' + name + '」的回答依据是什么？',
+            '遇到答不准的问题怎么办？',
+            '如何反馈「' + name + '」的回答问题？'
+          ];
+          var merged = draft.quickQuestions.slice();
+          pool.forEach(function (q) {
+            if (merged.length < 6 && merged.indexOf(q) < 0) merged.push(q);
+          });
+          var added = merged.length - draft.quickQuestions.length;
+          draft.quickQuestions = merged;
+          renderQq();
+          window.toast(added ? ('已生成 ' + added + ' 条快速问题建议，可继续编辑') : '快速问题已满 6 条', added ? 'success' : 'error');
+        });
 
         /* 共享设置（仅创建） */
         var shareBox = root.querySelector('#shareScopeBox');
@@ -1019,36 +1244,24 @@ window.__pages['D-AT-LIST'] = function (container) {
               shareBox.style.display = on ? '' : 'none';
             });
           });
-          root.querySelectorAll('#wzOrgPicker input[data-oid]').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-              var node = window.findOrg(cb.getAttribute('data-oid'));
-              collectIds(node).forEach(function (id) { selOrg[id] = cb.checked; });
-              root.querySelectorAll('#wzOrgPicker input[data-oid]').forEach(function (x) {
-                if (selOrg[x.getAttribute('data-oid')]) x.checked = true;
-              });
-              refreshPreview();
+
+          /* 共享方式：范围授权 / 公开 */
+          var scopeDetail = root.querySelector('#wzScopeDetail');
+          root.querySelectorAll('input[name="shareAuth"]').forEach(function (r) {
+            r.addEventListener('change', function () {
+              var mode = root.querySelector('input[name="shareAuth"]:checked').value;
+              scopeDetail.style.display = mode === 'scope' ? '' : 'none';
             });
           });
-          root.querySelectorAll('#wzUserPicker input[data-uid]').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-              selUser[cb.getAttribute('data-uid')] = cb.checked;
-              refreshPreview();
-            });
-          });
-        }
-        function refreshPreview() {
-          if (!shareBox) return;
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-          var all = orgIds.map(function (id) {
-            var n = window.findOrg(id);
-            return '<span class="scope-chip">组织 · ' + window.esc(n ? n.name : id) + '</span>';
-          }).concat(userIds.map(function (id) {
-            var u = window.findUser(id);
-            return '<span class="scope-chip">人员 · ' + window.esc(u ? u.name : id) + '</span>';
-          })).join('');
-          root.querySelector('#wzScopePreview').innerHTML = all;
-          root.querySelector('#wzScopeEmpty').style.display = (orgIds.length + userIds.length) ? 'none' : '';
+
+          wzRefreshPreview = function (v) {
+            wzScope = cloneScope(v);
+            var total = window.scopeCount(wzScope);
+            root.querySelector('#wzScopePreview').innerHTML = total ? window.scopeChipsHtml(wzScope) : '';
+            root.querySelector('#wzScopeEmpty').style.display = total ? 'none' : '';
+          };
+
+          wzShareTf.mount(root);
         }
 
         /* 步骤切换 */
@@ -1078,7 +1291,7 @@ window.__pages['D-AT-LIST'] = function (container) {
             if (name.length < 2 || name.length > 20) {
               nameEl.classList.add('invalid'); window.toast('助理名称需为 2-20 个字符', 'error'); return;
             }
-            var dup = store.assistants.filter(function (x) {
+            var dup = store.experts.filter(function (x) {
               return x.source === 'custom' && x.name === name && (!editing || x.id !== editing.id);
             })[0];
             if (dup) { nameEl.classList.add('invalid'); window.toast('助理名称已存在，请修改', 'error'); return; }
@@ -1111,6 +1324,13 @@ window.__pages['D-AT-LIST'] = function (container) {
             return;
           }
 
+          /* 防御：分类不可为空，也不可停留在“新增分类”占位项 */
+          if (!catEl.value || catEl.value === '__new__') {
+            catEl.classList.add('invalid');
+            window.toast('请选择所属分类', 'error');
+            return;
+          }
+
           var payload = {
             name: name, desc: desc, category: catEl.value, prompt: prompt,
             avatar: draft.avatar, color: draft.color, tags: draft.tags.slice(),
@@ -1130,7 +1350,7 @@ window.__pages['D-AT-LIST'] = function (container) {
               logHistory(editing, nextVer, '编辑更新', note);
               pushApproval({
                 id: 'AP' + Date.now(), type: 'share',
-                assistantId: editing.id, assistantName: editing.name, avatar: editing.avatar, color: editing.color,
+                expertId: editing.id, expertName: editing.name, avatar: editing.avatar, color: editing.color,
                 category: editing.category, tags: editing.tags, desc: editing.desc, prompt: editing.prompt,
                 skills: editing.skills, mcps: editing.mcps, kbs: editing.kbs, version: nextVer,
                 owner: editing.owner, ownerDept: editing.ownerDept,
@@ -1152,32 +1372,36 @@ window.__pages['D-AT-LIST'] = function (container) {
 
           /* 新建 */
           var wantShare = shareBox && root.querySelector('input[name="shareMode"]:checked').value === 'yes';
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-          if (wantShare && !orgIds.length && !userIds.length) {
+          var shareAuth = wantShare
+            ? (root.querySelector('input[name="shareAuth"]:checked') || { value: 'scope' }).value
+            : 'scope';
+          if (wantShare && shareAuth === 'scope' && !window.scopeCount(wzScope)) {
             window.toast('请选择共享范围', 'error');
             return;
           }
+          var shareScope = wantShare
+            ? (shareAuth === 'public' ? { public: true } : cloneScope(wzScope))
+            : cloneScope({});
 
           var created = {
             id: 'E' + Date.now(), source: 'custom', owner: me().name, ownerDept: me().dept,
             status: wantShare ? 'pending' : 'unshared', authorizedCount: 0,
             createTime: nowStr(), updateTime: nowStr(), version: 'v1.0',
-            scope: wantShare ? { orgs: orgIds, users: userIds } : { orgs: [], users: [] },
+            scope: shareScope,
             history: [{
               version: 'v1.0', action: wantShare ? '创建并申请共享' : '创建',
               operator: me().name, time: nowStr(),
-              remark: wantShare ? '手动创建，提交共享申请' : '手动创建'
+              remark: wantShare ? ('手动创建，提交共享申请（' + (shareAuth === 'public' ? '公开' : '范围授权') + '）') : '手动创建'
             }]
           };
           Object.keys(payload).forEach(function (k) { created[k] = payload[k]; });
-          store.assistants.unshift(created);
+          store.experts.unshift(created);
 
           if (wantShare) {
-            created.authorizedCount = orgIds.length + userIds.length;
+            created.authorizedCount = window.scopeCount(shareScope);
             pushApproval({
               id: 'AP' + Date.now(), type: 'share',
-              assistantId: created.id, assistantName: created.name, avatar: created.avatar, color: created.color,
+              expertId: created.id, expertName: created.name, avatar: created.avatar, color: created.color,
               category: created.category, tags: created.tags, desc: created.desc, prompt: created.prompt,
               skills: created.skills, mcps: created.mcps, kbs: created.kbs, version: 'v1.0',
               owner: created.owner, ownerDept: created.ownerDept,
@@ -1283,7 +1507,7 @@ window.__pages['D-AT-LIST'] = function (container) {
               remark: '接入 ' + platform
             }]
           };
-          store.assistants.unshift(created);
+          store.experts.unshift(created);
           drawerApi.close();
           S.scope = 'mine';
           S.category = '全部';
@@ -1300,146 +1524,105 @@ window.__pages['D-AT-LIST'] = function (container) {
   /* ============================================================
    * 共享提交 / 重新提交
    * ============================================================ */
-  function openShare(ids, resubmitassistant) {
-    var targets = store.assistants.filter(function (e) { return ids.indexOf(e.id) >= 0; });
+  function openShare(ids, resubmitExpert) {
+    var targets = store.experts.filter(function (e) { return ids.indexOf(e.id) >= 0; });
     if (!targets.length) return;
 
-    var selOrg = {}, selUser = {};
-    var init = resubmitassistant && resubmitassistant.lastScope ? resubmitassistant.lastScope : { orgs: [], users: [] };
-    (init.orgs || []).forEach(function (o) { selOrg[o] = true; });
-    (init.users || []).forEach(function (u) { selUser[u] = true; });
+    var init = (resubmitExpert && resubmitExpert.lastScope) || {};
+    var refreshPreview = null;
+    var shareTf = window.ScopeTransfer({
+      scope: { orgs: init.orgs || [], users: init.users || [] },
+      prefix: 'shareTf',
+      limits: { orgs: 50, roles: 50, positions: 50, users: 200 },
+      onChange: function (v) { if (refreshPreview) refreshPreview(v); }
+    });
 
     var chips = targets.map(function (e) {
-      return '<span class="scope-chip"><span class="assistant-avatar" style="width:18px;height:18px;flex:0 0 18px;font-size:11px;background:' +
-        (e.color || '#3685F2') + '">' + window.esc(e.avatar || '') + '</span>' + window.esc(e.name) + '</span>';
+      return '<span class="scope-chip">' +
+        avatarHtml(e, 'width:18px;height:18px;flex:0 0 18px;font-size:11px;background:' + (e.color || '#3685F2'), 'span') +
+        window.esc(e.name) + '</span>';
     }).join('');
 
     var body =
-      (resubmitassistant ? '<div class="notice-bar info">' + window.Icon('icon-info') +
-        '<span>上次审批被拒绝，原因：' + window.esc(resubmitassistant.rejectReason || '管理员未填写拒绝原因') + '</span></div>' : '') +
+      (resubmitExpert ? '<div class="notice-bar info">' + window.Icon('icon-info') +
+        '<span>上次审批被拒绝，原因：' + window.esc(resubmitExpert.rejectReason || '管理员未填写拒绝原因') + '</span></div>' : '') +
       '<div class="confirm-text mb-base">已选 <b>' + targets.length + '</b> 个助理，提交后进入公司管理员审批，审批期间不可修改。</div>' +
       '<div class="scope-chips" style="margin-bottom:16px">' + chips + '</div>' +
       '<div class="detail-section-title">共享范围</div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">选择组织<span class="text-xs tertiary">最多 50 个节点</span></div>' +
-        '<div class="picker-box" id="orgPicker">' + orgRows(store.orgTree, selOrg, 0) + '</div>' +
-        '<div class="scope-chips" id="orgChips"></div>' +
+      '<div class="flex gap-lg" style="margin:8px 0 4px">' +
+        '<label class="checkbox-item"><input type="radio" name="shareAuthRadio" value="scope" checked><span>范围授权</span></label>' +
+        '<label class="checkbox-item"><input type="radio" name="shareAuthRadio" value="public"><span>公开</span></label>' +
       '</div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">选择人员<span class="text-xs tertiary">最多 200 人</span></div>' +
-        '<div class="picker-box" id="userPicker">' + userRows(store.users, selUser) + '</div>' +
-        '<div class="scope-chips" id="userChips"></div>' +
-      '</div>' +
-      '<div class="scope-block">' +
-        '<div class="scope-block-title">授权范围预览</div>' +
-        '<div class="scope-chips" id="previewChips"></div>' +
-        '<div class="scope-empty" id="previewEmpty">尚未选择授权对象，请至少选择一个组织或人员</div>' +
+      '<div class="form-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>' +
+      '<div id="shareScopeDetail">' +
+        '<div class="tf-tip">按组织、角色、岗位、人员批量选择，来源维度会把人展开带进「按人员」；最终共享对象是人员。上限：组织 50 个节点、角色/岗位各 50 项、人员 200 人。</div>' +
+        shareTf.html +
+        '<div class="scope-block" style="margin-top:16px">' +
+          '<div class="scope-block-title">授权范围预览</div>' +
+          '<div class="scope-chips" id="previewChips"></div>' +
+          '<div class="scope-empty" id="previewEmpty">尚未选择授权对象，请至少选择一个组织或人员</div>' +
+        '</div>' +
       '</div>';
 
     var api = window.openModal({
-      title: resubmitassistant ? '重新提交共享审批' : '共享提交',
-      width: 640,
+      title: resubmitExpert ? '重新提交共享审批' : '共享提交',
+      width: 760,
       body: body,
       footer: '<button class="btn btn-default" data-close>取消</button>' +
         '<button class="btn btn-primary" id="btnSubmitShare" disabled>提交审批</button>',
       onMount: function (root) {
         var btnSubmit = root.querySelector('#btnSubmitShare');
 
-        function refresh() {
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
+        refreshPreview = function (v) {
+          var total = window.scopeCount(v);
+          root.querySelector('#previewChips').innerHTML = total ? window.scopeChipsHtml(v) : '';
+          root.querySelector('#previewEmpty').style.display = total ? 'none' : '';
+          btnSubmit.disabled = total === 0;
+        };
 
-          root.querySelector('#orgChips').innerHTML = orgIds.map(function (id) {
-            var n = window.findOrg(id);
-            return '<span class="scope-chip">' + window.esc(n ? n.name : id) +
-              '<span class="x" data-del-org="' + id + '">×</span></span>';
-          }).join('');
-          root.querySelector('#userChips').innerHTML = userIds.map(function (id) {
-            var u = window.findUser(id);
-            return '<span class="scope-chip">' + window.esc(u ? u.name : id) +
-              '<span class="x" data-del-user="' + id + '">×</span></span>';
-          }).join('');
+        var shareTfApi = shareTf.mount(root);
+        refreshPreview(shareTfApi.get());
 
-          var all = orgIds.map(function (id) {
-            var n = window.findOrg(id);
-            return '<span class="scope-chip">组织 · ' + window.esc(n ? n.name : id) + '</span>';
-          }).concat(userIds.map(function (id) {
-            var u = window.findUser(id);
-            return '<span class="scope-chip">人员 · ' + window.esc(u ? u.name : id) + '</span>';
-          })).join('');
-
-          root.querySelector('#previewChips').innerHTML = all;
-          root.querySelector('#previewEmpty').style.display = (orgIds.length + userIds.length) ? 'none' : '';
-          btnSubmit.disabled = (orgIds.length + userIds.length) === 0;
-
-          root.querySelectorAll('[data-del-org]').forEach(function (el) {
-            el.addEventListener('click', function () {
-              var id = el.getAttribute('data-del-org');
-              delete selOrg[id];
-              var cb = root.querySelector('input[data-oid="' + id + '"]');
-              if (cb) cb.checked = false;
-              refresh();
-            });
-          });
-          root.querySelectorAll('[data-del-user]').forEach(function (el) {
-            el.addEventListener('click', function () {
-              var id = el.getAttribute('data-del-user');
-              delete selUser[id];
-              var cb = root.querySelector('input[data-uid="' + id + '"]');
-              if (cb) cb.checked = false;
-              refresh();
-            });
-          });
-        }
-
-        root.querySelectorAll('#orgPicker input[data-oid]').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            var node = window.findOrg(cb.getAttribute('data-oid'));
-            collectIds(node).forEach(function (id) { selOrg[id] = cb.checked; });
-            root.querySelectorAll('#orgPicker input[data-oid]').forEach(function (x) {
-              if (selOrg[x.getAttribute('data-oid')]) x.checked = true;
-            });
-            refresh();
-          });
-        });
-        root.querySelectorAll('#userPicker input[data-uid]').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            selUser[cb.getAttribute('data-uid')] = cb.checked;
-            refresh();
+        /* 共享方式：范围授权 / 公开（与创建向导共享设置一致） */
+        var scopeDetail = root.querySelector('#shareScopeDetail');
+        root.querySelectorAll('input[name="shareAuthRadio"]').forEach(function (r) {
+          r.addEventListener('change', function () {
+            var pub = (root.querySelector('input[name="shareAuthRadio"]:checked') || { value: 'scope' }).value === 'public';
+            scopeDetail.style.display = pub ? 'none' : '';
+            refreshPreview(pub ? { public: true } : shareTfApi.get());
           });
         });
 
         btnSubmit.addEventListener('click', function () {
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-          if (!orgIds.length && !userIds.length) { window.toast('请至少选择一个组织或人员', 'error'); return; }
+          var isPublic = (root.querySelector('input[name="shareAuthRadio"]:checked') || { value: 'scope' }).value === 'public';
+          var v = isPublic ? { public: true } : shareTfApi.get();
+          var total = window.scopeCount(v);
+          if (!total) { window.toast('请至少选择一个共享对象', 'error'); return; }
 
           targets.forEach(function (t) {
             t.status = 'pending';
-            t.scope = { orgs: orgIds, users: userIds };
-            t.authorizedCount = orgIds.length + userIds.length;
+            t.scope = cloneScope(v);
+            t.authorizedCount = total;
             t.rejectReason = '';
             t.updateTime = nowStr();
-            logHistory(t, t.version || 'v1.0', resubmitassistant ? '重新提交共享申请' : '提交共享申请', '');
+            logHistory(t, t.version || 'v1.0', resubmitExpert ? '重新提交共享申请' : '提交共享申请', '');
             pushApproval({
               id: 'AP' + Date.now() + Math.floor(Math.random() * 100),
               type: 'share',
-              assistantId: t.id, assistantName: t.name, avatar: t.avatar, color: t.color,
+              expertId: t.id, expertName: t.name, avatar: t.avatar, color: t.color,
               category: t.category, tags: t.tags, desc: t.desc, prompt: t.prompt,
               skills: t.skills, mcps: t.mcps, kbs: t.kbs, version: t.version || 'v1.0',
               owner: t.owner, ownerDept: t.ownerDept,
               submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
-              changeNote: resubmitassistant ? '重新提交' : '首次申请共享',
-              scope: { orgs: orgIds, users: userIds }, status: 'pending'
+              changeNote: resubmitExpert ? '重新提交' : '首次申请共享',
+              scope: cloneScope(v), status: 'pending'
             });
           });
           S.selected = {};
           api.close();
           window.__reload();
-          window.toast(resubmitassistant ? '已重新提交审批' : '已提交审批，等待管理员处理');
+          window.toast(resubmitExpert ? '已重新提交审批' : '已提交审批，等待管理员处理');
         });
-
-        refresh();
       }
     });
     return api;
@@ -1450,68 +1633,123 @@ window.__pages['D-AT-LIST'] = function (container) {
    * ============================================================ */
   var TYPE_TEXT = { share: ['blue', '共享申请'], offline: ['warning', '下架申请'], scope: ['default', '范围变更'] };
 
-  function openApprovalList() {
-    function listHtml() {
-      var list = store.approvals.filter(function (a) { return a.status === 'pending'; });
+  function pendingApprList() {
+    return store.approvals.filter(function (a) { return a.status === 'pending'; });
+  }
+  function apprSub(a) {
+    return a.type === 'offline'
+      ? '下架原因：' + (a.reason || '')
+      : a.type === 'scope'
+        ? '变更授权范围'
+        : '授权范围：' + summarizeScope(a.scope);
+  }
+  function apprItemHtml(a) {
+    var t = TYPE_TEXT[a.type] || TYPE_TEXT.share;
+    return '<div class="appr-item" data-appr="' + a.id + '">' +
+      avatarHtml({ avatar: a.avatar, color: a.color, name: a.expertName }) +
+      '<div class="appr-main">' +
+        '<div class="appr-name">' + window.esc(a.expertName) + window.Tag(t[0], t[1]) +
+          '<span class="ver-tag">' + window.esc(a.version || 'v1.0') + '</span></div>' +
+        '<div class="appr-meta">提交人：' + window.esc(a.submitter) + ' · ' + window.esc(a.submitTime) + '</div>' +
+        '<div class="appr-scope">' + window.esc(apprSub(a)) + '</div></div>' +
+      window.Icon('icon-chevron-right') + '</div>';
+  }
+  function apprCardHtml(a) {
+    var t = TYPE_TEXT[a.type] || TYPE_TEXT.share;
+    return '<div class="appr-card" data-appr="' + a.id + '">' +
+      '<div class="appr-card-head">' +
+        avatarHtml({ avatar: a.avatar, color: a.color, name: a.expertName }) +
+        '<div class="appr-main">' +
+          '<div class="appr-name">' + window.esc(a.expertName) + window.Tag(t[0], t[1]) + '</div>' +
+          '<div class="appr-meta">' + window.esc(a.version || 'v1.0') + ' · 提交人：' + window.esc(a.submitter) + '</div>' +
+        '</div></div>' +
+      '<div class="appr-scope">' + window.esc(apprSub(a)) + '</div>' +
+      '<div class="appr-card-foot"><span>' + window.esc(a.submitTime) + '</span>' +
+        '<span class="appr-card-go">去处理 ' + window.Icon('icon-chevron-right') + '</span></div>' +
+      '</div>';
+  }
+
+  /* 审批中心独立页面：支持列表 / 卡片两种视图 */
+  window.__pages['D-AT-APPR'] = function (pageRoot) {
+    if (!window.__isAdmin()) {
+      pageRoot.innerHTML = '<div class="page-card"><div class="empty-state">' +
+        '<div class="empty-state-text">审批中心仅管理员可访问</div></div></div>';
+      return;
+    }
+    if (!S.apprView) S.apprView = 'list';
+
+    pageRoot.innerHTML =
+      '<div class="page-card">' +
+        '<div class="page-head">' +
+          '<div>' +
+            '<div class="page-title">审批中心</div>' +
+            '<div class="page-subtitle">集中处理共享申请、下架申请与范围变更，支持按列表或卡片查看。</div>' +
+          '</div>' +
+          '<div class="page-head-actions">' +
+            '<button class="btn btn-default" id="apprBack">' + window.Icon('icon-arrow-left') + '返回列表</button>' +
+            '<div class="seg-group" id="apprViewTabs">' +
+              '<div class="seg' + (S.apprView === 'list' ? ' active' : '') + '" data-view="list">列表</div>' +
+              '<div class="seg' + (S.apprView === 'card' ? ' active' : '') + '" data-view="card">卡片</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="list-meta"><span id="apprSummary"></span></div>' +
+        '<div id="apprBody"></div>' +
+      '</div>';
+
+    function paint() {
+      var list = pendingApprList();
+      pageRoot.querySelector('#apprSummary').textContent = '共 ' + list.length + ' 条待审批 · 按提交时间正序排列';
+      var body = pageRoot.querySelector('#apprBody');
       if (!list.length) {
-        return '<div class="empty-state"><div class="empty-icon">' + window.Icon('icon-check-circle', 'icon-lg') + '</div>' +
+        body.innerHTML = '<div class="empty-state"><div class="empty-icon">' + window.Icon('icon-check-circle', 'icon-lg') + '</div>' +
           '<div class="empty-state-text">暂无待审批的申请</div></div>';
+        return;
       }
-      return list.map(function (a) {
-        var t = TYPE_TEXT[a.type] || TYPE_TEXT.share;
-        var sub = a.type === 'offline'
-          ? '下架原因：' + (a.reason || '')
-          : a.type === 'scope'
-            ? '变更授权范围'
-            : '授权范围：' + summarizeScope(a.scope);
-        return '<div class="appr-item" data-appr="' + a.id + '">' +
-          '<div class="assistant-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.esc(a.avatar || a.assistantName.slice(0, 1)) + '</div>' +
-          '<div class="appr-main">' +
-            '<div class="appr-name">' + window.esc(a.assistantName) + window.Tag(t[0], t[1]) +
-              '<span class="ver-tag" style="margin-left:6px">' + window.esc(a.version || 'v1.0') + '</span></div>' +
-            '<div class="appr-meta">提交人：' + window.esc(a.submitter) + ' · ' + window.esc(a.submitTime) + '</div>' +
-            '<div class="appr-scope">' + window.esc(sub) + '</div></div>' +
-          window.Icon('icon-chevron-right') + '</div>';
-      }).join('');
+      body.innerHTML = S.apprView === 'card'
+        ? '<div class="appr-grid">' + list.map(apprCardHtml).join('') + '</div>'
+        : list.map(apprItemHtml).join('');
+      body.querySelectorAll('[data-appr]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          var appr = store.approvals.filter(function (a) { return a.id === el.getAttribute('data-appr'); })[0];
+          openApprovalDetail(appr, function () { paint(); });
+        });
+      });
     }
 
-    var api = window.openDrawer({
-      title: '审批中心',
-      width: 580,
-      body: '<div class="text-sm muted mb-base" id="apprSummary"></div><div id="apprList"></div>',
-      footer: '<button class="btn btn-default" data-close>关闭</button>',
-      onMount: function (root, drawerApi) {
-        function paintList() {
-          var n = store.approvals.filter(function (a) { return a.status === 'pending'; }).length;
-          root.querySelector('#apprSummary').textContent = '共 ' + n + ' 条待审批 · 按提交时间正序排列';
-          root.querySelector('#apprList').innerHTML = listHtml();
-          root.querySelectorAll('[data-appr]').forEach(function (el) {
-            el.addEventListener('click', function () {
-              var id = el.getAttribute('data-appr');
-              var appr = store.approvals.filter(function (a) { return a.id === id; })[0];
-              openApprovalDetail(appr, function () {
-                paintList();
-                drawerApi.close();
-                window.__reload();
-              });
-            });
-          });
-        }
-        paintList();
-      }
+    pageRoot.querySelectorAll('#apprViewTabs .seg').forEach(function (el) {
+      el.addEventListener('click', function () {
+        S.apprView = el.getAttribute('data-view');
+        pageRoot.querySelectorAll('#apprViewTabs .seg').forEach(function (t) {
+          t.classList.toggle('active', t === el);
+        });
+        paint();
+      });
     });
-    return api;
+    pageRoot.querySelector('#apprBack').addEventListener('click', function () {
+      window.__switchPage('D-AT-LIST');
+    });
+    paint();
+  };
+
+  /* 授权范围对象拷贝（人是最小颗粒，来源维度与公开标记一并保留） */
+  function cloneScope(s) {
+    s = s || {};
+    return {
+      public: !!s.public,
+      orgs: (s.orgs || []).slice(),
+      roles: (s.roles || []).slice(),
+      positions: (s.positions || []).slice(),
+      users: (s.users || []).slice(),
+      excluded: (s.excluded || []).slice()
+    };
   }
 
   function summarizeScope(scope) {
-    var orgNames = ((scope && scope.orgs) || []).map(function (id) {
-      var n = window.findOrg(id); return n ? n.name : id;
-    });
-    var userNames = ((scope && scope.users) || []).map(function (id) {
+    var names = window.scopePeople(scope).map(function (id) {
       var u = window.findUser(id); return u ? u.name : id;
     });
-    var all = orgNames.concat(userNames);
-    return (all.slice(0, 2).join('、') + (all.length > 2 ? ' +' + (all.length - 2) : '')) || '未设置';
+    return (names.slice(0, 2).join('、') + (names.length > 2 ? ' +' + (names.length - 2) : '')) || '未设置';
   }
 
   function openApprovalDetail(appr, onDecided) {
@@ -1521,38 +1759,49 @@ window.__pages['D-AT-LIST'] = function (container) {
       return;
     }
     var type = appr.type || 'share';
-    var selOrg = {}, selUser = {};
-    ((appr.scope && appr.scope.orgs) || []).forEach(function (o) { selOrg[o] = true; });
-    ((appr.scope && appr.scope.users) || []).forEach(function (u) { selUser[u] = true; });
+    var scopeSel = cloneScope(appr.scope);
     var adjusted = false;
     var editing = false;
+    var scopeBackup = null;
 
     function capRow(title, content) {
       return '<div class="cap-item"><div class="cap-title">' + title + '</div><div class="cap-body">' + content + '</div></div>';
     }
     function scopeChips(scope, empty) {
-      var orgIds = (scope.orgs || []), userIds = (scope.users || []);
-      var chips = orgIds.map(function (id) {
-        var n = window.findOrg(id);
-        return '<span class="scope-chip">组织 · ' + window.esc(n ? n.name : id) + '</span>';
-      }).concat(userIds.map(function (id) {
-        var u = window.findUser(id);
-        return '<span class="scope-chip">人员 · ' + window.esc(u ? u.name : id) + '</span>';
-      })).join('');
-      return chips || '<span class="scope-empty">' + (empty || '未设置') + '</span>';
+      return window.scopeChipsHtml(scope) || '<span class="scope-empty">' + (empty || '未设置') + '</span>';
     }
 
+    var apTf = null;
+    var apPublic = null; /* 调整中的共享方式：true=公开；null=未进入编辑态 */
     function scopeViewHtml() {
       if (editing) {
-        return '<div class="picker-box" id="apOrgPicker" style="margin-bottom:8px">' + orgRows(store.orgTree, selOrg, 0) + '</div>' +
-          '<div class="picker-box" id="apUserPicker">' + userRows(store.users, selUser) + '</div>' +
+        if (apPublic === null) apPublic = !!scopeSel.public;
+        apTf = window.ScopeTransfer({
+          scope: scopeSel,
+          prefix: 'apScopeTf',
+          limits: { orgs: 50, roles: 50, positions: 50, users: 200 },
+          onChange: function (v) { scopeSel = cloneScope(v); }
+        });
+        return '<div class="detail-section-title" style="margin-top:0">共享范围</div>' +
+          '<div class="flex gap-lg" style="margin:8px 0 4px">' +
+            '<label class="checkbox-item"><input type="radio" name="apScopeAuthRadio" value="scope"' + (apPublic ? '' : ' checked') + '><span>范围授权</span></label>' +
+            '<label class="checkbox-item"><input type="radio" name="apScopeAuthRadio" value="public"' + (apPublic ? ' checked' : '') + '><span>公开</span></label>' +
+          '</div>' +
+          '<div class="form-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>' +
+          '<div id="apScopeModeDetail"' + (apPublic ? ' style="display:none"' : '') + '>' +
+            '<div class="tf-tip">按组织、角色、岗位、人员批量选择，来源维度会把人展开带进「按人员」；最终生效颗粒是人员，调整结果将在审批通过时覆盖申请的授权范围。</div>' +
+            apTf.html +
+            '<div class="scope-block" style="margin-top:16px">' +
+              '<div class="scope-block-title">授权范围预览</div>' +
+              '<div class="scope-chips" id="apScopePreviewChips"></div>' +
+              '<div class="scope-empty" id="apScopePreviewEmpty">尚未选择授权对象，请至少选择一个组织或人员</div>' +
+            '</div>' +
+          '</div>' +
           '<div class="flex gap-sm mt-base"><button class="btn btn-primary btn-sm" id="apScopeOk">确认调整</button>' +
-            '<button class="btn btn-default btn-sm" id="apScopeCancel">取消</button></div>';
+          '<button class="btn btn-default btn-sm" id="apScopeCancel">取消</button></div>';
       }
-      var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-      var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-      return '<div class="scope-chips">' + scopeChips({ orgs: orgIds, users: userIds }) + '</div>' +
-        '<div class="form-hint">组织 ' + orgIds.length + ' 个 · 人员 ' + userIds.length + ' 人</div>';
+      return '<div class="scope-chips">' + scopeChips(scopeSel) + '</div>' +
+        '<div class="form-hint">' + window.scopeSummary(scopeSel) + '</div>';
     }
 
     var typeTag = TYPE_TEXT[type] || TYPE_TEXT.share;
@@ -1560,11 +1809,11 @@ window.__pages['D-AT-LIST'] = function (container) {
       '<div class="text-sm muted mb-base">' + window.esc(typeTag[1]) + ' · 单号：' + window.esc(appr.id) +
         ' · 提交人：' + window.esc(appr.submitter) + '（' + window.esc(appr.submitterDept) + '） · ' + window.esc(appr.submitTime) + '</div>' +
       '<div class="detail-section-title">助理信息</div>' +
-      '<div class="assistant-card-top" style="margin-bottom:12px">' +
-        '<div class="assistant-avatar" style="background:' + (appr.color || '#3685F2') + '">' + window.esc(appr.avatar || '') + '</div>' +
-        '<div class="assistant-name-wrap"><div class="assistant-name">' + window.esc(appr.assistantName) +
+      '<div class="expert-card-top" style="margin-bottom:12px">' +
+        avatarHtml({ avatar: appr.avatar, color: appr.color, name: appr.expertName }) +
+        '<div class="expert-name-wrap"><div class="expert-name">' + window.esc(appr.expertName) +
           window.Tag('blue', appr.category) + '<span class="ver-tag">' + window.esc(appr.version || 'v1.0') + '</span></div>' +
-          '<div class="assistant-tags">' + (appr.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
+          '<div class="expert-tags">' + (appr.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
         '</div></div>' +
       '<div class="cap-item"><div class="cap-title">描述</div><div class="cap-body">' + window.esc(appr.desc || '') + '</div></div>' +
       (type === 'offline'
@@ -1593,7 +1842,7 @@ window.__pages['D-AT-LIST'] = function (container) {
               : ''));
 
     var api = window.openDrawer({
-      title: '审批详情 · ' + appr.assistantName,
+      title: '审批详情 · ' + appr.expertName,
       width: 760,
       body: body,
       footer: '<button class="btn btn-default" data-close>稍后处理</button>' +
@@ -1610,43 +1859,57 @@ window.__pages['D-AT-LIST'] = function (container) {
           var flag = root.querySelector('#adjustedFlag');
           if (flag) flag.style.display = adjusted ? '' : 'none';
 
-          root.querySelectorAll('#apOrgPicker input[data-oid]').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-              var node = window.findOrg(cb.getAttribute('data-oid'));
-              collectIds(node).forEach(function (id) { selOrg[id] = cb.checked; });
-              root.querySelectorAll('#apOrgPicker input[data-oid]').forEach(function (x) {
-                if (selOrg[x.getAttribute('data-oid')]) x.checked = true;
+          if (editing && apTf) {
+            apTf.mount(scopeArea);
+            function apRefreshPreview(v) {
+              var total = window.scopeCount(v);
+              scopeArea.querySelector('#apScopePreviewChips').innerHTML = total ? window.scopeChipsHtml(v) : '';
+              scopeArea.querySelector('#apScopePreviewEmpty').style.display = total ? 'none' : '';
+            }
+            apRefreshPreview(apPublic ? { public: true } : scopeSel);
+
+            /* 共享方式：范围授权 / 公开（与创建向导、共享提交弹窗一致） */
+            scopeArea.querySelectorAll('input[name="apScopeAuthRadio"]').forEach(function (r) {
+              r.addEventListener('change', function () {
+                apPublic = (scopeArea.querySelector('input[name="apScopeAuthRadio"]:checked') || { value: 'scope' }).value === 'public';
+                scopeArea.querySelector('#apScopeModeDetail').style.display = apPublic ? 'none' : '';
+                if (apPublic) scopeSel = { public: true };
+                apRefreshPreview(apPublic ? { public: true } : scopeSel);
               });
             });
-          });
-          root.querySelectorAll('#apUserPicker input[data-uid]').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-              selUser[cb.getAttribute('data-uid')] = cb.checked;
-            });
-          });
+          }
           var ok = root.querySelector('#apScopeOk');
           if (ok) {
             ok.addEventListener('click', function () {
-              var n = Object.keys(selOrg).filter(function (k) { return selOrg[k]; }).length +
-                Object.keys(selUser).filter(function (k) { return selUser[k]; }).length;
-              if (!n) { window.toast('授权范围不可为空', 'error'); return; }
-              editing = false; adjusted = true; paintScope();
+              if (!apPublic && !window.scopeCount(scopeSel)) { window.toast('授权范围不可为空，请至少保留 1 名人员', 'error'); return; }
+              editing = false; apPublic = null; adjusted = true; paintScope();
               window.toast('授权范围已调整，将在审批通过时生效');
             });
           }
           var cancel = root.querySelector('#apScopeCancel');
-          if (cancel) cancel.addEventListener('click', function () { editing = false; paintScope(); });
+          if (cancel) {
+            cancel.addEventListener('click', function () {
+              if (scopeBackup) scopeSel = scopeBackup;
+              editing = false; apPublic = null;
+              paintScope();
+            });
+          }
         }
         if (scopeArea) paintScope();
 
         var editScopeBtn = root.querySelector('#apEditScope');
-        if (editScopeBtn) editScopeBtn.addEventListener('click', function () { editing = true; paintScope(); });
+        if (editScopeBtn) {
+          editScopeBtn.addEventListener('click', function () {
+            scopeBackup = cloneScope(scopeSel);
+            editing = true;
+            paintScope();
+          });
+        }
 
         /* 通过 */
         root.querySelector('#apPass').addEventListener('click', function () {
-          var orgIds = Object.keys(selOrg).filter(function (k) { return selOrg[k]; });
-          var userIds = Object.keys(selUser).filter(function (k) { return selUser[k]; });
-          var target = store.assistants.filter(function (e) { return e.id === appr.assistantId; })[0];
+          var people = window.scopeCount(scopeSel);
+          var target = store.experts.filter(function (e) { return e.id === appr.expertId; })[0];
 
           var passText = type === 'offline'
             ? '通过后该助理将立即下架，并从所有授权对象的助理库中移除。'
@@ -1657,8 +1920,8 @@ window.__pages['D-AT-LIST'] = function (container) {
           window.confirmDialog({
             title: '确认审批通过？',
             text: passText,
-            impact: type === 'offline' ? '助理：' + appr.assistantName
-              : '最终授权范围：组织 ' + orgIds.length + ' 个 · 人员 ' + userIds.length + ' 人' +
+            impact: type === 'offline' ? '助理：' + appr.expertName
+              : '最终授权对象：' + people + ' 人 · ' + window.scopeSummary(scopeSel) +
                 (adjusted ? '（已按管理员调整结果生效）' : ''),
             okText: '确认通过',
             onOk: function () {
@@ -1674,17 +1937,17 @@ window.__pages['D-AT-LIST'] = function (container) {
                 }
               } else if (type === 'scope') {
                 if (target) {
-                  target.scope = { orgs: appr.scope.orgs || [], users: appr.scope.users || [] };
-                  target.authorizedCount = (appr.scope.orgs || []).length + (appr.scope.users || []).length;
+                  target.scope = cloneScope(appr.scope);
+                  target.authorizedCount = window.scopeCount(appr.scope);
                   target.updateTime = nowStr();
-                  logHistory(target, target.version, '授权范围变更', '对象 ' + target.authorizedCount + ' 个');
+                  logHistory(target, target.version, '授权范围变更', window.scopeSummary(appr.scope));
                 }
               } else {
-                appr.scope = { orgs: orgIds, users: userIds };
+                appr.scope = cloneScope(scopeSel);
                 if (target) {
                   target.status = 'approved';
-                  target.authorizedCount = orgIds.length + userIds.length;
-                  target.scope = { orgs: orgIds, users: userIds };
+                  target.authorizedCount = people;
+                  target.scope = cloneScope(scopeSel);
                   target.rejectReason = '';
                   target.updateTime = nowStr();
                   logHistory(target, target.version, '共享审批通过', appr.changeNote || '');
@@ -1722,7 +1985,7 @@ window.__pages['D-AT-LIST'] = function (container) {
                 appr.rejectReason = reason;
                 appr.approver = me().name;
                 appr.approveTime = nowStr();
-                var target = store.assistants.filter(function (e) { return e.id === appr.assistantId; })[0];
+                var target = store.experts.filter(function (e) { return e.id === appr.expertId; })[0];
                 if (target) {
                   if (type === 'offline') {
                     target.status = 'approved';
@@ -1751,33 +2014,4 @@ window.__pages['D-AT-LIST'] = function (container) {
     return api;
   }
 
-  /* ============================================================
-   * 组织 / 人员选择器（共用）
-   * ============================================================ */
-  function orgRows(nodes, selObj, indent) {
-    var html = '';
-    nodes.forEach(function (n) {
-      html += '<div style="padding-left:' + (indent || 0) + 'px;margin:3px 0">' +
-        '<label class="checkbox-item" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">' +
-        '<input type="checkbox" data-oid="' + n.id + '"' + (selObj[n.id] ? ' checked' : '') + '>' +
-        '<span>' + window.esc(n.name) + '</span></label></div>';
-      if (n.children && n.children.length) html += orgRows(n.children, selObj, (indent || 0) + 16);
-    });
-    return html;
-  }
-  function collectIds(node) {
-    var out = [node.id];
-    (function walk(ns) {
-      (ns || []).forEach(function (n) { out.push(n.id); if (n.children) walk(n.children); });
-    })(node.children);
-    return out;
-  }
-  function userRows(list, selObj) {
-    return list.map(function (u) {
-      return '<label class="checkbox-item" style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer">' +
-        '<input type="checkbox" data-uid="' + u.id + '"' + (selObj[u.id] ? ' checked' : '') + '>' +
-        '<span>' + window.esc(u.name) + '</span>' +
-        '<span class="text-xs tertiary">' + window.esc(u.dept) + '</span></label>';
-    }).join('');
-  }
 };

@@ -5,10 +5,12 @@ import StatusTag from './StatusTag.vue'
 import { useUserStore } from '@/stores/user'
 import type { AssistantCard, AssistantAction } from '@/types/assistant'
 
-/** 助理卡片：列表页三范围共用，按钮由后端 actions 驱动 */
+/** 助理卡片：列表页四范围共用，按钮由后端 actions 驱动
+ * 交互对齐 prototype：整卡点击进详情；卡片按钮默认隐藏，悬停展示；标签最多 2 个其余 +N。
+ */
 const props = defineProps<{
   card: AssistantCard
-  scope?: 'all' | 'mine' | 'shared'
+  scope?: 'all' | 'mine' | 'shared' | 'auth'
   selectable?: boolean
   selected?: boolean
   expandedReject?: boolean
@@ -26,26 +28,26 @@ const ACTION_LABEL: Record<AssistantAction, string> = {
   share: '共享',
   resubmit: '重新提交',
   shareScope: '共享范围',
+  offline: '下架',
   remove: '移除',
   resubscribe: '重新订阅'
 }
 
-/** 需求 F-EXP-002：平台预置助理的「授权范围」仅公司管理员可见 */
-const visibleActions = computed(() =>
-  (props.card.actions ?? []).filter((a) => {
-    if (a === 'edit' || a === 'delete' || a === 'share' || a === 'resubmit') {
-      return props.scope === 'mine'
-    }
-    if (a === 'shareScope') {
-      if (props.card.source === 'platform') return isAdmin.value
-      return props.scope !== 'shared'
-    }
-    return true
-  })
-)
-
 const userStore = useUserStore()
-const isAdmin = computed(() => userStore.isAdmin)
+/** 授权管理页签：卡片常驻「详情 / 调整范围」，其余范围仅展示召唤（悬停） */
+const isAuthView = computed(() => props.scope === 'auth')
+
+/**
+ * 卡片按钮：需求 F-EXP-002 平台预置授权范围仅管理员可见；
+ * 编辑/删除/共享/重新提交只出现在「我的助理」，其余操作收进详情抽屉。
+ */
+const visibleActions = computed<AssistantAction[]>(() => {
+  const actions = props.card.actions ?? []
+  if (isAuthView.value) {
+    return actions.includes('shareScope') && userStore.isAdmin ? ['shareScope'] : []
+  }
+  return actions.filter((a) => a === 'summon')
+})
 
 const canShare = computed(
   () =>
@@ -54,22 +56,34 @@ const canShare = computed(
     (props.card.shareStatus === 'unshared' || props.card.shareStatus === 'rejected')
 )
 
-const ownerLine = computed(() => {
-  if (props.card.source === 'shared' && props.card.sharedFrom) {
-    const dept = props.card.sharedFrom.ownerDeptName.split(' · ').pop()
-    return `共享自 ${props.card.sharedFrom.ownerName}${dept ? ` · ${dept}` : ''}`
-  }
-  if (props.card.source === 'platform') return `平台预置 · ${props.card.categoryName}`
-  return props.card.ownerName ?? ''
+/** 标签：最多展示 2 个，其余以 +N 收拢（完整标签见详情） */
+const visibleTags = computed(() => props.card.tags.slice(0, 2))
+const moreTagCount = computed(() => Math.max(props.card.tags.length - 2, 0))
+
+const authScopeLine = computed(() => {
+  const scope = props.card.shareScope
+  if (!scope) return '授权范围：未设置'
+  if (scope.scopeMode === 'PUBLIC') return '授权范围：公开（全公司可用）'
+  return `授权对象 ${scope.grantTotal} 人 · ${scope.summary || '未设置'}`
 })
 
 function onAction(action: AssistantAction): void {
   emit('action', action, props.card)
 }
+
+/** 整卡点击进详情；按钮、复选框区域除外 */
+function onCardClick(event: MouseEvent): void {
+  if ((event.target as HTMLElement).closest('.card-check, .card-actions')) return
+  emit('action', 'detail', props.card)
+}
 </script>
 
 <template>
-  <div class="assistant-card" :class="{ selected, 'has-check': selectable }">
+  <div
+    class="assistant-card"
+    :class="{ selected, 'has-check': selectable, 'is-auth': isAuthView }"
+    @click="onCardClick"
+  >
     <el-checkbox
       v-if="selectable"
       class="card-check"
@@ -85,48 +99,54 @@ function onAction(action: AssistantAction): void {
         :url="card.avatarUrl"
         :color="card.avatarColor"
         :name="card.name"
-        :size="36"
+        :seed="card.assistantId"
+        :size="48"
       />
       <div class="card-name-wrap">
-        <div class="card-name" @click="emit('action', 'detail', card)">
+        <div class="card-name">
           <span class="name-text">{{ card.name }}</span>
-          <StatusTag v-if="card.source === 'shared'" :status="card.subscribeStatus" />
+          <!-- 状态角标：平台预置 / 已共享（我创建）/ 已订阅（别人创建）三类互斥 -->
+          <StatusTag v-if="card.source === 'platform'" status="platform" />
+          <StatusTag v-else-if="card.source === 'shared'" :status="card.subscribeStatus" />
           <StatusTag v-else-if="card.shareStatus" :status="card.shareStatus" />
-          <span v-if="card.source === 'shared'" class="shared-flag">共享</span>
           <span class="ver-tag">{{ card.version }}</span>
         </div>
         <div class="card-tags">
-          <span v-for="t in card.tags.slice(0, 3)" :key="t" class="mini-tag">{{ t }}</span>
+          <span v-for="t in visibleTags" :key="t" class="mini-tag">{{ t }}</span>
+          <span
+            v-if="moreTagCount"
+            class="mini-tag tag-more"
+            :title="`共 ${card.tags.length} 个标签：${card.tags.join('、')}`"
+          >
+            +{{ moreTagCount }}
+          </span>
         </div>
       </div>
     </div>
 
     <div class="card-desc">{{ card.descriptionTruncated }}</div>
 
-    <div v-if="card.shareStatus === 'rejected'" class="reject-bar" :class="{ expanded: expandedReject }">
+    <div v-if="isAuthView" class="auth-scope-line">{{ authScopeLine }}</div>
+
+    <div v-if="card.shareStatus === 'rejected' && scope === 'mine'" class="reject-bar">
       <span class="reject-text">拒绝原因：{{ card.rejectReason || '管理员未填写拒绝原因' }}</span>
-      <span class="reject-toggle" @click="emit('action', 'toggleReject', card)">
-        {{ expandedReject ? '收起' : '展开' }}
-      </span>
     </div>
 
-    <div class="card-foot">
-      <span class="card-owner">{{ ownerLine }}</span>
-      <span class="card-actions">
-        <el-button
+    <div class="card-actions">
+      <template v-if="isAuthView">
+        <button class="act-btn act-btn-text" @click.stop="emit('action', 'detail', card)">详情</button>
+        <button class="act-btn act-btn-primary" @click.stop="onAction('shareScope')">调整范围</button>
+      </template>
+      <template v-else>
+        <button
           v-for="a in visibleActions"
           :key="a"
-          link
-          type="primary"
-          size="small"
-          @click="onAction(a)"
+          class="act-btn act-btn-primary"
+          @click.stop="onAction(a)"
         >
           {{ ACTION_LABEL[a] }}
-        </el-button>
-        <el-button v-if="card.source !== 'shared'" link size="small" @click="emit('action', 'detail', card)">
-          详情
-        </el-button>
-      </span>
+        </button>
+      </template>
     </div>
   </div>
 </template>
@@ -136,17 +156,26 @@ function onAction(action: AssistantAction): void {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-height: 150px;
   padding: 14px 16px;
   background: #fff;
   border: 1px solid var(--at-border);
-  border-radius: 6px;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.16s, border-color 0.16s, box-shadow 0.16s, transform 0.16s;
+}
+
+.assistant-card > * {
+  flex-shrink: 0;
 }
 
 .assistant-card:hover {
-  border-color: #c8d6f0;
-  box-shadow: 0 2px 10px rgba(31, 35, 41, 0.06);
+  background: #f5f9ff;
+  border-color: rgba(54, 133, 242, 0.35);
+  box-shadow: 0 6px 18px rgba(20, 60, 150, 0.12);
+  transform: translateY(-1px);
+  z-index: 2;
 }
 
 .assistant-card.selected {
@@ -158,6 +187,7 @@ function onAction(action: AssistantAction): void {
   position: absolute;
   top: 10px;
   left: 10px;
+  z-index: 3;
 }
 
 .assistant-card.has-check .card-top {
@@ -166,8 +196,8 @@ function onAction(action: AssistantAction): void {
 
 .card-top {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
 }
 
 .card-name-wrap {
@@ -180,7 +210,6 @@ function onAction(action: AssistantAction): void {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  cursor: pointer;
   line-height: 20px;
 }
 
@@ -193,23 +222,11 @@ function onAction(action: AssistantAction): void {
   white-space: nowrap;
 }
 
-.name-text:hover {
-  color: var(--at-brand);
-}
-
-.shared-flag {
-  padding: 0 5px;
-  border: 1px solid #c8d6f0;
-  border-radius: 3px;
-  color: var(--at-brand);
-  font-size: 11px;
-  line-height: 16px;
-}
-
 .ver-tag {
   color: var(--at-text-weak);
   font-size: 11px;
   font-family: var(--font-mono, monospace);
+  white-space: nowrap;
 }
 
 .card-tags {
@@ -221,12 +238,18 @@ function onAction(action: AssistantAction): void {
 }
 
 .mini-tag {
-  padding: 0 6px;
-  background: #f2f3f5;
-  border-radius: 3px;
+  padding: 2px 10px;
+  background: #fff;
+  border: 1px solid var(--at-border);
+  border-radius: 999px;
   color: var(--at-text-sub);
   font-size: 11px;
-  line-height: 18px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.mini-tag.tag-more {
+  color: var(--at-text-weak);
 }
 
 .card-desc {
@@ -235,9 +258,24 @@ function onAction(action: AssistantAction): void {
   color: var(--at-text-sub);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 40px;
+}
+
+.auth-scope-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--at-text-weak);
+  background: #f4f8fe;
+  border-radius: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .reject-bar {
@@ -252,47 +290,82 @@ function onAction(action: AssistantAction): void {
   color: #d92d20;
 }
 
-.reject-bar:not(.expanded) .reject-text {
+.reject-text {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.reject-text {
-  flex: 1;
-}
-
-.reject-toggle {
-  flex: 0 0 auto;
-  cursor: pointer;
-  color: var(--at-brand);
-}
-
-.card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #f2f3f5;
-}
-
-.card-owner {
-  font-size: 12px;
-  color: var(--at-text-weak);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* 卡片操作：默认隐藏，悬停淡入；触屏设备常驻
+ * 对齐 prototype .expert-actions：按钮等分占满卡片宽度、30px 高、12px 字号 */
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  flex: 0 0 auto;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  min-height: 34px;
+  padding-top: 4px;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
 }
 
-.card-actions :deep(.el-button + .el-button) {
-  margin-left: 8px;
+.assistant-card:hover .card-actions,
+.assistant-card.is-auth .card-actions {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .card-actions {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+/* 卡片按钮：对齐 prototype .expert-card .expert-actions .btn */
+.act-btn {
+  flex: 1 1 auto;
+  min-width: 64px;
+  height: 30px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: background 0.15s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.act-btn-primary {
+  color: #fff;
+  background: linear-gradient(135deg, #3685f2, #1e63d6);
+  box-shadow: 0 2px 6px rgba(54, 133, 242, 0.3);
+}
+
+.act-btn-primary:hover {
+  background: linear-gradient(135deg, #2f79e0, #1857c4);
+  box-shadow: 0 4px 10px rgba(54, 133, 242, 0.4);
+}
+
+.act-btn-text {
+  color: #646a73;
+  background: #fff;
+  border-color: var(--at-border);
+}
+
+.act-btn-text:hover {
+  color: var(--at-brand);
+  border-color: var(--at-brand);
 }
 </style>

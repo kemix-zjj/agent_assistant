@@ -31,6 +31,7 @@ from app.schemas.assistant import (
     McpRef,
     ResourceRef,
     SharedFrom,
+    ShareScopeSummary,
     VersionHistoryItem,
 )
 from app.services import resource_catalog
@@ -38,7 +39,7 @@ from app.services import master_data
 
 logger = logging.getLogger("app.assistant")
 
-VALID_SCOPES = {"all", "mine", "shared"}
+VALID_SCOPES = {"all", "mine", "shared", "auth"}
 VALID_STATUS = {"unshared", "pending", "approved", "rejected"}
 VALID_SUBSCRIBE = {"subscribed", "removed"}
 
@@ -49,6 +50,9 @@ ACTION_NAME = {
     "share_approve": "审批通过",
     "share_reject": "审批拒绝",
     "scope_change": "授权范围变更",
+    "offline_submit": "提交下架",
+    "offline_approve": "下架生效",
+    "offline_reject": "下架被拒",
     "delete": "删除",
 }
 
@@ -83,6 +87,9 @@ class AssistantService:
     ) -> AssistantPage:
         if scope not in VALID_SCOPES:
             raise ParamInvalidError("scope 取值不合法", "scope")
+        # 授权管理仅供公司管理员查看
+        if scope == "auth" and not user.is_admin:
+            raise NoPermissionError("仅公司管理员可查看授权管理")
         if status_filter and status_filter not in VALID_STATUS:
             raise ParamInvalidError("statusFilter 取值不合法", "statusFilter")
         if subscribe_filter and subscribe_filter not in VALID_SUBSCRIBE:
@@ -110,18 +117,51 @@ class AssistantService:
         grants = self.repo.find_grants(
             master_data.employee_id_for_login(user.user_id), ids
         )
-        cards = [self._to_card(row, grants.get(row.id), user) for row in rows]
+        scope_map: dict[int, ShareScopeSummary] = {}
+        if scope == "auth":
+            scope_map = self._load_scope_summaries(ids)
+        cards = [
+            self._to_card(
+                row, grants.get(row.id), user, scope, scope_map.get(row.id)
+            )
+            for row in rows
+        ]
 
         return AssistantPage(
             list=cards, total=total, page=page, page_size=page_size
         )
 
+    def _load_scope_summaries(self, assistant_ids: list[int]) -> dict[int, ShareScopeSummary]:
+        """授权管理页签：批量取最新 effective 快照并转成卡片摘要。"""
+        from app.services.scope_service import ScopeService
+
+        scope_ids = self.repo.find_effective_scope_ids(assistant_ids)
+        if not scope_ids:
+            return {}
+        service = ScopeService(self.db)
+        result: dict[int, ShareScopeSummary] = {}
+        for assistant_id, scope_id in scope_ids.items():
+            scope = service.load_snapshot(scope_id)
+            if scope is None:
+                continue
+            result[assistant_id] = ShareScopeSummary(
+                scope_mode=scope.scope_mode,
+                summary=scope.summary or "",
+                grant_total=scope.grant_total,
+            )
+        return result
+
     def _to_card(
-        self, row: Assistant, grant: AssistantGrant | None, user: CurrentUser
+        self,
+        row: Assistant,
+        grant: AssistantGrant | None,
+        user: CurrentUser,
+        scope: str = "all",
+        scope_summary: ShareScopeSummary | None = None,
     ) -> AssistantCard:
         """卡片字段按「共享视角优先」派生：被授权方看到的 source 为 shared。"""
         is_shared = grant is not None and row.owner_user_id != user.user_id
-        actions = self._derive_actions(row, grant, user)
+        actions = self._derive_actions(row, grant, user, scope)
 
         if is_shared:
             return AssistantCard(
@@ -175,14 +215,23 @@ class AssistantService:
             authorized_count=row.authorized_count,
             created_at=_fmt_required(row.created_at),
             updated_at=_fmt_required(row.updated_at),
+            share_scope=scope_summary,
             actions=actions,
         )
 
     def _derive_actions(
-        self, row: Assistant, grant: AssistantGrant | None, user: CurrentUser
+        self,
+        row: Assistant,
+        grant: AssistantGrant | None,
+        user: CurrentUser,
+        scope: str = "all",
     ) -> list[str]:
         """按 docs/03 §3.1 的 actions 派生规则表生成按钮。"""
         is_owner = row.owner_user_id == user.user_id
+
+        # 授权管理页签：只保留管理员可用的范围调整入口
+        if scope == "auth":
+            return ["shareScope"] if user.is_admin else []
 
         # 被授权方视角
         if grant is not None and not is_owner:

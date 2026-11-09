@@ -2,14 +2,17 @@
 import { computed } from 'vue'
 import type { ShareStatus, SubscribeStatus } from '@/types/assistant'
 
-/** 共享状态角标（需求 4.0：未共享 / 待审批 / 已共享 / 已拒绝） */
-const props = defineProps<{ status: ShareStatus | SubscribeStatus | null }>()
+/** 共享状态角标（需求 4.0：未共享 / 待审批 / 已共享 / 已拒绝；平台预置单独标注） */
+const props = defineProps<{ status: ShareStatus | SubscribeStatus | 'platform' | null }>()
 
 const MAP: Record<string, { text: string; cls: string }> = {
+  platform: { text: '平台预置', cls: 'is-default' },
   unshared: { text: '未共享', cls: 'is-default' },
   pending: { text: '待审批', cls: 'is-warning' },
   approved: { text: '已共享', cls: 'is-success' },
   rejected: { text: '已拒绝', cls: 'is-error' },
+  offline_pending: { text: '下架审批中', cls: 'is-warning' },
+  offline: { text: '已下架', cls: 'is-default' },
   subscribed: { text: '已订阅', cls: 'is-success' },
   removed: { text: '已移除', cls: 'is-default' }
 }

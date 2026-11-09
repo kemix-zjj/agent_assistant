@@ -87,6 +87,19 @@ export function submitShareApi(payload: ShareSubmitPayload): Promise<{ batchNo: 
   return request({ url: '/shares', method: 'post', data: payload })
 }
 
+/** 申请下架已共享助理（管理员审批通过后生效） */
+export function submitOfflineApi(
+  assistantId: number,
+  reason: string
+): Promise<{ assistantId: number; shareStatus: string; approvalId: number }> {
+  if (USE_MOCK) return delay(mock.submitOffline(assistantId, reason))
+  return request({
+    url: `/assistants/${assistantId}/offline`,
+    method: 'post',
+    data: { reason }
+  })
+}
+
 /* ---------------- 字典与资源 ---------------- */
 
 export function getCategories(): Promise<{ list: CategoryItem[] }> {
@@ -97,6 +110,18 @@ export function getCategories(): Promise<{ list: CategoryItem[] }> {
 export function createCategory(name: string): Promise<CategoryItem> {
   if (USE_MOCK) return delay(mock.addCategory(name))
   return request<CategoryItem>({ url: '/categories', method: 'post', data: { name } })
+}
+
+export function renameCategory(categoryId: number, name: string): Promise<CategoryItem> {
+  if (USE_MOCK) return delay(mock.renameCategory(categoryId, name))
+  return request<CategoryItem>({ url: `/categories/${categoryId}`, method: 'put', data: { name } })
+}
+
+export function deleteCategory(
+  categoryId: number
+): Promise<{ categoryId: number; deleted: boolean; affectedAssistantCount: number }> {
+  if (USE_MOCK) return delay(mock.deleteCategory(categoryId))
+  return request({ url: `/categories/${categoryId}`, method: 'delete' })
 }
 
 export function getSkills(keyword?: string): Promise<{ list: SkillItem[] }> {
@@ -242,4 +267,20 @@ export function aiGenerate(params: AiGenerateParams): Promise<{ field: AiField; 
     return delay({ field: params.field, value: samples[params.field], hitLimit: false }, 600)
   }
   return request({ url: '/ai/generate', method: 'post', data: params })
+}
+
+/* ---------------- 头像上传 ---------------- */
+
+/**
+ * 上传头像：真实环境走后端本地存储，返回可直接写入 avatarUrl 的短路径。
+ * Mock 下用 objectURL 预览，退出页面即失效。
+ */
+export function uploadAvatar(file: File): Promise<{ objectKey: string; avatarUrl: string }> {
+  if (USE_MOCK) {
+    return delay({ objectKey: `avatar/mock/${file.name}`, avatarUrl: URL.createObjectURL(file) })
+  }
+  const form = new FormData()
+  form.append('file', file)
+  // 覆盖实例默认的 application/json，axios 会自动补 multipart 边界
+  return request({ url: '/common/avatar-upload', method: 'post', data: form, headers: { 'Content-Type': 'multipart/form-data' } })
 }

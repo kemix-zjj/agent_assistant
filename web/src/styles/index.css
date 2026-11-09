@@ -14,8 +14,8 @@
   --at-radius: 4px;
   --at-gap: 8px;
 
-  /* 抽屉 / 弹窗标题栏：蓝色渐变（对齐 prototype 的 .drawer-header / .modal-header） */
-  --at-header-gradient: linear-gradient(90deg, #2468f2 0%, #3685f2 55%, #4b95f5 100%);
+  /* 抽屉 / 弹窗标题栏：纯品牌蓝（对齐 prototype 的 .drawer-header / .modal-header） */
+  --at-header-bg: #3685f2;
   --at-header-height: 40px;
 
   --el-color-primary: #3685f2;
@@ -78,13 +78,13 @@ body {
   color: var(--at-text-sub);
 }
 
-/* ============ 抽屉标题栏：蓝色渐变（对齐 prototype .drawer-header） ============ */
+/* ============ 抽屉标题栏：纯品牌蓝（对齐 prototype .drawer-header） ============ */
 .el-drawer .el-drawer__header {
   flex: 0 0 var(--at-header-height);
   height: var(--at-header-height);
   margin-bottom: 0;
   padding: 0 20px;
-  background: var(--at-header-gradient);
+  background: var(--at-header-bg);
   color: #fff;
 }
 
@@ -115,7 +115,13 @@ body {
   color: #fff;
 }
 
-/* ============ 弹窗标题栏：蓝色渐变（对齐 prototype .modal-header） ============ */
+/* 抽屉底部操作区：对齐 prototype .drawer-footer（20px + 分隔线） */
+.el-drawer .el-drawer__footer {
+  padding: 20px;
+  border-top: 1px solid var(--at-border);
+}
+
+/* ============ 弹窗标题栏：纯品牌蓝（对齐 prototype .modal-header） ============ */
 .el-overlay .el-dialog {
   --el-dialog-padding-primary: 0;
   overflow: hidden;
@@ -127,7 +133,7 @@ body {
   height: var(--at-header-height);
   padding: 0 16px;
   margin-right: 0;
-  background: var(--at-header-gradient);
+  background: var(--at-header-bg);
 }
 
 .el-overlay .el-dialog .el-dialog__header.show-close {
@@ -172,7 +178,7 @@ body {
   padding: 0 16px 16px;
 }
 
-/* MessageBox 无标题栏，需恢复默认内边距，避免与上方渐变标题栏样式冲突 */
+/* MessageBox 无标题栏，需恢复默认内边距，避免与上方标题栏样式冲突 */
 .el-message-box {
   --el-messagebox-padding-primary: 16px;
   padding: 16px;

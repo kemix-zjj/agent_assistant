@@ -19,7 +19,7 @@ from app.models.assistant import (
     AssistantTag,
     AssistantVersionHistory,
 )
-from app.models.scope import AssistantGrant
+from app.models.scope import AssistantGrant, ShareScope
 
 _EAGER = (
     selectinload(Assistant.category),
@@ -67,6 +67,7 @@ class AssistantRepository:
             Assistant.deleted_at.is_(None),
         )
 
+        # 共享段：别人授权给我的助理（排除自己创建、自己也被授权的情况）
         shared = (
             select(
                 Assistant.id.label("id"),
@@ -79,6 +80,7 @@ class AssistantRepository:
                 AssistantGrant.company_id == company_id,
                 AssistantGrant.user_id == (grant_user_id or ""),
                 AssistantGrant.grant_status == "valid",
+                Assistant.owner_user_id != user_id,
                 Assistant.deleted_at.is_(None),
             )
         )
@@ -95,6 +97,19 @@ class AssistantRepository:
             )
             stmt = stmt.where(or_(Assistant.name.like(like), tag_hit))
         return stmt
+
+    def _auth_scope_query(self, company_id: int) -> Any:
+        """授权管理（仅管理员）：全部已共享 / 下架审批中的自建与第三方助理。"""
+        return select(
+            Assistant.id.label("id"),
+            literal(1).label("rank"),
+            Assistant.updated_at.label("sort_time"),
+        ).where(
+            Assistant.company_id == company_id,
+            Assistant.source.in_(("custom", "thirdparty")),
+            Assistant.share_status.in_(("approved", "offline_pending")),
+            Assistant.deleted_at.is_(None),
+        )
 
     def list_ids(
         self,
@@ -113,6 +128,20 @@ class AssistantRepository:
         """返回当前页助理 ID 与总数；顺序遵循文档排序规则。"""
         platform, mine, shared = self._base_scope_queries(company_id, user_id, grant_user_id)
 
+        if scope == "auth":
+            base = self._apply_filters(
+                self._auth_scope_query(company_id), category_id, keyword
+            )
+            base = base.subquery()
+            total = self.db.scalar(select(func.count()).select_from(base)) or 0
+            rows = self.db.execute(
+                select(base.c.id)
+                .order_by(base.c.sort_time.desc(), base.c.id.desc())
+                .offset(offset)
+                .limit(limit)
+            ).all()
+            return [row.id for row in rows], int(total)
+
         if scope == "mine":
             part = self._apply_filters(mine, category_id, keyword)
             if status_filter:
@@ -124,7 +153,10 @@ class AssistantRepository:
                 part = part.where(AssistantGrant.subscribe_status == subscribe_filter)
             base = part
         else:
-            # 全部：共享部分只含已订阅，避免「已移除」混入
+            # 全部页签：仅「可用且已共享」的助理
+            # 平台预置 ∪ 我的助理中 approved ∪ 别人共享给我且已订阅
+            # 未共享 / 待审批 / 已拒绝 / 下架审批中 / 已下架 一律不出现
+            mine = mine.where(Assistant.share_status == "approved")
             shared = shared.where(AssistantGrant.subscribe_status == "subscribed")
             base = union_all(
                 self._apply_filters(platform, category_id, keyword),
@@ -165,6 +197,20 @@ class AssistantRepository:
             )
         ).all()
         return {row.assistant_id: row for row in rows}
+
+    def find_effective_scope_ids(self, assistant_ids: list[int]) -> dict[int, int]:
+        """批量取每个助理最新的 effective 范围快照 ID（授权管理卡片摘要用）。"""
+        if not assistant_ids:
+            return {}
+        rows = self.db.execute(
+            select(ShareScope.assistant_id, func.max(ShareScope.id))
+            .where(
+                ShareScope.assistant_id.in_(assistant_ids),
+                ShareScope.stage == "effective",
+            )
+            .group_by(ShareScope.assistant_id)
+        ).all()
+        return {assistant_id: int(scope_id) for assistant_id, scope_id in rows}
 
     # ---------------- 详情 ----------------
 

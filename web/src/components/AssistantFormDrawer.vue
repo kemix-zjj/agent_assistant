@@ -11,7 +11,8 @@ import {
   getMcps,
   getSkills,
   submitShareApi,
-  updateAssistantApi
+  updateAssistantApi,
+  uploadAvatar
 } from '@/api'
 import type {
   CategoryItem,
@@ -23,6 +24,7 @@ import type {
 } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
+import { PRESET_AVATARS, resolvePresetKey, presetColor } from '@/utils/avatar'
 
 /**
  * 手动创建 / 编辑助理：三步向导（对齐原型 openWizard）
@@ -45,25 +47,13 @@ const emit = defineEmits<{
 const isEdit = computed(() => !!props.assistantId)
 const step = ref(1)
 
-/** 原型 AVATARS：8 个预设字符头像（字符 + 底色） */
-const AVATARS = [
-  { a: '助', c: '#3685F2' },
-  { a: '招', c: '#5E9DF5' },
-  { a: '薪', c: '#04D999' },
-  { a: '勤', c: '#FF813B' },
-  { a: '环', c: '#FF4D5D' },
-  { a: '会', c: '#2468F2' },
-  { a: '面', c: '#00B780' },
-  { a: '效', c: '#D46B08' }
-]
-
 const saving = ref(false)
 const loading = ref(false)
 
 const draft = reactive({
   name: '',
   avatarType: 'char' as 'char' | 'image',
-  avatarChar: '助',
+  avatarChar: 'P1',
   avatarUrl: null as string | null,
   avatarColor: '#3685F2',
   description: '',
@@ -75,6 +65,9 @@ const draft = reactive({
   knowledgeBaseIds: [] as string[],
   quickQuestions: [] as string[]
 })
+
+/** 当前选中的系统默认头像键（P1~P6），编辑历史字符头像时按 ID 稳定回推 */
+const presetKey = computed(() => resolvePresetKey(draft.avatarChar, props.assistantId ?? draft.name))
 
 const tagInput = ref('')
 const qqInput = ref('')
@@ -174,7 +167,7 @@ function resetDraft(): void {
   Object.assign(draft, {
     name: '',
     avatarType: 'char',
-    avatarChar: '助',
+    avatarChar: 'P1',
     avatarUrl: null,
     avatarColor: '#3685F2',
     description: '',
@@ -215,11 +208,10 @@ async function loadDetail(): Promise<void> {
   loading.value = true
   try {
     const d = await getAssistantDetail(props.assistantId)
-    const isImg = d.avatarType === 'image' && !!d.avatarUrl
     Object.assign(draft, {
       name: d.name,
       avatarType: d.avatarType,
-      avatarChar: d.avatarChar ?? d.name.slice(0, 1),
+      avatarChar: resolvePresetKey(d.avatarChar, d.assistantId),
       avatarUrl: d.avatarUrl,
       avatarColor: d.avatarColor,
       description: d.description,
@@ -231,7 +223,6 @@ async function loadDetail(): Promise<void> {
       knowledgeBaseIds: (d.knowledgeBases ?? []).map((k) => k.id),
       quickQuestions: [...d.quickQuestions]
     })
-    void isImg
   } catch (e) {
     ElMessage.error(e instanceof ApiError ? e.message : '助理详情加载失败')
     emit('update:modelValue', false)
@@ -253,14 +244,30 @@ watch(
 
 /* ---------------- 头像 ---------------- */
 
-function pickAvatar(char: string, color: string): void {
+/** 选中系统默认头像：记录 P# 键并同步主色 */
+function pickPreset(key: string, color: string): void {
   draft.avatarType = 'char'
-  draft.avatarChar = char
+  draft.avatarChar = key
   draft.avatarColor = color
   draft.avatarUrl = null
 }
 
-function handleFileChange(file: { raw?: File }): void {
+/** 移除自定义头像，回退为所选默认头像 */
+function removeUpload(): void {
+  draft.avatarType = 'char'
+  draft.avatarUrl = null
+  draft.avatarChar = presetKey.value
+  draft.avatarColor = presetColor(presetKey.value)
+  ElMessage.success('已移除自定义头像，恢复为默认头像')
+}
+
+const uploading = ref(false)
+
+/**
+ * 头像上传：先传到后端存储拿到短地址，再写入 avatarUrl。
+ * 直接把图片转 base64 会超出 avatarUrl 512 字符限制，因此不再使用 FileReader。
+ */
+async function handleFileChange(file: { raw?: File }): Promise<void> {
   const raw = file.raw
   if (!raw) return
   if (!raw.type.startsWith('image/')) {
@@ -271,14 +278,17 @@ function handleFileChange(file: { raw?: File }): void {
     ElMessage.error('图片大小不超过 2MB')
     return
   }
-  const reader = new FileReader()
-  reader.onload = () => {
+  uploading.value = true
+  try {
+    const res = await uploadAvatar(raw)
     draft.avatarType = 'image'
-    draft.avatarUrl = String(reader.result)
+    draft.avatarUrl = res.avatarUrl
     ElMessage.success('头像已上传，保存后生效')
+  } catch (e) {
+    ElMessage.error(e instanceof ApiError ? e.message : '头像上传失败，请重试')
+  } finally {
+    uploading.value = false
   }
-  reader.onerror = () => ElMessage.error('图片读取失败，请重试')
-  reader.readAsDataURL(raw)
 }
 
 /* ---------------- 标签 / 快速问题 ---------------- */
@@ -588,30 +598,56 @@ function close(): void {
           <div class="form-item">
             <label class="form-label required">头像</label>
             <div class="avatar-picker">
-              <div
-                v-for="v in AVATARS"
-                :key="v.a"
-                class="avatar-opt"
-                :class="{ active: draft.avatarType === 'char' && draft.avatarChar === v.a }"
-                :style="{ background: v.c }"
-                @click="pickAvatar(v.a, v.c)"
-              >
-                {{ v.a }}
-              </div>
-              <el-upload
-                :auto-upload="false"
-                :show-file-list="false"
-                accept="image/*"
-                :on-change="handleFileChange"
-                class="avatar-upload-wrap"
-              >
-                <div class="avatar-opt avatar-upload" :class="{ active: draft.avatarType === 'image' && draft.avatarUrl }">
-                  <img v-if="draft.avatarType === 'image' && draft.avatarUrl" :src="draft.avatarUrl" alt="" />
-                  <span v-else class="upload-plus">＋</span>
+              <div class="avatar-group-label">系统默认头像</div>
+              <div class="avatar-group">
+                <div
+                  v-for="v in PRESET_AVATARS"
+                  :key="v.key"
+                  class="avatar-opt avatar-person"
+                  :class="{ active: draft.avatarType === 'char' && presetKey === v.key }"
+                  :title="`默认头像 ${v.key.slice(1)}`"
+                  @click="pickPreset(v.key, v.color)"
+                >
+                  <img :src="v.src" alt="" />
                 </div>
-              </el-upload>
+              </div>
+              <div class="avatar-group-label">自定义头像</div>
+              <div class="avatar-group">
+                <template v-if="draft.avatarType === 'image' && draft.avatarUrl">
+                  <div class="avatar-opt avatar-preview active" title="当前自定义头像">
+                    <img :src="draft.avatarUrl" alt="" />
+                  </div>
+                  <div class="avatar-ops">
+                    <el-upload
+                      :auto-upload="false"
+                      :show-file-list="false"
+                      accept="image/*"
+                      :on-change="handleFileChange"
+                    >
+                      <el-button link type="primary" size="small">替换</el-button>
+                    </el-upload>
+                    <el-button link type="danger" size="small" @click="removeUpload">移除</el-button>
+                  </div>
+                </template>
+                <el-upload
+                  v-else
+                  :auto-upload="false"
+                  :show-file-list="false"
+                  :disabled="uploading"
+                  accept="image/*"
+                  :on-change="handleFileChange"
+                  class="avatar-upload-wrap"
+                >
+                  <div class="avatar-opt avatar-upload" :class="{ uploading }">
+                    <span class="upload-plus">＋</span>
+                    <span class="avatar-upload-text">{{ uploading ? '上传中' : '上传' }}</span>
+                  </div>
+                </el-upload>
+              </div>
             </div>
-            <div class="form-hint">点选预设头像，或点击「＋」上传图片（不超过 2MB，按现有头像尺寸展示）</div>
+            <div class="form-hint">
+              默认展示系统内置头像；可上传自定义头像（JPG/PNG，不超过 2MB），上传后即时预览，支持替换或移除，移除后恢复为所选默认头像
+            </div>
           </div>
         </div>
 
@@ -966,20 +1002,36 @@ function close(): void {
 .avatar-picker {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.avatar-opt {
-  width: 36px;
-  height: 36px;
+.avatar-group {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar-group-label {
+  width: 100%;
+  font-size: 12px;
+  color: var(--at-text-sub);
+}
+
+.avatar-opt {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   font-size: 13px;
   color: #fff;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0.55;
+  opacity: 0.6;
   transition: opacity 0.15s, transform 0.15s;
 }
 
@@ -991,6 +1043,38 @@ function close(): void {
 .avatar-opt.active {
   opacity: 1;
   box-shadow: 0 0 0 2px var(--at-brand);
+}
+
+.avatar-opt.avatar-person {
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--at-bg);
+}
+
+.avatar-opt.avatar-person img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-preview {
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--at-bg);
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-ops {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .avatar-upload-wrap :deep(.el-upload) {
@@ -1014,6 +1098,11 @@ function close(): void {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-upload-text {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .upload-plus {

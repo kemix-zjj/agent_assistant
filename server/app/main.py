@@ -5,6 +5,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.health import router as health_router
 from app.api.v1 import api_router
@@ -42,6 +43,11 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    # 本地头像存储（生产环境替换为对象存储域名）
+    static_dir = settings.static_dir
+    static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.get("/", include_in_schema=False)
     def index() -> dict:

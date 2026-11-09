@@ -9,18 +9,28 @@ import ShareSubmitDialog from '@/components/ShareSubmitDialog.vue'
 import ScopePicker from '@/components/ScopePicker.vue'
 import CreateOptionDialog from '@/components/CreateOptionDialog.vue'
 import ThirdPartyDrawer from '@/components/ThirdPartyDrawer.vue'
+import OfflineSubmitDialog from '@/components/OfflineSubmitDialog.vue'
 import { useUserStore } from '@/stores/user'
 import { useApprovalStore } from '@/stores/approval'
 import {
+  createCategory,
   deleteAssistantApi,
+  deleteCategory,
   getCategories,
   getDeleteImpact,
   getAssistants,
+  renameCategory,
   summonAssistantApi,
   updateShareScopeApi,
   updateSubscriptionApi
 } from '@/api'
-import type { CategoryItem, AssistantAction, AssistantCard as AssistantCardType, ListScope } from '@/types/assistant'
+import type {
+  CategoryItem,
+  AssistantAction,
+  AssistantCard as AssistantCardType,
+  AssistantDetail,
+  ListScope
+} from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
@@ -42,7 +52,10 @@ const loadError = ref(false)
 
 const categories = ref<CategoryItem[]>([])
 const selectedIds = ref<number[]>([])
-const expandedReject = ref<Record<number, boolean>>({})
+
+/** 被拒绝助理：工具条入口 + 下拉面板（不占卡片区） */
+const rejectedList = ref<AssistantCardType[]>([])
+const rejectPanel = ref(false)
 
 const createOptionDialog = ref(false)
 const createDrawer = ref(false)
@@ -51,6 +64,13 @@ const editDrawer = ref(false)
 const detailDrawer = ref(false)
 const shareDialog = ref(false)
 const scopeDialog = ref(false)
+const categoryDialog = ref(false)
+const offlineDialog = ref(false)
+const offlineTarget = ref<AssistantCardType | null>(null)
+const deleteDialog = ref(false)
+const deleteTarget = ref<AssistantCardType | null>(null)
+const deleteImpact = ref<{ authorizedCount: number; pendingApplyCount: number } | null>(null)
+const deleteSaving = ref(false)
 
 const activeAssistantId = ref<number | null>(null)
 const shareTargets = ref<AssistantCardType[]>([])
@@ -60,11 +80,21 @@ const scopeTarget = ref<AssistantCardType | null>(null)
 const scopePayload = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
 const scopeSaving = ref(false)
 
-const SCOPE_TABS: Array<{ key: ListScope; label: string }> = [
-  { key: 'all', label: '全部' },
-  { key: 'mine', label: '我的助理' },
-  { key: 'shared', label: '共享助理' }
-]
+/** 分类管理弹窗 */
+const newCategoryName = ref('')
+const editingCategoryId = ref<number | null>(null)
+const editingCategoryName = ref('')
+const categorySaving = ref(false)
+
+const SCOPE_TABS = computed<Array<{ key: ListScope; label: string }>>(() => {
+  const tabs: Array<{ key: ListScope; label: string }> = [
+    { key: 'all', label: '全部' },
+    { key: 'mine', label: '我的助理' },
+    { key: 'shared', label: '共享助理' }
+  ]
+  if (userStore.isAdmin) tabs.push({ key: 'auth', label: '授权管理' })
+  return tabs
+})
 
 const STATUS_OPTIONS = [
   { value: '', label: '状态：全部' },
@@ -82,6 +112,8 @@ const SUB_OPTIONS = [
 const selectedCards = computed(() =>
   list.value.filter((c) => selectedIds.value.includes(c.assistantId))
 )
+
+const selectedCount = computed(() => selectedIds.value.length)
 
 async function loadCategories(): Promise<void> {
   try {
@@ -117,16 +149,36 @@ async function loadList(): Promise<void> {
   }
 }
 
+/** 「全部」范围下，我的助理中被拒绝的助理收进工具条下拉面板 */
+async function loadRejected(): Promise<void> {
+  if (scope.value !== 'all') {
+    rejectedList.value = []
+    rejectPanel.value = false
+    return
+  }
+  try {
+    const res = await getAssistants({ scope: 'mine', statusFilter: 'rejected', page: 1, pageSize: 50 })
+    rejectedList.value = res.list
+    if (!res.list.length) rejectPanel.value = false
+  } catch {
+    rejectedList.value = []
+  }
+}
+
+async function refreshAll(): Promise<void> {
+  await Promise.all([loadList(), loadRejected()])
+  approvalStore.refreshPendingCount()
+}
+
 onMounted(async () => {
   await loadCategories()
-  await loadList()
-  approvalStore.refreshPendingCount()
+  await refreshAll()
 })
 
 watch([scope, categoryId, statusFilter, subscribeFilter], () => {
   page.value = 1
   selectedIds.value = []
-  loadList()
+  refreshAll()
 })
 
 let kwTimer: ReturnType<typeof setTimeout> | null = null
@@ -134,7 +186,7 @@ watch(keyword, () => {
   if (kwTimer) clearTimeout(kwTimer)
   kwTimer = setTimeout(() => {
     page.value = 1
-    loadList()
+    refreshAll()
   }, 250)
 })
 
@@ -143,10 +195,24 @@ watch(
   () => {
     page.value = 1
     selectedIds.value = []
-    loadList()
-    approvalStore.refreshPendingCount()
+    refreshAll()
   }
 )
+
+/** 权限守卫：非管理员不能停留在「授权管理」 */
+watch(
+  () => userStore.isAdmin,
+  (isAdmin) => {
+    if (!isAdmin && scope.value === 'auth') scope.value = 'all'
+  }
+)
+
+/** 分类被删除后回落「全部」 */
+watch(categories, (next) => {
+  if (categoryId.value && !next.some((c) => c.categoryId === categoryId.value)) {
+    categoryId.value = undefined
+  }
+})
 
 function switchScope(next: ListScope): void {
   scope.value = next
@@ -171,15 +237,7 @@ async function onCardAction(action: AssistantAction | 'detail' | 'toggleReject',
       detailDrawer.value = true
       break
     case 'toggleReject':
-      expandedReject.value[card.assistantId] = !expandedReject.value[card.assistantId]
-      break
-    case 'edit':
-      activeAssistantId.value = card.assistantId
-      editingAffectedCount.value = card.authorizedCount
-      editDrawer.value = true
-      break
-    case 'delete':
-      await handleDelete(card)
+      rejectPanel.value = !rejectPanel.value
       break
     case 'summon':
       await handleSummon(card)
@@ -187,17 +245,10 @@ async function onCardAction(action: AssistantAction | 'detail' | 'toggleReject',
     case 'shareScope':
       await openScope(card)
       break
-    case 'share':
-      openShareDialog(card, null)
+    case 'offline':
+      openOfflineDialog(card)
       break
-    case 'resubmit':
-      await openResubmitDialog(card)
-      break
-    case 'remove':
-      await handleSubscription(card, 'remove')
-      break
-    case 'resubscribe':
-      await handleSubscription(card, 'resubscribe')
+    default:
       break
   }
 }
@@ -211,27 +262,109 @@ async function handleSummon(card: AssistantCardType): Promise<void> {
   }
 }
 
+/** 详情 → 卡片结构（仅用于复用卡片上的操作逻辑） */
+function detailToCard(d: AssistantDetail): AssistantCardType {
+  const desc = d.description ?? ''
+  return {
+    assistantId: d.assistantId,
+    name: d.name,
+    avatarType: d.avatarType,
+    avatarChar: d.avatarChar,
+    avatarUrl: d.avatarUrl,
+    avatarColor: d.avatarColor,
+    categoryId: d.categoryId,
+    categoryName: d.categoryName,
+    tags: d.tags,
+    description: desc,
+    descriptionTruncated: desc.length > 60 ? `${desc.slice(0, 60)}…` : desc,
+    source: d.source,
+    shareStatus: d.shareStatus,
+    subscribeStatus: null,
+    version: d.version,
+    ownerName: d.ownerName,
+    ownerTitle: d.ownerDeptName,
+    sharedFrom: d.source === 'shared' && d.ownerName
+      ? { ownerName: d.ownerName, ownerDeptName: d.ownerDeptName ?? '' }
+      : null,
+    rejectReason: null,
+    lastApproverName: null,
+    lastApproveTime: null,
+    authorizedCount: d.shareScope?.grantTotal ?? 0,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+    actions: []
+  }
+}
+
+/** 详情抽屉内的操作：编辑 / 删除 / 共享 / 重新提交 / 移除 / 重新订阅
+ *  详情响应不含列表卡片字段，这里把详情对象转换成卡片所需的最小结构。
+ */
+async function onDetailAction(action: AssistantAction, detail: AssistantDetail): Promise<void> {
+  detailDrawer.value = false
+  const card = detailToCard(detail)
+  switch (action) {
+    case 'edit':
+      activeAssistantId.value = card.assistantId
+      editingAffectedCount.value = card.authorizedCount
+      editDrawer.value = true
+      break
+    case 'delete':
+      await handleDelete(card)
+      break
+    case 'share':
+      openShareDialog(card, null)
+      break
+    case 'resubmit':
+      await openResubmitDialog(card)
+      break
+    case 'remove':
+      await handleSubscription(card, 'remove')
+      break
+    case 'resubscribe':
+      await handleSubscription(card, 'resubscribe')
+      break
+    case 'summon':
+      await handleSummon(card)
+      break
+    case 'shareScope':
+      await openScope(card)
+      break
+    case 'offline':
+      openOfflineDialog(card)
+      break
+  }
+}
+
+/** 申请下架：打开原因填写弹窗，提交后进入管理员审批 */
+function openOfflineDialog(card: AssistantCardType): void {
+  offlineTarget.value = card
+  offlineDialog.value = true
+}
+
+/** 删除确认弹窗（对齐 prototype deleteAssistant：说明 + 橙色影响提示块） */
 async function handleDelete(card: AssistantCardType): Promise<void> {
   try {
-    const impact = await getDeleteImpact(card.assistantId)
-    const lines = ['删除后不可恢复，是否确认删除？']
-    if (impact.authorizedCount > 0) {
-      lines.push(`该助理已共享给 ${impact.authorizedCount} 个授权对象，删除后将同时从他们的助理库移除`)
-    }
-    if (impact.pendingApplyCount > 0) {
-      lines.push(`该助理有 ${impact.pendingApplyCount} 条待审批申请，删除后申请将被终止`)
-    }
-    await ElMessageBox.confirm(lines.join('\n'), `删除「${card.name}」`, {
-      type: 'warning',
-      confirmButtonText: '确认删除',
-      cancelButtonText: '取消'
-    })
-    await deleteAssistantApi(card.assistantId)
-    ElMessage.success('已删除')
-    await loadList()
+    deleteImpact.value = await getDeleteImpact(card.assistantId)
+    deleteTarget.value = card
+    deleteDialog.value = true
   } catch (e) {
-    if (e === 'cancel' || e === 'close') return
+    ElMessage.error(e instanceof ApiError ? e.message : '删除影响面加载失败，请稍后重试')
+  }
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!deleteTarget.value) return
+  const card = deleteTarget.value
+  deleteSaving.value = true
+  try {
+    await deleteAssistantApi(card.assistantId)
+    ElMessage.success(`已删除「${card.name}」`)
+    deleteDialog.value = false
+    await refreshAll()
+  } catch (e) {
     ElMessage.error(e instanceof ApiError ? e.message : '删除失败，请稍后重试')
+  } finally {
+    deleteSaving.value = false
   }
 }
 
@@ -248,7 +381,7 @@ async function handleSubscription(card: AssistantCardType, action: 'remove' | 'r
     })
     await updateSubscriptionApi(card.assistantId, action)
     ElMessage.success(action === 'remove' ? '已移除' : '已重新订阅')
-    await loadList()
+    await refreshAll()
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(e instanceof ApiError ? e.message : '操作失败，请稍后重试')
@@ -275,7 +408,7 @@ async function openResubmitDialog(card: AssistantCardType): Promise<void> {
   openShareDialog(card, initial)
 }
 
-function toScopePayload(scope: {
+function toScopePayload(scopeValue: {
   scopeMode: ScopePayload['scopeMode']
   orgs: Array<{ id: string }>
   roles: Array<{ id: string }>
@@ -283,11 +416,11 @@ function toScopePayload(scope: {
   users: Array<{ id: string }>
 }): ScopePayload {
   return {
-    scopeMode: scope.scopeMode,
-    orgs: scope.orgs.map((o) => o.id),
-    roles: scope.roles.map((r) => r.id),
-    positions: scope.positions.map((p) => p.id),
-    users: scope.users.map((u) => u.id)
+    scopeMode: scopeValue.scopeMode,
+    orgs: scopeValue.orgs.map((o) => o.id),
+    roles: scopeValue.roles.map((r) => r.id),
+    positions: scopeValue.positions.map((p) => p.id),
+    users: scopeValue.users.map((u) => u.id)
   }
 }
 
@@ -317,7 +450,7 @@ async function saveScope(): Promise<void> {
     await updateShareScopeApi(scopeTarget.value.assistantId, p)
     ElMessage.success('共享范围已更新')
     scopeDialog.value = false
-    await loadList()
+    await refreshAll()
   } catch (e) {
     ElMessage.error(e instanceof ApiError ? e.message : '保存失败，请稍后重试')
   } finally {
@@ -339,12 +472,11 @@ function openBatchShare(): void {
 
 async function onShareSubmitted(): Promise<void> {
   selectedIds.value = []
-  await loadList()
-  approvalStore.refreshPendingCount()
+  await refreshAll()
 }
 
 async function onSaved(): Promise<void> {
-  await loadList()
+  await refreshAll()
 }
 
 /** 添加助理：按创建方式分流（手动创建 → 三步向导；已有接入 → 第三方表单） */
@@ -359,27 +491,120 @@ function onCategoryCreated(item: CategoryItem): void {
   }
 }
 
+/* ---------------- 分类管理（仅管理员） ---------------- */
+
+function openCategoryDialog(): void {
+  newCategoryName.value = ''
+  editingCategoryId.value = null
+  editingCategoryName.value = ''
+  categoryDialog.value = true
+}
+
+async function addCategoryItem(): Promise<void> {
+  const name = newCategoryName.value.trim()
+  if (!name) {
+    ElMessage.warning('请输入分类名称')
+    return
+  }
+  if (categories.value.some((c) => c.name === name)) {
+    ElMessage.error(`分类「${name}」已存在`)
+    return
+  }
+  categorySaving.value = true
+  try {
+    const item = await createCategory(name)
+    categories.value.push(item)
+    newCategoryName.value = ''
+    ElMessage.success(`分类「${name}」已新增`)
+  } catch (e) {
+    ElMessage.error(e instanceof ApiError ? e.message : '新增分类失败')
+  } finally {
+    categorySaving.value = false
+  }
+}
+
+function startRename(item: CategoryItem): void {
+  editingCategoryId.value = item.categoryId
+  editingCategoryName.value = item.name
+}
+
+function cancelRename(): void {
+  editingCategoryId.value = null
+  editingCategoryName.value = ''
+}
+
+async function saveRename(item: CategoryItem): Promise<void> {
+  const name = editingCategoryName.value.trim()
+  if (!name) {
+    ElMessage.warning('请输入分类名称')
+    return
+  }
+  if (name === item.name) {
+    cancelRename()
+    return
+  }
+  if (categories.value.some((c) => c.name === name && c.categoryId !== item.categoryId)) {
+    ElMessage.error(`分类「${name}」已存在`)
+    return
+  }
+  categorySaving.value = true
+  try {
+    const updated = await renameCategory(item.categoryId, name)
+    const hit = categories.value.find((c) => c.categoryId === item.categoryId)
+    if (hit) hit.name = updated.name
+    cancelRename()
+    ElMessage.success(`分类已重命名为「${updated.name}」`)
+    await refreshAll()
+  } catch (e) {
+    ElMessage.error(e instanceof ApiError ? e.message : '重命名失败')
+  } finally {
+    categorySaving.value = false
+  }
+}
+
+async function removeCategory(item: CategoryItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`确认删除分类「${item.name}」？删除后不可恢复。`, '删除分类', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+    await deleteCategory(item.categoryId)
+    categories.value = categories.value.filter((c) => c.categoryId !== item.categoryId)
+    if (categoryId.value === item.categoryId) categoryId.value = undefined
+    ElMessage.success(`分类「${item.name}」已删除`)
+    await refreshAll()
+  } catch (e) {
+    if (e === 'cancel' || e === 'close') return
+    ElMessage.error(e instanceof ApiError ? e.message : '删除失败，分类下存在助理时不可删除')
+  }
+}
+
+/* ---------------- 空态文案 ---------------- */
+
+const isEmptyFiltered = computed(
+  () => !!keyword.value.trim() || categoryId.value !== undefined || statusFilter.value !== ''
+)
+
 const emptyText = computed(() => {
   if (keyword.value.trim()) return '未找到匹配的助理，试试调整关键词'
-  if (scope.value === 'mine') return '你还没有创建助理，点击右上角「添加助理」开始'
+  if (scope.value === 'mine') {
+    if (statusFilter.value) return '没有符合该状态的助理，试试调整筛选条件'
+    return '你还没有创建助理，点击右上角「添加助理」开始'
+  }
   if (scope.value === 'shared') {
     return subscribeFilter.value === 'removed' ? '没有已移除的共享助理' : '暂无共享给你的助理'
   }
-  return '暂无可用助理'
+  if (scope.value === 'auth') return '暂无已共享的助理，共享申请审批通过后将出现在这里'
+  return isEmptyFiltered.value ? '没有符合条件的助理，试试调整筛选条件' : '暂无可用助理'
 })
 </script>
 
 <template>
-  <div class="page-card">
+  <div class="page-card at-page">
     <div class="page-head">
-      <div>
-        <div class="page-title">
-          助理
-          <span class="beta-badge">BETA</span>
-        </div>
-        <div class="page-subtitle">
-          手动创建或接入第三方助理，配置提示词与能力后可共享给团队；已共享的助理支持版本管理与下架。
-        </div>
+      <div class="page-title title-accent">
+        助理<span class="beta-badge">BETA</span>
       </div>
       <div class="page-head-actions">
         <el-button v-if="userStore.isAdmin" @click="router.push('/approvals')">
@@ -434,21 +659,53 @@ const emptyText = computed(() => {
       >
         {{ c.name }}
       </div>
+      <button v-if="userStore.isAdmin" class="btn-text cat-manage-btn" @click="openCategoryDialog">
+        分类管理
+      </button>
     </div>
 
     <div class="list-meta">
-      <span class="meta-text">共 {{ total }} 个助理 · 点击卡片标题查看详情</span>
-      <div v-if="scope === 'mine' && selectedIds.length" class="sel-bar">
-        已选 <span class="count-num">{{ selectedIds.length }}</span> 个助理
-        <el-button type="primary" size="small" @click="openBatchShare">共享</el-button>
-        <el-button link size="small" @click="selectedIds = []">清空</el-button>
+      <span class="meta-text">
+        <template v-if="scope === 'auth'">
+          共 {{ total }} 个已共享助理 · 点击卡片查看详情
+        </template>
+        <template v-else>
+          共 {{ total }} 个助理 · 悬浮卡片可快捷召唤，点击卡片查看详情
+        </template>
+      </span>
+      <div class="meta-right">
+        <el-popover v-model:visible="rejectPanel" placement="bottom-end" :width="340" trigger="click">
+          <template #reference>
+            <span v-if="rejectedList.length" class="reject-btn" title="查看被拒绝的共享申请">
+              被拒绝<span class="reject-count">{{ rejectedList.length }}</span>
+            </span>
+            <span v-else class="reject-placeholder" />
+          </template>
+          <div class="reject-panel">
+            <div class="reject-panel-title">被拒绝的助理 · 共 {{ rejectedList.length }} 个</div>
+            <div
+              v-for="r in rejectedList"
+              :key="r.assistantId"
+              class="reject-item"
+              @click="onCardAction('detail', r)"
+            >
+              <div class="reject-item-name">{{ r.name }}</div>
+              <div class="reject-item-reason">拒绝原因：{{ r.rejectReason || '管理员未填写拒绝原因' }}</div>
+            </div>
+          </div>
+        </el-popover>
+        <div v-if="scope === 'mine' && selectedCount" class="sel-bar">
+          已选 <span class="count-num">{{ selectedCount }}</span> 个助理
+          <el-button type="primary" size="small" @click="openBatchShare">共享</el-button>
+          <el-button link size="small" @click="selectedIds = []">清空</el-button>
+        </div>
       </div>
     </div>
 
     <div v-loading="loading" class="grid-wrap">
       <div v-if="loadError" class="state-block">
         <span>加载失败，点击重试</span>
-        <el-button size="small" @click="loadList">重试</el-button>
+        <el-button size="small" @click="refreshAll">重试</el-button>
       </div>
       <template v-else-if="list.length">
         <div class="assistant-grid">
@@ -459,7 +716,6 @@ const emptyText = computed(() => {
             :scope="scope"
             :selectable="scope === 'mine'"
             :selected="selectedIds.includes(card.assistantId)"
-            :expanded-reject="!!expandedReject[card.assistantId]"
             @action="onCardAction"
             @update:selected="(v: boolean) => toggleSelect(card, v)"
           />
@@ -472,8 +728,8 @@ const emptyText = computed(() => {
       <el-pagination
         v-model:current-page="page"
         :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next, total"
+        :page-count="Math.ceil(total / pageSize)"
+        layout="prev, pager, next"
         background
         @current-change="loadList"
       />
@@ -499,7 +755,11 @@ const emptyText = computed(() => {
       @create-category="onCategoryCreated"
     />
 
-    <AssistantDetailDrawer v-model="detailDrawer" :assistant-id="activeAssistantId" />
+    <AssistantDetailDrawer
+      v-model="detailDrawer"
+      :assistant-id="activeAssistantId"
+      @action="onDetailAction"
+    />
 
     <ShareSubmitDialog
       v-model="shareDialog"
@@ -507,6 +767,34 @@ const emptyText = computed(() => {
       :initial-scope="shareInitialScope"
       @submitted="onShareSubmitted"
     />
+
+    <OfflineSubmitDialog
+      v-model="offlineDialog"
+      :card="offlineTarget"
+      @submitted="refreshAll"
+    />
+
+    <!-- 删除确认：对齐 prototype deleteAssistant 的文案与影响提示 -->
+    <el-dialog
+      v-model="deleteDialog"
+      title="确认删除该助理？"
+      width="460px"
+      :close-on-click-modal="false"
+    >
+      <div class="confirm-body">
+        <div class="confirm-text">删除后该助理将从你的助理库中永久移除，且不可恢复。</div>
+        <div class="confirm-impact">
+          <template v-if="deleteImpact && deleteImpact.pendingApplyCount > 0">
+            该助理存在待审批的共享申请，删除后申请将被终止。
+          </template>
+          <template v-else>当前助理尚未共享，删除仅影响你自己。</template>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="deleteDialog = false">取消</el-button>
+        <el-button type="danger" :loading="deleteSaving" @click="confirmDelete">确认删除</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="scopeDialog"
@@ -531,6 +819,39 @@ const emptyText = computed(() => {
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="categoryDialog" title="分类管理" width="520px">
+      <div class="cat-mgr-body">
+        <div class="cat-mgr-add">
+          <el-input v-model="newCategoryName" placeholder="输入新分类名称" maxlength="10" />
+          <el-button type="primary" :loading="categorySaving" @click="addCategoryItem">新增分类</el-button>
+        </div>
+        <div class="cat-mgr-list">
+          <div v-for="c in categories" :key="c.categoryId" class="cat-mgr-row">
+            <template v-if="editingCategoryId === c.categoryId">
+              <el-input v-model="editingCategoryName" maxlength="10" class="cat-rename-input" />
+              <span class="cat-mgr-ops">
+                <el-button type="primary" size="small" :loading="categorySaving" @click="saveRename(c)">保存</el-button>
+                <el-button size="small" @click="cancelRename">取消</el-button>
+              </span>
+            </template>
+            <template v-else>
+              <span class="cat-mgr-name">{{ c.name }}</span>
+              <span class="cat-mgr-ops">
+                <el-button link type="primary" size="small" @click="startRename(c)">重命名</el-button>
+                <el-button link type="danger" size="small" @click="removeCategory(c)">删除</el-button>
+              </span>
+            </template>
+          </div>
+        </div>
+        <div class="cat-mgr-hint">
+          删除前将校验分类下是否存在助理，存在助理的分类不可删除；重命名将同步更新该分类下全部助理。调整后立即生效于筛选页签与创建表单。
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="categoryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -543,6 +864,23 @@ const emptyText = computed(() => {
 
 .head-badge {
   margin-left: 4px;
+}
+
+.title-accent {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+
+.title-accent::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--at-text);
+  border-radius: 2px;
 }
 
 .beta-badge {
@@ -610,6 +948,7 @@ const emptyText = computed(() => {
 .cat-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--at-border);
@@ -617,22 +956,40 @@ const emptyText = computed(() => {
 }
 
 .cat-tab {
-  padding: 4px 12px;
-  border-radius: 14px;
+  padding: 5px 16px;
+  border-radius: 999px;
   font-size: 13px;
   color: var(--at-text-sub);
   cursor: pointer;
-  background: #f7f8fa;
+  background: #fff;
+  border: 1px solid var(--at-border);
+  transition: all 0.15s;
 }
 
 .cat-tab:hover {
   color: var(--at-brand);
+  border-color: var(--at-brand);
 }
 
 .cat-tab.active {
-  background: #eef4ff;
-  color: var(--at-brand);
+  background: var(--at-brand);
+  border-color: var(--at-brand);
+  color: #fff;
   font-weight: 500;
+}
+
+.cat-manage-btn {
+  margin-left: auto;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: var(--at-text-sub);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cat-manage-btn:hover {
+  color: var(--at-brand);
 }
 
 .list-meta {
@@ -646,6 +1003,71 @@ const emptyText = computed(() => {
 .meta-text {
   font-size: 12px;
   color: var(--at-text-weak);
+}
+
+.meta-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reject-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #d92d20;
+  background: #ffece8;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.reject-placeholder {
+  display: none;
+}
+
+.reject-btn .reject-count {
+  min-width: 15px;
+  height: 15px;
+  line-height: 15px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #fff;
+  background: #d92d20;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.reject-panel-title {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--at-text-weak);
+}
+
+.reject-item {
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.reject-item:hover {
+  background: #f5f7fa;
+}
+
+.reject-item-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reject-item-reason {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #d92d20;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sel-bar {
@@ -670,8 +1092,27 @@ const emptyText = computed(() => {
 
 .assistant-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
+}
+
+/* 栅格降列：对齐原型断点（1240 → 3 列，920 → 2 列，640 → 1 列） */
+@media (max-width: 1240px) {
+  .assistant-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 920px) {
+  .assistant-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .assistant-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pager {
@@ -718,5 +1159,76 @@ const emptyText = computed(() => {
 .scope-dialog-section {
   font-size: 14px;
   font-weight: 600;
+}
+
+/* ---------- 删除确认弹窗（对齐 prototype .confirm-text / .confirm-impact） ---------- */
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirm-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--at-text-sub);
+}
+
+.confirm-impact {
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--at-text);
+  background: #fff7e8;
+  border-radius: 4px;
+}
+
+/* ---------- 分类管理 ---------- */
+.cat-mgr-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cat-mgr-add {
+  display: flex;
+  gap: 8px;
+}
+
+.cat-mgr-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cat-mgr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 4px;
+  border-bottom: 1px solid #f2f3f5;
+}
+
+.cat-mgr-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cat-mgr-ops {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.cat-rename-input {
+  width: 160px;
+}
+
+.cat-mgr-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--at-text-weak);
 }
 </style>

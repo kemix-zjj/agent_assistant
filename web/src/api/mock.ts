@@ -608,7 +608,7 @@ export const approvals: ApprovalRow[] = [
 
 /* ============================ 工具函数 ============================ */
 
-function toCard(row: AssistantRow): AssistantCard {
+function toCard(row: AssistantRow, scope = 'all'): AssistantCard {
   const isOwn = row.source === 'custom' || row.source === 'thirdparty'
   const grant = grants.find((g) => g.assistantId === row.assistantId)
   const shared = !!grant
@@ -654,7 +654,15 @@ function toCard(row: AssistantRow): AssistantCard {
     authorizedCount: shared ? 0 : row.shareScope?.grantTotal ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    actions
+    shareScope:
+      scope === 'auth' && row.shareScope
+        ? {
+            scopeMode: row.shareScope.scopeMode,
+            summary: row.shareScope.summary,
+            grantTotal: row.shareScope.grantTotal
+          }
+        : null,
+    actions: scope === 'auth' ? (isOwn ? ['shareScope'] : []) : actions
   }
 }
 
@@ -680,20 +688,32 @@ export function queryAssistants(params: {
   let rows: AssistantRow[]
 
   if (params.scope === 'mine') {
-    rows = assistants.filter((e) => (e.source === 'custom' || e.source === 'thirdparty') && e.ownerName === myName && !grants.some((g) => g.assistantId === e.assistantId))
+    // 我的助理：自己创建的全部状态（含未共享 / 待审批 / 已拒绝 / 已下架）
+    rows = assistants.filter(
+      (e) => (e.source === 'custom' || e.source === 'thirdparty') && e.ownerName === myName
+    )
   } else if (params.scope === 'shared') {
-    rows = assistants.filter((e) => grants.some((g) => g.assistantId === e.assistantId))
+    // 共享助理：别人共享给我的助理
+    rows = assistants.filter(
+      (e) => e.ownerName !== myName && grants.some((g) => g.assistantId === e.assistantId)
+    )
+  } else if (params.scope === 'auth') {
+    // 授权管理（仅管理员）：全部已共享的自建与第三方助理
+    rows = assistants.filter(
+      (e) => (e.source === 'custom' || e.source === 'thirdparty') && e.shareStatus === 'approved'
+    )
   } else {
-    // 需求 F-EXP-002：全部 = 平台预置 ∪ 当前用户自建 ∪ 被授权且已订阅的共享助理
+    // 全部：仅「可用且已共享」——平台预置 ∪ 我的已共享 ∪ 别人共享给我且已订阅
     rows = assistants.filter((e) => {
       if (e.source === 'platform') return true
       const grant = grants.find((g) => g.assistantId === e.assistantId)
-      if (grant) return grant.subscribeStatus === 'subscribed'
-      return (e.source === 'custom' || e.source === 'thirdparty') && e.ownerName === myName
+      if (grant && e.ownerName !== myName) return grant.subscribeStatus === 'subscribed'
+      return (e.source === 'custom' || e.source === 'thirdparty') &&
+        e.ownerName === myName && e.shareStatus === 'approved'
     })
   }
 
-  let cards = rows.map(toCard)
+  let cards = rows.map((row) => toCard(row, params.scope))
 
   if (params.categoryId) {
     cards = cards.filter((c) => c.categoryId === params.categoryId)
@@ -711,9 +731,14 @@ export function queryAssistants(params: {
     cards = cards.filter((c) => c.subscribeStatus === params.subscribeFilter)
   }
 
-  // 排序：platform → mine → shared；组内 createdAt / grantTime 倒序
-  const rank = (c: AssistantCard): number => (c.source === 'platform' ? 0 : c.source === 'shared' ? 2 : 1)
-  cards.sort((a, b) => rank(a) - rank(b) || b.createdAt.localeCompare(a.createdAt))
+  if (params.scope === 'auth') {
+    // 授权管理：与后端一致，按更新时间倒序
+    cards.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  } else {
+    // 排序：platform → mine → shared；组内 createdAt / grantTime 倒序
+    const rank = (c: AssistantCard): number => (c.source === 'platform' ? 0 : c.source === 'shared' ? 2 : 1)
+    cards.sort((a, b) => rank(a) - rank(b) || b.createdAt.localeCompare(a.createdAt))
+  }
 
   const total = cards.length
   const start = (params.page - 1) * params.pageSize
@@ -933,6 +958,70 @@ export function submitShare(payload: ShareSubmitPayload): { batchNo: string; app
   return { batchNo: `B${Date.now()}`, approvalIds: ids }
 }
 
+/** 申请下架已共享助理：状态转 offline_pending，生成下架审批单 */
+export function submitOffline(
+  assistantId: number,
+  reason: string
+): { assistantId: number; shareStatus: string; approvalId: number } {
+  const row = findAssistant(assistantId)
+  if (row.source === 'platform') {
+    throw new ApiError('ASSISTANT_STATUS_CHANGED', '平台预置助理不可下架', null, '')
+  }
+  if (row.shareStatus !== 'approved') {
+    throw new ApiError('ASSISTANT_STATUS_CHANGED', '仅已共享的助理可申请下架', null, '')
+  }
+  const scope = row.shareScope ?? {
+    scopeMode: 'RANGE' as const,
+    orgs: [],
+    roles: [],
+    positions: [],
+    users: [],
+    grantTotal: 0,
+    summary: ''
+  }
+  const approval: ApprovalRow = {
+    approvalId: 9000 + approvals.length + 1,
+    approvalNo: `AP${Date.now()}`,
+    approvalType: 'offline',
+    status: 'pending',
+    changeNote: reason,
+    assistant: {
+      assistantId: row.assistantId,
+      name: row.name,
+      avatar: { type: row.avatarType, char: row.avatarChar ?? row.name.slice(0, 1), color: row.avatarColor },
+      description: row.description,
+      tags: row.tags,
+      categoryName: catName(row.categoryId),
+      prompt: row.prompt ?? '',
+      skills: (row.skills ?? []).map((s) => ({ id: s.id, name: s.name })),
+      mcps: (row.mcps ?? []).map((m) => ({ id: m.id, name: m.name })),
+      knowledgeBases: (row.knowledgeBases ?? []).map((k) => ({ id: k.id, name: k.name })),
+      ownerName: row.ownerName ?? '',
+      ownerDeptName: row.ownerDeptName ?? '',
+      version: row.version
+    },
+    submitterName: myUserName(),
+    submitterDept: '人力资源部 · 招聘组',
+    submitTime: nowStr(),
+    scopeAdjusted: false,
+    scope,
+    requestScope: scope,
+    scopeDiff: null
+  }
+  approvals.push(approval)
+
+  row.shareStatus = 'offline_pending'
+  row.versionHistory.unshift({
+    version: row.version,
+    action: 'offline_submit',
+    actionName: '提交下架',
+    operatorName: myUserName(),
+    remark: reason,
+    createdAt: nowStr()
+  })
+  return { assistantId, shareStatus: 'offline_pending', approvalId: approval.approvalId }
+}
+
 /** 已选范围 → 后端 scope 结构（含展开人数与摘要） */
 export function scopeFromPayload(payload: ScopePayload): Scope {
   if (payload.scopeMode === 'PUBLIC') {
@@ -1000,9 +1089,9 @@ export function queryApprovals(params: { approvalType?: string; page: number; pa
     submitterName: a.submitterName,
     submitterDept: a.submitterDept,
     submitTime: a.submitTime,
-    scopeSummary: a.scope.summary,
-    scopeMode: a.scope.scopeMode,
-    changeNote: null
+    scopeSummary: a.scope?.summary ?? '',
+    scopeMode: a.scope?.scopeMode ?? 'RANGE',
+    changeNote: a.changeNote ?? null
   }))
 
   const total = cards.length
@@ -1038,12 +1127,28 @@ export function adjustApprovalScope(id: number, scope: Scope): { scope: Scope; s
 export function approve(id: number): ApprovalDecisionResult {
   const row = findApproval(id)
   row.status = 'approved'
+  // 下架审批通过：助理置为已下架，授权全部失效
+  if (row.approvalType === 'offline') {
+    const target = assistants.find((a) => a.assistantId === row.assistant.assistantId)
+    if (target) target.shareStatus = 'offline'
+    grants
+      .filter((g) => g.assistantId === row.assistant.assistantId)
+      .forEach((g) => (g.subscribeStatus = 'removed'))
+    return {
+      approvalId: row.approvalId,
+      status: 'approved',
+      assistantId: row.assistant.assistantId,
+      shareStatus: 'offline',
+      grantTotal: 0,
+      approveTime: nowStr()
+    }
+  }
   return {
     approvalId: row.approvalId,
     status: 'approved',
     assistantId: row.assistant.assistantId,
     shareStatus: 'approved',
-    grantTotal: row.scope.grantTotal,
+    grantTotal: row.scope?.grantTotal ?? 0,
     approveTime: nowStr()
   }
 }
@@ -1051,11 +1156,15 @@ export function approve(id: number): ApprovalDecisionResult {
 export function reject(id: number, reason: string): ApprovalDecisionResult {
   const row = findApproval(id)
   row.status = 'rejected'
+  const target = assistants.find((a) => a.assistantId === row.assistant.assistantId)
+  // 下架申请被拒：助理恢复为已共享
+  const shareStatus = row.approvalType === 'offline' ? 'approved' : 'rejected'
+  if (target) target.shareStatus = shareStatus
   return {
     approvalId: row.approvalId,
     status: 'rejected',
     assistantId: row.assistant.assistantId,
-    shareStatus: 'rejected',
+    shareStatus,
     rejectReason: reason,
     approveTime: nowStr()
   }
@@ -1076,6 +1185,37 @@ export function addCategory(name: string): CategoryItem {
   }
   CATEGORIES.push(item)
   return item
+}
+
+export function renameCategory(categoryId: number, name: string): CategoryItem {
+  const hit = CATEGORIES.find((c) => c.categoryId === categoryId)
+  if (!hit) throw new ApiError('CATEGORY_NOT_FOUND', '分类不存在或已删除', null, '')
+  if (name.length > 10) throw new ApiError('CATEGORY_NAME_TOO_LONG', '分类名称不超过 10 个字符', { field: 'name' }, '')
+  if (CATEGORIES.some((c) => c.name === name && c.categoryId !== categoryId)) {
+    throw new ApiError('CATEGORY_DUPLICATED', '分类名称已存在', { field: 'name' }, '')
+  }
+  hit.name = name
+  return hit
+}
+
+export function deleteCategory(categoryId: number): {
+  categoryId: number
+  deleted: boolean
+  affectedAssistantCount: number
+} {
+  const index = CATEGORIES.findIndex((c) => c.categoryId === categoryId)
+  if (index < 0) throw new ApiError('CATEGORY_NOT_FOUND', '分类不存在或已删除', null, '')
+  const count = assistants.filter((a) => a.categoryId === categoryId).length
+  if (count > 0) {
+    throw new ApiError(
+      'CATEGORY_IN_USE',
+      `「${CATEGORIES[index].name}」分类下存在 ${count} 个助理，不允许删除`,
+      { categoryId, assistantCount: count },
+      ''
+    )
+  }
+  CATEGORIES.splice(index, 1)
+  return { categoryId, deleted: true, affectedAssistantCount: 0 }
 }
 
 export function currentUserId(): string {

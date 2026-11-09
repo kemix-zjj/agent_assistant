@@ -31,6 +31,7 @@ from app.schemas.scope import (
     ShareSubmitPayload,
     ShareSubmitResult,
 )
+from app.schemas.common import OfflineSubmitResult
 from app.services import audit_service as audit
 from app.services.scope_service import ScopeService
 
@@ -395,6 +396,86 @@ class ShareService:
     ) -> None:
         """重算人员级授权（逻辑收敛在 ScopeService，审批通过时复用）。"""
         self.scopes.rebuild_grants(row, scope_row.id, payload, now)
+
+    # ============================ 申请下架 ============================
+
+    def submit_offline(
+        self, assistant_id: int, reason: str, user: CurrentUser
+    ) -> OfflineSubmitResult:
+        """已共享助理提交下架申请：状态转 offline_pending，进入管理员审批。"""
+        row = self.repo.find_by_id(assistant_id, user.company_id)
+        if row is None:
+            raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
+        if row.owner_user_id != user.user_id:
+            raise NoPermissionError("仅创建人可申请下架该助理")
+
+        reason = (reason or "").strip()
+        if not reason:
+            raise ParamInvalidError("请填写下架原因", "reason")
+        if len(reason) > 200:
+            raise ParamInvalidError("下架原因最多 200 字", "reason")
+
+        # 仅已共享可申请下架；平台预置不可下架
+        if row.source == "platform":
+            raise ConflictError(
+                ErrorCode.ASSISTANT_STATUS_CHANGED, "平台预置助理不可下架"
+            )
+        if row.share_status == "offline_pending":
+            raise ConflictError(
+                ErrorCode.ASSISTANT_STATUS_CHANGED, "已存在进行中的下架申请"
+            )
+        if row.share_status != "approved":
+            raise ConflictError(
+                ErrorCode.ASSISTANT_STATUS_CHANGED, "仅已共享的助理可申请下架"
+            )
+
+        now = now_second()
+        approval = Approval(
+            approval_no=_approval_no(1),
+            batch_no=None,
+            company_id=user.company_id,
+            approval_type="offline",
+            assistant_id=assistant_id,
+            assistant_version=row.version,
+            status="pending",
+            submitter_id=user.user_id,
+            submitter_name=user.name,
+            submitter_dept=user.dept_name,
+            submit_time=now,
+            change_note=reason,
+            created_at=now,
+            updated_at=now,
+        )
+        self.db.add(approval)
+        self.db.flush()
+
+        row.share_status = "offline_pending"
+        row.updated_at = now
+        self.repo.add_version_history(
+            row,
+            version=row.version,
+            action="offline_submit",
+            operator_id=user.user_id,
+            operator_name=user.name,
+            remark=reason,
+            created_at=now,
+        )
+        audit.record(
+            self.db,
+            user=user,
+            action="offline_submit",
+            object_type="assistant",
+            object_id=assistant_id,
+            before={"shareStatus": "approved"},
+            after={"shareStatus": "offline_pending", "approvalId": approval.id, "reason": reason},
+        )
+        self.db.commit()
+        logger.info("下架申请已提交 assistant=%s approval=%s", assistant_id, approval.id)
+        return OfflineSubmitResult(
+            assistant_id=assistant_id,
+            share_status="offline_pending",
+            approval_id=approval.id,
+        )
 
     @staticmethod
     def _next_minor_version(version: str) -> str:

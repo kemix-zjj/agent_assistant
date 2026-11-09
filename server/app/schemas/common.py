@@ -88,6 +88,21 @@ class SubscriptionResult(CamelModel):
     subscribe_time: str
 
 
+# ============================ 下架申请 ============================
+
+
+class OfflineSubmitPayload(CamelModel):
+    """申请下架：已共享助理不能直接删除，需提交下架申请由管理员审批。"""
+
+    reason: str = Field(min_length=1, max_length=200)
+
+
+class OfflineSubmitResult(CamelModel):
+    assistant_id: int
+    share_status: str
+    approval_id: int
+
+
 # ============================ AI 生成 ============================
 
 
@@ -124,3 +139,8 @@ class AvatarPresignResult(CamelModel):
     object_key: str
     public_url: str
     expires_in: int
+
+
+class AvatarUploadResult(CamelModel):
+    object_key: str
+    avatar_url: str

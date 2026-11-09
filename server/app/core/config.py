@@ -34,8 +34,13 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    # 头像对象存储域名；未接入 OSS 时用于生成占位地址
-    avatar_base_url: str = "http://127.0.0.1:8000/static"
+    # 头像对外访问域名；留空则返回后端本地 /static 相对路径
+    avatar_base_url: str = ""
+
+    @property
+    def static_dir(self) -> Path:
+        """本地头像落盘目录（由 main.py 挂载到 /static）。"""
+        return SERVER_ROOT / "static"
 
     @property
     def database_url(self) -> str:

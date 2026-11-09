@@ -2,10 +2,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.assistant import AssistantCategory
+from app.models.assistant import Assistant, AssistantCategory
 
 
 class CategoryRepository:
@@ -30,6 +30,28 @@ class CategoryRepository:
             AssistantCategory.deleted_at.is_(None),
         )
         return self.db.scalar(stmt)
+
+    def find_by_id(self, category_id: int, company_id: int) -> AssistantCategory | None:
+        stmt = select(AssistantCategory).where(
+            AssistantCategory.id == category_id,
+            AssistantCategory.company_id == company_id,
+            AssistantCategory.deleted_at.is_(None),
+        )
+        return self.db.scalar(stmt)
+
+    def count_assistants(self, category_id: int) -> int:
+        """该分类下未删除的助理数量（存在即不允许删除分类）。"""
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(Assistant)
+                .where(
+                    Assistant.category_id == category_id,
+                    Assistant.deleted_at.is_(None),
+                )
+            )
+            or 0
+        )
 
     def create(self, company_id: int, name: str, created_by: int) -> AssistantCategory:
         max_sort = self.db.scalar(

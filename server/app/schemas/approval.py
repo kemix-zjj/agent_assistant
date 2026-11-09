@@ -41,6 +41,7 @@ class ApprovalCard(CamelModel):
     submit_time: str
     scope_summary: str = ""
     scope_mode: str = "RANGE"
+    # 下架申请的申请原因（共享 / 范围变更申请为变更说明）
     change_note: str | None = None
 
 
@@ -90,12 +91,15 @@ class ApprovalDetail(CamelModel):
     approval_type: str
     approval_type_name: str
     status: str
+    change_note: str | None = None
     assistant: ApprovalAssistantDetail
     submitter_name: str
     submitter_dept: str | None = None
     submit_time: str
     scope_adjusted: bool = False
     scope: Scope | None = None
+    # 范围变更申请：变更前的生效范围；下架申请：当前生效范围
+    previous_scope: Scope | None = None
     scope_diff: ScopeDiff | None = None
     # 提交后助理被再次编辑时提示（文档 Q-12）
     assistant_config_changed: bool = False

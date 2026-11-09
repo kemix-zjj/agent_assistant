@@ -30,7 +30,7 @@
 | `需求说明书-v1.2.md` | 13 个功能点、EARS 需求列表、验收标准 |
 | `01-总体架构设计.md` | 分层架构、模块划分、关键设计决策、权限模型、状态机、核心链路时序 |
 | `02-数据库设计.md` | ER 图、14 张表 DDL、索引与性能、数据一致性规则 |
-| `03-接口设计.md` | 29 个接口清单、出入参、26 个错误码、页面映射 |
+| `03-接口设计.md` | 33 个接口清单、出入参、28 个错误码、页面映射 |
 
 ### prototype/
 
@@ -40,9 +40,10 @@ UI 原型，纯静态无构建依赖，双击 `index.html` 即可评审。
 |------|------|
 | `index.html` | SPA 入口（图标精灵 + 飞书风格侧栏 + 地址栏直达） |
 | `css/common.css` | 设计系统基础样式与令牌 |
-| `css/assistant.css` | 助理业务样式（卡片栅格、状态标签、三步向导） |
-| `js/common.js` | 原型运行时（Mock 数据、路由、抽屉/弹窗/Toast、四维穿梭框） |
-| `pages/D-AT-LIST.js` | 助理列表页（创建 / 详情 / 召唤 / 删除 / 共享范围 / 审批中心） |
+| `css/assistant.css` | 助理业务样式（卡片栅格、状态标签、三步向导、分类管理） |
+| `js/common.js` | 原型运行时（Mock 数据、路由、抽屉/弹窗/Toast、四维穿梭框、卡通头像） |
+| `img/avatars/` | 6 款默认卡通人像（avatar-01~06.png） |
+| `pages/D-AT-LIST.js` | 助理列表页（创建 / 详情 / 召唤 / 共享范围 / 授权管理 / 分类管理 / 审批中心） |
 | `pages/D-AT-NEWTASK.js` | 新建任务页（召唤后的对话入口） |
 | `_legacy/` | 历史 v2 草稿归档，不参与运行 |
 
@@ -159,7 +160,7 @@ npm run dev
 |------|------|----------|
 | 启动后端 | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app` | `server/` |
 | 启动前端 | `npm run dev` | `web/` |
-| 后端接口测试（99 项） | `python -m pytest -q` | `server/` |
+| 后端接口测试（120 项） | `python -m pytest -q` | `server/` |
 | 前端类型检查 | `npm run type-check` | `web/` |
 | 前端构建 | `npm run build` | `web/` |
 
