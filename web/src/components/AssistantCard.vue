@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import type { AssistantCard, AssistantAction } from '@/types/assistant'
 
 /** 助理卡片：列表页四范围共用，按钮由后端 actions 驱动
- * 交互对齐 prototype：整卡点击进详情；卡片按钮默认隐藏，悬停展示；标签最多 2 个其余 +N。
+ * 整卡点击进详情；召唤按钮默认常驻，悬停有渐变、描边与轻微上浮动效；标签最多 2 个其余 +N。
  */
 const props = defineProps<{
   card: AssistantCard
@@ -298,8 +298,8 @@ function onCardClick(event: MouseEvent): void {
   overflow: hidden;
 }
 
-/* 卡片操作：默认隐藏，悬停淡入；触屏设备常驻
- * 对齐 prototype .expert-actions：按钮等分占满卡片宽度、30px 高、12px 字号 */
+/* 卡片操作：召唤按钮默认常驻展示
+ * 尺寸对齐 prototype .expert-actions：按钮等分占满卡片宽度、30px 高、12px 字号 */
 .card-actions {
   display: flex;
   flex-wrap: wrap;
@@ -309,22 +309,6 @@ function onCardClick(event: MouseEvent): void {
   margin-top: auto;
   min-height: 34px;
   padding-top: 4px;
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 0.16s ease, visibility 0.16s ease;
-}
-
-.assistant-card:hover .card-actions,
-.assistant-card.is-auth .card-actions {
-  visibility: visible;
-  opacity: 1;
-}
-
-@media (hover: none) {
-  .card-actions {
-    visibility: visible;
-    opacity: 1;
-  }
 }
 
 /* 卡片按钮：对齐 prototype .expert-card .expert-actions .btn */
@@ -344,18 +328,29 @@ function onCardClick(event: MouseEvent): void {
   align-items: center;
   justify-content: center;
   white-space: nowrap;
-  transition: background 0.15s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
+/* 召唤按钮：默认浅色底 + 品牌色文字/描边，悬停转为蓝色渐变并上浮 */
 .act-btn-primary {
-  color: #fff;
-  background: linear-gradient(135deg, #3685f2, #1e63d6);
-  box-shadow: 0 2px 6px rgba(54, 133, 242, 0.3);
+  color: var(--at-brand);
+  background: #f4f8ff;
+  border-color: rgba(54, 133, 242, 0.32);
+  box-shadow: none;
 }
 
 .act-btn-primary:hover {
-  background: linear-gradient(135deg, #2f79e0, #1857c4);
-  box-shadow: 0 4px 10px rgba(54, 133, 242, 0.4);
+  color: #fff;
+  background: linear-gradient(135deg, #3685f2, #1e63d6);
+  border-color: rgba(54, 133, 242, 0.65);
+  box-shadow: 0 6px 14px rgba(54, 133, 242, 0.42);
+  transform: translateY(-2px);
+}
+
+.act-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(54, 133, 242, 0.3);
 }
 
 .act-btn-text {
