@@ -254,19 +254,107 @@ export interface AiGenerateParams {
   mode?: 'auto' | 'generate' | 'polish'
 }
 
-export function aiGenerate(params: AiGenerateParams): Promise<{ field: AiField; value: string | string[]; hitLimit: boolean }> {
-  if (USE_MOCK) {
-    // Mock：按字段给出符合校验规则的示例内容
-    const name = params.name || '业务助理'
-    const samples: Record<AiField, string | string[]> = {
-      description: `${name}面向${params.categoryName || '本部门'}日常业务场景，可结合制度条款与业务数据给出可执行的处理建议，并标注依据来源。`,
-      tags: ['业务问答', '制度检索', '流程指引', '数据分析', '风险提示'],
-      prompt: `你是九牧集团的${name}，负责解答${params.categoryName || '本部门'}相关问题。\n回答要求：先给结论，再给制度依据；涉及个人数据须提示自行核对；无法确认时说明「需人工确认」。`,
-      quickQuestions: ['这个流程需要哪些审批？', '制度依据是哪一条？', '有异常时应该怎么处理？']
+/**
+ * Mock 实现：规则与后端 ai_service 保持一致（需求 4.1.1.0）
+ * - auto 模式按 currentValue 是否为空判定生成 / 润色
+ * - 描述：名称 + 分类；润色时保留原描述再补充
+ * - 标签：名称 + 分类 + 描述，补足至 5 个
+ * - 提示词：名称 + 描述 + 分类 + 标签
+ * - 快速问题：名称 + 描述，补足至 6 条
+ */
+function mockAiGenerate(params: AiGenerateParams): { field: AiField; value: string | string[]; hitLimit: boolean } {
+  const name = params.name.trim() || '业务助理'
+  const category = params.categoryName || '本部门'
+  const description = (params.description ?? '').trim()
+  const current = params.currentValue
+  const hasContent = typeof current === 'string' ? !!current.trim() : Array.isArray(current) && current.length > 0
+  const mode = params.mode && params.mode !== 'auto' ? params.mode : hasContent ? 'polish' : 'generate'
+
+  if (params.field === 'description') {
+    if (mode === 'polish' && typeof current === 'string' && current.trim()) {
+      const extra = `${category}场景下会同步标注制度依据，涉及个人数据提醒自行核对。`
+      const base = current.trim().replace(/[。；;，, ]+$/, '')
+      return {
+        field: 'description',
+        value: current.includes(extra) ? current : `${base}。${extra}`.slice(0, 200),
+        hitLimit: false
+      }
     }
-    return delay({ field: params.field, value: samples[params.field], hitLimit: false }, 600)
+    return {
+      field: 'description',
+      value: `「${name}」面向${category}场景，可解答常见问题、讲解制度要点并给出办理指引；回答先给结论、再附依据，涉及个人数据时提醒员工自行核对，无法确认时明确提示转人工处理。`,
+      hitLimit: false
+    }
   }
-  return request({ url: '/ai/generate', method: 'post', data: params })
+
+  if (params.field === 'tags') {
+    const existing = Array.isArray(current) ? current.slice(0, 5) : []
+    if (existing.length >= 5) return { field: 'tags', value: existing, hitLimit: true }
+    const verbPrefixes = ['解答', '回答', '负责', '支持', '提供', '输出', '用于', '面向', '通过', '包括', '帮助', '协助', '针对', '结合']
+    const stripVerb = (t: string): string => {
+      const hit = verbPrefixes.find((p) => t.startsWith(p) && t.length > p.length)
+      return hit && t.length - hit.length <= 8 ? t.slice(hit.length) : t
+    }
+    const candidates = [
+      ...description
+        .split(/[，。、；：（）()·\s/-]+/)
+        .map((t) => stripVerb(t.trim()))
+        .filter((t) => t.length >= 1 && t.length <= 8),
+      '业务问答',
+      '制度检索',
+      '流程指引',
+      '数据分析',
+      '风险提示'
+    ]
+    const merged = [...existing]
+    candidates.forEach((t) => {
+      if (merged.length < 5 && !merged.includes(t)) merged.push(t)
+    })
+    return { field: 'tags', value: merged, hitLimit: false }
+  }
+
+  if (params.field === 'prompt') {
+    if (mode === 'polish' && typeof current === 'string' && current.trim()) {
+      const tail = `补充要求：回答时结合「${name}」的服务范围（${description || `${category}日常业务`}），先确认关键前提；涉及跨部门流程时给出责任部门，信息不足时先追问再作答。`
+      return {
+        field: 'prompt',
+        value: current.includes(tail) ? current : `${current.trim()}\n${tail}`.slice(0, 4000),
+        hitLimit: false
+      }
+    }
+    const tags = (params.tags ?? []).slice(0, 5)
+    const lines = [`你是${category}的「${name}」，负责解答${category}相关问题。`]
+    if (description) lines.push(`服务背景：${description}`)
+    if (tags.length) lines.push(`擅长方向：${tags.join('、')}`)
+    lines.push(
+      '回答要求：\n1. 先给结论，再给出对应的制度或流程依据；\n2. 涉及员工个人数据时，提示员工自行核对；\n3. 无法确认的问题必须说明「需人工确认」，不得编造条款编号；\n4. 需要走流程的场景，明确指引对应的审批入口。'
+    )
+    return { field: 'prompt', value: lines.join('\n'), hitLimit: false }
+  }
+
+  const existing = Array.isArray(current) ? current.slice(0, 6) : []
+  if (existing.length >= 6) return { field: 'quickQuestions', value: existing, hitLimit: true }
+  const candidates = [
+    `${name}能帮我做什么？`,
+    `如何正确使用「${name}」？`,
+    `${name}常见问题有哪些？`,
+    `${name}的回答依据是什么？`,
+    '对应的制度依据是哪一条？',
+    '办理需要准备哪些材料？',
+    '出现异常时应该怎么处理？',
+    '处理时限是怎么规定的？'
+  ]
+  const merged = [...existing]
+  candidates.forEach((q) => {
+    if (merged.length < 6 && !merged.includes(q)) merged.push(q)
+  })
+  return { field: 'quickQuestions', value: merged, hitLimit: false }
+}
+
+export function aiGenerate(params: AiGenerateParams): Promise<{ field: AiField; value: string | string[]; hitLimit: boolean }> {
+  if (USE_MOCK) return delay(mockAiGenerate(params), 600)
+  // 大模型为推理模型，响应耗时可能达数十秒，单独放宽超时（实例默认 20s）
+  return request({ url: '/ai/generate', method: 'post', data: params, timeout: 45000 })
 }
 
 /* ---------------- 头像上传 ---------------- */

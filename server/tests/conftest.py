@@ -4,10 +4,15 @@
 物理删除名称命中测试前缀的助理及其全部关联数据，保证可重复执行。
 """
 
+import os
+
 import pytest
 from sqlalchemy import text
 
-from app.core.database import engine
+# 单元测试不访问大模型：置为 false 后 AI 生成走确定性模板，结果可断言且可离线执行
+os.environ["LLM_ENABLED"] = "false"
+
+from app.core.database import engine  # noqa: E402
 
 # 测试助理名称前缀（新增测试时在此登记）
 _TEST_NAME_PREFIXES = (

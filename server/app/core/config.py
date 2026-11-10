@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     # 头像对外访问域名；留空则返回后端本地 /static 相对路径
     avatar_base_url: str = ""
 
+    # ---- 大模型（OpenAI 兼容 /chat/completions） ----
+    # 未配置 llm_api_key 时自动回退到确定性模板，接线不影响本地开发
+    llm_enabled: bool = True
+    llm_base_url: str = "https://nisai-tools-yc.nistone.com/v1"
+    llm_model: str = "huaweicloud/deepseek-v4.1-flash-1017"
+    llm_api_key: str = ""
+    # deepseek-v4.1-flash 为推理模型，实测单次 2-30s 波动，超时按 30s 设
+    llm_timeout: float = 30.0
+    # 推理强度：minimal / low / medium / high，越低响应越快
+    llm_reasoning_effort: str = "minimal"
+
     @property
     def static_dir(self) -> Path:
         """本地头像落盘目录（由 main.py 挂载到 /static）。"""

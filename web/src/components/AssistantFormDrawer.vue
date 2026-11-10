@@ -25,6 +25,7 @@ import type {
 import type { ScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 import { PRESET_AVATARS, resolvePresetKey, presetColor } from '@/utils/avatar'
+import { useUserStore } from '@/stores/user'
 
 /**
  * 手动创建 / 编辑助理：三步向导（对齐原型 openWizard）
@@ -90,6 +91,9 @@ const resLoading = ref(false)
 const aiLoading = ref<Record<string, boolean>>({})
 const categoryDialog = ref(false)
 const newCategoryName = ref('')
+
+/** 普通员工没有新增分类权限，仅管理员可见「＋ 新增分类」 */
+const userStore = useUserStore()
 
 const nameLen = computed(() => draft.name.length)
 const promptLen = computed(() => draft.prompt.length)
@@ -339,53 +343,39 @@ function removeQq(q: string): void {
   draft.quickQuestions = draft.quickQuestions.filter((x) => x !== q)
 }
 
-/* ---------------- AI 生成（对齐原型规则） ---------------- */
+/* ---------------- AI 生成（对齐需求 4.1.1.0） ---------------- */
 
 const categoryName = computed(
   () => props.categories.find((c) => c.categoryId === draft.categoryId)?.name ?? '协同办公'
 )
 
-function aiDescDraft(): string {
-  const name = draft.name.trim() || '业务助理'
-  return `「${name}」面向${categoryName.value}场景，可解答常见问题、讲解制度要点并给出办理指引；回答先给结论、再附依据，涉及个人数据时提醒员工自行核对，无法确认时明确提示转人工处理。`
-}
-
-function aiPromptDraft(): string {
-  const name = draft.name.trim() || '业务助理'
-  const desc = draft.description.trim() || '为员工提供相关业务的问答与操作指引'
-  return (
-    `你是九牧集团${categoryName.value}条的「${name}」。\n` +
-    `职责：${desc}。\n` +
-    '回答要求：\n' +
-    '1. 先给结论，再给出对应的制度或流程依据；\n' +
-    '2. 涉及员工个人数据时，提示员工自行核对；\n' +
-    '3. 无法确认的问题必须说明「需人工确认」，不得编造条款编号；\n' +
-    '4. 需要走流程的场景，明确指引对应的审批入口。'
-  )
+/** 各字段的关联输入与当前值，均由 4.1.1.0 的规则表决定 */
+function aiPayload(field: 'description' | 'tags' | 'prompt' | 'quickQuestions') {
+  return {
+    field,
+    name: draft.name.trim() || '业务助理',
+    categoryName: categoryName.value,
+    description: draft.description.trim() || null,
+    tags: [...draft.tags],
+    prompt: draft.prompt.trim() || null,
+    quickQuestions: [...draft.quickQuestions],
+    currentValue:
+      field === 'description'
+        ? draft.description.trim() || null
+        : field === 'prompt'
+          ? draft.prompt.trim() || null
+          : field === 'tags'
+            ? [...draft.tags]
+            : [...draft.quickQuestions],
+    mode: 'auto' as const
+  }
 }
 
 async function runAi(field: 'description' | 'tags' | 'prompt' | 'quickQuestions'): Promise<void> {
+  if (aiLoading.value[field]) return
   aiLoading.value[field] = true
   try {
-    // 优先走 AI 接口；Mock 下同样返回结构化结果，保持一致
-    const res = await aiGenerate({
-      field,
-      name: draft.name.trim() || '业务助理',
-      categoryName: categoryName.value,
-      description: draft.description || null,
-      tags: [...draft.tags],
-      prompt: draft.prompt || null,
-      quickQuestions: [...draft.quickQuestions],
-      currentValue:
-        field === 'description'
-          ? draft.description || null
-          : field === 'prompt'
-            ? draft.prompt || null
-            : field === 'tags'
-              ? [...draft.tags]
-              : [...draft.quickQuestions],
-      mode: 'auto'
-    })
+    const res = await aiGenerate(aiPayload(field))
 
     if (field === 'description') {
       draft.description = String(res.value).slice(0, 200)
@@ -394,14 +384,20 @@ async function runAi(field: 'description' | 'tags' | 'prompt' | 'quickQuestions'
       draft.prompt = String(res.value).slice(0, 4000)
       ElMessage.success('已生成提示词草稿，可继续编辑')
     } else if (field === 'tags') {
-      const before = draft.tags.length
-      const merged = [...draft.tags]
-      ;(res.value as string[]).forEach((t) => {
-        if (merged.length < 5 && !merged.includes(t)) merged.push(t)
-      })
-      draft.tags = merged
-      const added = merged.length - before
-      ElMessage[added ? 'success' : 'error'](added ? `已生成 ${added} 个标签建议，可继续编辑` : '标签已满 5 个')
+      if (res.hitLimit) {
+        ElMessage.error('标签已满 5 个')
+      } else {
+        const before = draft.tags.length
+        const merged = [...draft.tags]
+        ;(res.value as string[]).forEach((t) => {
+          if (merged.length < 5 && !merged.includes(t)) merged.push(t)
+        })
+        draft.tags = merged
+        const added = merged.length - before
+        ElMessage[added ? 'success' : 'error'](added ? `已生成 ${added} 个标签建议，可继续编辑` : '标签已满 5 个')
+      }
+    } else if (res.hitLimit) {
+      ElMessage.error('快速问题已满 6 条')
     } else {
       const before = draft.quickQuestions.length
       const merged = [...draft.quickQuestions]
@@ -413,22 +409,10 @@ async function runAi(field: 'description' | 'tags' | 'prompt' | 'quickQuestions'
       ElMessage[added ? 'success' : 'error'](added ? `已生成 ${added} 条快速问题建议，可继续编辑` : '快速问题已满 6 条')
     }
   } catch {
-    // AI 服务不可用时回退到本地模板，保证创建流程不被阻断
-    localAi(field)
-    if (field === 'tags' || field === 'quickQuestions') {
-      ElMessage.warning('AI 服务暂不可用，已使用本地建议')
-    }
+    // 失败保留原内容，不覆盖已填值
+    ElMessage.error('AI 生成失败，请稍后重试')
   } finally {
     aiLoading.value[field] = false
-  }
-}
-
-/** 本地兜底：AI 服务不可用时按原型同款模板生成 */
-function localAi(field: 'description' | 'tags' | 'prompt' | 'quickQuestions'): void {
-  if (field === 'description') {
-    draft.description = aiDescDraft()
-  } else if (field === 'prompt') {
-    draft.prompt = aiPromptDraft()
   }
 }
 
@@ -569,6 +553,18 @@ function close(): void {
 </script>
 
 <template>
+  <!-- 复用的线性图标（对齐 prototype SVG 精灵） -->
+  <svg class="at-sprite" aria-hidden="true">
+    <symbol id="at-icon-ai-spark" viewBox="0 0 24 24">
+      <path d="M11 4l1.7 4.3L17 10l-4.3 1.7L11 16l-1.7-4.3L5 10l4.3-1.7z" />
+      <path d="M18 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+    </symbol>
+    <symbol id="at-icon-refresh" viewBox="0 0 24 24">
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </symbol>
+  </svg>
+
   <el-drawer
     :model-value="modelValue"
     :title="isEdit ? `编辑助理 · ${draft.name}` : '手动创建助理'"
@@ -624,9 +620,12 @@ function close(): void {
                       accept="image/*"
                       :on-change="handleFileChange"
                     >
-                      <el-button link type="primary" size="small">替换</el-button>
+                      <button type="button" class="avatar-op-btn">
+                        <svg class="avatar-op-icon"><use href="#at-icon-refresh" /></svg>
+                        替换
+                      </button>
                     </el-upload>
-                    <el-button link type="danger" size="small" @click="removeUpload">移除</el-button>
+                    <button type="button" class="avatar-op-btn is-danger" @click="removeUpload">移除</button>
                   </div>
                 </template>
                 <el-upload
@@ -662,10 +661,12 @@ function close(): void {
             <el-select :model-value="draft.categoryId" placeholder="请选择分类" class="full" @change="onCategoryChange">
               <el-option v-for="c in categories" :key="c.categoryId" :label="c.name" :value="c.categoryId" />
             </el-select>
-            <div v-if="!isEdit" class="form-hint">可点击下方「＋ 新增分类」手动添加</div>
-            <el-button link type="primary" size="small" class="add-cat" @click="openCategoryDialog">
-              ＋ 新增分类
-            </el-button>
+            <template v-if="userStore.isAdmin">
+              <div v-if="!isEdit" class="form-hint">可点击下方「＋ 新增分类」手动添加</div>
+              <el-button link type="primary" size="small" class="add-cat" @click="openCategoryDialog">
+                ＋ 新增分类
+              </el-button>
+            </template>
           </div>
         </div>
 
@@ -673,9 +674,17 @@ function close(): void {
           <div class="form-item">
             <div class="prompt-tools">
               <label class="form-label required">描述</label>
-              <el-button link type="primary" size="small" :loading="aiLoading.description" @click="runAi('description')">
-                ✨AI 生成
-              </el-button>
+              <button
+                type="button"
+                class="btn-ai"
+                :class="{ 'is-loading': aiLoading.description }"
+                :disabled="aiLoading.description"
+                title="根据名称、分类生成描述草稿"
+                @click="runAi('description')"
+              >
+                <svg class="ai-icon"><use href="#at-icon-ai-spark" /></svg>
+                AI 生成
+              </button>
             </div>
             <el-input
               v-model="draft.description"
@@ -691,9 +700,17 @@ function close(): void {
           <div class="form-item">
             <div class="prompt-tools">
               <label class="form-label">自定义标签</label>
-              <el-button link type="primary" size="small" :loading="aiLoading.tags" @click="runAi('tags')">
-                ✨AI 生成
-              </el-button>
+              <button
+                type="button"
+                class="btn-ai"
+                :class="{ 'is-loading': aiLoading.tags }"
+                :disabled="aiLoading.tags"
+                title="根据助理名称与描述生成标签建议"
+                @click="runAi('tags')"
+              >
+                <svg class="ai-icon"><use href="#at-icon-ai-spark" /></svg>
+                AI 生成
+              </button>
             </div>
             <div class="tag-input-wrap">
               <span v-for="t in draft.tags" :key="t" class="tag-chip">
@@ -717,9 +734,17 @@ function close(): void {
         <div class="prompt-tools">
           <label class="form-label required">提示词</label>
           <span class="tools-right">
-            <el-button link type="primary" size="small" :loading="aiLoading.prompt" @click="runAi('prompt')">
-              ✨AI 生成
-            </el-button>
+            <button
+              type="button"
+              class="btn-ai"
+              :class="{ 'is-loading': aiLoading.prompt }"
+              :disabled="aiLoading.prompt"
+              title="根据名称、分类、描述生成提示词草稿"
+              @click="runAi('prompt')"
+            >
+              <svg class="ai-icon"><use href="#at-icon-ai-spark" /></svg>
+              AI 生成
+            </button>
             <span class="prompt-counter">{{ promptLen }}/4000</span>
           </span>
         </div>
@@ -780,9 +805,17 @@ function close(): void {
         <div class="flex-between">
           <label class="form-label">召唤快速问题</label>
           <span class="tools-right">
-            <el-button link type="primary" size="small" :loading="aiLoading.quickQuestions" @click="runAi('quickQuestions')">
-              ✨AI 生成
-            </el-button>
+            <button
+              type="button"
+              class="btn-ai"
+              :class="{ 'is-loading': aiLoading.quickQuestions }"
+              :disabled="aiLoading.quickQuestions"
+              title="根据名称、分类生成快速问题建议"
+              @click="runAi('quickQuestions')"
+            >
+              <svg class="ai-icon"><use href="#at-icon-ai-spark" /></svg>
+              AI 生成
+            </button>
             <span class="form-hint">选填，最多 6 条</span>
           </span>
         </div>
@@ -974,6 +1007,64 @@ function close(): void {
   margin-bottom: 6px;
 }
 
+/* 图标精灵容器 */
+.at-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* AI 生成按钮：对齐 prototype .btn-ai（浅蓝渐变底 + 品牌色描边） */
+.btn-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--at-brand);
+  background: linear-gradient(90deg, rgba(54, 133, 242, 0.06), rgba(54, 133, 242, 0.16));
+  border: 1px solid rgba(54, 133, 242, 0.35);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-ai:hover {
+  color: var(--at-brand-dark);
+  border-color: var(--at-brand);
+  background: rgba(54, 133, 242, 0.12);
+}
+
+.btn-ai:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.btn-ai.is-loading .ai-icon {
+  animation: ai-spin 0.9s linear infinite;
+}
+
+.ai-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .prompt-tools .form-label {
   margin-bottom: 0;
 }
@@ -1072,9 +1163,53 @@ function close(): void {
 
 .avatar-ops {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.avatar-ops :deep(.el-upload) {
+  display: block;
+}
+
+/* 头像操作按钮：对齐 prototype .btn-text / .btn-danger-text */
+.avatar-op-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--at-brand);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.avatar-op-btn:hover {
+  background: rgba(54, 133, 242, 0.1);
+}
+
+.avatar-op-btn.is-danger {
+  color: var(--at-danger);
+}
+
+.avatar-op-btn.is-danger:hover {
+  background: rgba(255, 77, 93, 0.1);
+}
+
+.avatar-op-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .avatar-upload-wrap :deep(.el-upload) {
