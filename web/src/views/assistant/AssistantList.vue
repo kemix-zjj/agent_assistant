@@ -101,7 +101,9 @@ const STATUS_OPTIONS = [
   { value: 'unshared', label: '未共享' },
   { value: 'pending', label: '待审批' },
   { value: 'approved', label: '已共享' },
-  { value: 'rejected', label: '已拒绝' }
+  { value: 'rejected', label: '已拒绝' },
+  { value: 'offline_pending', label: '下架审批中' },
+  { value: 'offline', label: '已下架' }
 ]
 
 const SUB_OPTIONS = [

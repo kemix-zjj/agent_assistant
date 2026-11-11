@@ -127,6 +127,8 @@ export interface AssistantDetail {
   quickQuestions: string[]
   shareScope: Scope | null
   versionHistory: VersionHistoryItem[]
+  /** 后端派生的操作按钮，与列表卡片同源 */
+  actions: AssistantAction[]
 }
 
 /** 创建 / 编辑助理请求体（PUT 为全量覆盖） */

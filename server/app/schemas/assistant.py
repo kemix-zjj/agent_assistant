@@ -9,7 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from pydantic.alias_generators import to_camel
 
 AssistantAction = Literal[
-    "summon", "edit", "delete", "shareScope", "remove", "resubscribe", "share", "resubmit"
+    "summon",
+    "edit",
+    "delete",
+    "shareScope",
+    "remove",
+    "resubscribe",
+    "share",
+    "resubmit",
+    "offline",
 ]
 
 
@@ -189,6 +197,8 @@ class AssistantDetail(CamelModel):
     quick_questions: list[str] = Field(default_factory=list)
     share_scope: dict | None = None
     version_history: list[VersionHistoryItem] = Field(default_factory=list)
+    # 与列表卡片同源派生，前端详情抽屉直接消费，避免两套规则漂移
+    actions: list[AssistantAction] = Field(default_factory=list)
 
 
 class DeleteImpact(CamelModel):

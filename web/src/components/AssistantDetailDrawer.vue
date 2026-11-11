@@ -86,45 +86,10 @@ const canEditScope = computed(() => {
   return d.shareStatus === 'approved' && (isOwner || userStore.isAdmin)
 })
 
-/** 底部操作按钮：沿用列表卡片的 actions 语义（详情响应不带 actions，按状态推导）
+/** 底部操作按钮：直接消费后端下发的 actions（与列表卡片同源，避免两套规则漂移）
  *  授权范围调整入口统一放在「授权范围」分区标题右侧，底部不再重复出按钮。
  */
-const footerActions = computed<AssistantAction[]>(() => {
-  const d = detail.value
-  if (!d) return []
-  const actions: AssistantAction[] = []
-  const isOwner = !d.ownerName || d.ownerName === userStore.currentUser.name
-
-  if (readonlyView.value) return ['remove']
-  // 平台预置助理没有授权范围快照分区，管理员的范围授权入口保留在底部
-  if (d.source === 'platform') {
-    return userStore.isAdmin ? ['shareScope', 'summon'] : ['summon']
-  }
-  if (!isOwner) return ['summon']
-  switch (d.shareStatus) {
-    case 'unshared':
-      actions.push('share', 'edit', 'delete', 'summon')
-      break
-    case 'pending':
-      actions.push('edit', 'delete', 'summon')
-      break
-    case 'approved':
-      // 已共享：编辑 / 下架 / 召唤（授权范围在分区标题内调整，底部不重复）
-      actions.push('edit', 'offline', 'summon')
-      break
-    case 'rejected':
-      // 被拒绝后仍可继续编辑，调整后重新提交审批
-      actions.push('edit', 'resubmit', 'delete', 'summon')
-      break
-    case 'offline_pending':
-      // 下架审批中：不可编辑与召唤
-      actions.push('edit', 'summon')
-      break
-    default:
-      actions.push('edit', 'summon')
-  }
-  return actions
-})
+const footerActions = computed<AssistantAction[]>(() => detail.value?.actions ?? [])
 
 const sideActions = computed(() =>
   footerActions.value.filter((a) => {

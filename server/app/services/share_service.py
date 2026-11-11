@@ -83,9 +83,11 @@ class ShareService:
                 raise NoPermissionError("仅创建人可提交共享申请")
             assistants.append(row)
 
-        # 3. 状态必须为 unshared / rejected
+        # 3. 状态必须为 unshared / rejected / offline
+        #    offline（已下架）允许重新提交共享申请，等同于重新上架；
+        #    平台预置助理不存在该状态，无需额外排除
         for row in assistants:
-            if row.share_status not in ("unshared", "rejected"):
+            if row.share_status not in ("unshared", "rejected", "offline"):
                 raise ConflictError(
                     ErrorCode.ASSISTANT_ALREADY_SHARED,
                     "待审批或已共享的助理不可重复提交",

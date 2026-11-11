@@ -143,6 +143,23 @@ def test_approval_detail_not_found() -> None:
     assert resp.json()["code"] == "APPROVAL_NOT_FOUND"
 
 
+def test_approval_detail_flags_config_change_after_edit() -> None:
+    """待审批期间编辑会升版本，审批单保留提交时版本并提示「配置已变更」。"""
+    aid, approval_id = _create_and_submit("审批测试助理配置变更", _scope(orgs=["O11"]))
+    try:
+        body = _payload("审批测试助理配置变更")
+        body["prompt"] = "你是修改后的审批测试助理。"
+        updated = client.put(f"/api/v1/assistants/{aid}", headers=OWNER, json=body)
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["data"]["version"] == "v1.1"
+
+        detail = client.get(f"/api/v1/approvals/{approval_id}", headers=ADMIN).json()["data"]
+        assert detail["assistant"]["version"] == "v1.1"
+        assert detail["assistantConfigChanged"] is True
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
 # ============================ 审批前调整范围 ============================
 
 

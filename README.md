@@ -45,7 +45,6 @@ UI 原型，纯静态无构建依赖，双击 `index.html` 即可评审。
 | `img/avatars/` | 6 款默认卡通人像（avatar-01~06.png） |
 | `pages/D-AT-LIST.js` | 助理列表页（创建 / 详情 / 召唤 / 共享范围 / 授权管理 / 分类管理 / 审批中心） |
 | `pages/D-AT-NEWTASK.js` | 新建任务页（召唤后的对话入口） |
-| `_legacy/` | 历史 v2 草稿归档，不参与运行 |
 
 **评审直达**
 - 助理列表：`prototype/index.html`

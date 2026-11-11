@@ -515,6 +515,8 @@ def test_offline_submit_moves_to_offline_pending() -> None:
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
         assert detail["shareStatus"] == "offline_pending"
         assert detail["versionHistory"][0]["action"] == "offline_submit"
+        # 下架审批中：共享仍生效，可召唤 / 编辑 / 删除，不可再改范围或重复提交
+        assert detail["actions"] == ["summon", "edit", "delete"]
 
         # 进入管理员待审批列表，类型为下架申请
         pending = client.get(
@@ -622,3 +624,98 @@ def test_offline_submit_rejects_empty_reason() -> None:
         assert resp.status_code == 400
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def _take_offline(aid: int) -> None:
+    """走完「共享 → 申请下架 → 管理员通过」，使助理进入 offline。"""
+    _publish(aid)
+    submitted = client.post(
+        f"/api/v1/assistants/{aid}/offline",
+        headers=OWNER,
+        json={"reason": "能力合并，先下架"},
+    )
+    assert submitted.status_code == 201, submitted.text
+    approval_id = submitted.json()["data"]["approvalId"]
+    approved = client.post(
+        f"/api/v1/approvals/{approval_id}/approve", headers=ADMIN, json={}
+    )
+    assert approved.status_code == 200, approved.text
+
+
+def test_offline_can_resubmit_share() -> None:
+    """已下架（offline）可重新提交共享申请，等同重新上架。"""
+    aid = _create("共享提交助理下架己")
+    try:
+        _take_offline(aid)
+
+        cards = client.get(
+            "/api/v1/assistants", headers=OWNER, params={"scope": "mine", "pageSize": 50}
+        ).json()["data"]["list"]
+        card = next(c for c in cards if c["assistantId"] == aid)
+        assert card["shareStatus"] == "offline"
+        assert "resubmit" in card["actions"]
+
+        # 状态筛选放行 offline，且详情与卡片同源下发 actions
+        filtered = client.get(
+            "/api/v1/assistants",
+            headers=OWNER,
+            params={"scope": "mine", "statusFilter": "offline", "pageSize": 50},
+        ).json()["data"]["list"]
+        assert aid in [c["assistantId"] for c in filtered]
+
+        offline_detail = client.get(
+            f"/api/v1/assistants/{aid}", headers=OWNER
+        ).json()["data"]
+        assert offline_detail["actions"] == ["summon", "edit", "delete", "resubmit"]
+
+        resp = client.post(
+            "/api/v1/shares",
+            headers=OWNER,
+            json={
+                "assistantIds": [aid],
+                "scope": _scope(users=["u1"]),
+                "changeNote": "下架后重新上架",
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()["data"]
+        assert data["submittedCount"] == 1
+        assert data["assistantStatus"] == "pending"
+        assert len(data["approvalIds"]) == 1
+
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["shareStatus"] == "pending"
+        assert detail["versionHistory"][0]["action"] == "share_submit"
+        assert detail["shareScope"]["grantTotal"] == 1
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_detail_actions_include_offline_for_approved() -> None:
+    """已共享详情下发下架入口，且与列表卡片同源。"""
+    aid = _create("共享提交助理下架庚")
+    try:
+        _publish(aid)
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["actions"] == ["summon", "edit", "delete", "shareScope", "offline"]
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_status_filter_supports_all_share_states() -> None:
+    """我的助理状态筛选放行全部 6 种共享状态，未知值仍拒绝。"""
+    for status in ("unshared", "pending", "approved", "rejected", "offline_pending", "offline"):
+        resp = client.get(
+            "/api/v1/assistants",
+            headers=OWNER,
+            params={"scope": "mine", "statusFilter": status},
+        )
+        assert resp.status_code == 200, status
+
+    bad = client.get(
+        "/api/v1/assistants",
+        headers=OWNER,
+        params={"scope": "mine", "statusFilter": "not-a-status"},
+    )
+    assert bad.status_code == 400
+    assert bad.json()["code"] == "PARAM_INVALID"

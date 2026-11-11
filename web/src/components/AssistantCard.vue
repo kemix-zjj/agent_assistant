@@ -53,7 +53,9 @@ const canShare = computed(
   () =>
     props.scope === 'mine' &&
     props.card.source !== 'shared' &&
-    (props.card.shareStatus === 'unshared' || props.card.shareStatus === 'rejected')
+    (props.card.shareStatus === 'unshared' ||
+      props.card.shareStatus === 'rejected' ||
+      props.card.shareStatus === 'offline')
 )
 
 /** 标签：最多展示 2 个，其余以 +N 收拢（完整标签见详情） */

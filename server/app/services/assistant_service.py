@@ -40,7 +40,14 @@ from app.services import master_data
 logger = logging.getLogger("app.assistant")
 
 VALID_SCOPES = {"all", "mine", "shared", "auth"}
-VALID_STATUS = {"unshared", "pending", "approved", "rejected"}
+VALID_STATUS = {
+    "unshared",
+    "pending",
+    "approved",
+    "rejected",
+    "offline_pending",
+    "offline",
+}
 VALID_SUBSCRIBE = {"subscribed", "removed"}
 
 ACTION_NAME = {
@@ -253,8 +260,14 @@ class AssistantService:
             case "pending":
                 return ["summon", "edit", "delete"]
             case "approved":
-                return ["summon", "edit", "delete", "shareScope"]
+                return ["summon", "edit", "delete", "shareScope", "offline"]
             case "rejected":
+                return ["summon", "edit", "delete", "resubmit"]
+            case "offline_pending":
+                # 下架审批中：共享仍生效，可继续编辑/召唤；删除会终止下架审批
+                return ["summon", "edit", "delete"]
+            case "offline":
+                # 已下架：授权已全部失效，可重新提交共享申请（等同重新上架）
                 return ["summon", "edit", "delete", "resubmit"]
             case _:
                 return ["summon", "edit", "delete"]
@@ -325,6 +338,7 @@ class AssistantService:
                     reverse=True,
                 )
             ],
+            actions=self._derive_actions(row, grant, user),
         )
         return detail
 

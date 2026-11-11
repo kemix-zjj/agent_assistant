@@ -197,7 +197,7 @@ export function sourcesOf(userId: string, payload: ScopePayload): string[] {
 
 /* ============================ 助理种子数据 ============================ */
 
-interface AssistantRow extends Omit<AssistantDetail, 'categoryName'> {
+interface AssistantRow extends Omit<AssistantDetail, 'categoryName' | 'actions'> {
   categoryId: number
 }
 
@@ -623,9 +623,10 @@ function toCard(row: AssistantRow, scope = 'all'): AssistantCard {
     // 需求 F-EXP-004/F-EXP-005：我的助理范围内创建人可编辑、删除；
     // 未共享/已拒绝可提交共享申请，已共享可调整「共享范围」（需求 F-EXP-002）
     actions.push('summon')
-    if (row.shareStatus === 'approved') actions.push('shareScope')
+    if (row.shareStatus === 'approved') actions.push('shareScope', 'offline')
     if (row.shareStatus === 'unshared') actions.push('share')
-    if (row.shareStatus === 'rejected') actions.push('resubmit')
+    // 已拒绝 / 已下架 都可重新提交共享申请（已下架等同重新上架）
+    if (row.shareStatus === 'rejected' || row.shareStatus === 'offline') actions.push('resubmit')
     actions.push('edit', 'delete')
   }
 
@@ -698,9 +699,11 @@ export function queryAssistants(params: {
       (e) => e.ownerName !== myName && grants.some((g) => g.assistantId === e.assistantId)
     )
   } else if (params.scope === 'auth') {
-    // 授权管理（仅管理员）：全部已共享的自建与第三方助理
+    // 授权管理（仅管理员）：全部已共享 / 下架审批中的自建与第三方助理
     rows = assistants.filter(
-      (e) => (e.source === 'custom' || e.source === 'thirdparty') && e.shareStatus === 'approved'
+      (e) =>
+        (e.source === 'custom' || e.source === 'thirdparty') &&
+        (e.shareStatus === 'approved' || e.shareStatus === 'offline_pending')
     )
   } else {
     // 全部：仅「可用且已共享」——平台预置 ∪ 我的已共享 ∪ 别人共享给我且已订阅
@@ -763,7 +766,8 @@ export function detailOf(id: number): AssistantDetail & { categoryName: string }
     skills: readOnly ? null : row.skills,
     mcps: readOnly ? null : row.mcps,
     knowledgeBases: readOnly ? null : row.knowledgeBases,
-    shareScope: readOnly ? null : row.shareScope
+    shareScope: readOnly ? null : row.shareScope,
+    actions: toCard(row).actions
   }
 }
 
@@ -908,7 +912,8 @@ export function submitShare(payload: ShareSubmitPayload): { batchNo: string; app
   const ids: number[] = []
   payload.assistantIds.forEach((id) => {
     const row = findAssistant(id)
-    if (row.shareStatus !== 'unshared' && row.shareStatus !== 'rejected') {
+    // 已下架（offline）可重新提交共享申请，等同重新上架
+    if (row.shareStatus !== 'unshared' && row.shareStatus !== 'rejected' && row.shareStatus !== 'offline') {
       throw new ApiError('ASSISTANT_STATUS_CHANGED', '所选助理状态已变更，请刷新后重试', { assistantId: id }, '')
     }
   })
