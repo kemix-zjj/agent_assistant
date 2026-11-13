@@ -428,7 +428,7 @@ class ApprovalService:
             action="approval_approve",
             object_type="approval",
             object_id=approval.id,
-            before={"status": "pending", "shareStatus": "offline_pending"},
+            before={"status": "pending", "shareStatus": "pending"},
             after={
                 "status": "approved",
                 "assistantId": assistant.id,

@@ -499,7 +499,7 @@ def _publish(aid: int) -> None:
     assert approved.status_code == 200, approved.text
 
 
-def test_offline_submit_moves_to_offline_pending() -> None:
+def test_offline_submit_moves_to_pending_offline() -> None:
     aid = _create("共享提交助理下架甲")
     try:
         _publish(aid)
@@ -510,11 +510,12 @@ def test_offline_submit_moves_to_offline_pending() -> None:
         )
         assert resp.status_code == 201, resp.text
         data = resp.json()["data"]
-        assert data["shareStatus"] == "offline_pending"
+        assert data["shareStatus"] == "pending"
         assert data["approvalId"] > 0
 
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
-        assert detail["shareStatus"] == "offline_pending"
+        assert detail["shareStatus"] == "pending"
+        assert detail["pendingType"] == "offline"
         assert detail["versionHistory"][0]["action"] == "offline_submit"
         # 下架审批中：仅创建人可召唤，可查看授权范围；不可编辑、不可重复提交
         assert detail["actions"] == ["summon", "shareScope"]
@@ -708,8 +709,8 @@ def test_detail_actions_include_offline_for_approved() -> None:
 
 
 def test_status_filter_supports_all_share_states() -> None:
-    """我的助理状态筛选放行全部 6 种共享状态，未知值仍拒绝。"""
-    for status in ("unshared", "pending", "approved", "rejected", "offline_pending", "offline"):
+    """我的助理状态筛选放行全部 5 种共享状态，未知值仍拒绝。"""
+    for status in ("unshared", "pending", "approved", "rejected", "offline"):
         resp = client.get(
             "/api/v1/assistants",
             headers=OWNER,

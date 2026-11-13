@@ -48,13 +48,12 @@ VALID_STATUS = {
     "pending",
     "approved",
     "rejected",
-    "offline_pending",
     "offline",
 }
 VALID_SUBSCRIBE = {"subscribed", "removed"}
 
-# 状态筛选口径：「审批中」聚合四类审批中，「已拒绝」聚合全部拒绝子类
-PENDING_STATUS = ("pending", "offline_pending")
+# 状态筛选口径：「审批中」统一为 pending，由 pending_type 区分四类审批
+PENDING_STATUS = ("pending",)
 
 ACTION_NAME = {
     "create": "创建",
@@ -184,7 +183,7 @@ class AssistantService:
         # 「全部」页签：本质已共享的自建 / 第三方助理统一折叠为「已共享」，不展开审批 / 拒绝子类
         collapse = scope == "all"
         collapsed_status = row.share_status
-        if collapse and collapsed_status in ("pending", "rejected", "offline_pending"):
+        if collapse and collapsed_status in ("pending", "rejected"):
             collapsed_status = "approved"
         return AssistantCard(
             assistant_id=row.id,
@@ -239,7 +238,9 @@ class AssistantService:
 
         if not is_owner:
             # 已下架 / 下架审批中 / 已拒绝仅创建人可召唤
-            if row.share_status in ("offline", "offline_pending", "rejected"):
+            if row.share_status in ("offline", "rejected") or (
+                row.share_status == "pending" and row.pending_type == "offline"
+            ):
                 return []
             return ["summon"]
 
@@ -247,8 +248,8 @@ class AssistantService:
             case "unshared":
                 return ["summon", "edit", "delete", "share"]
             case "pending":
-                # 授权范围变更审批中：原授权范围继续生效，可查看范围
-                if user.is_admin or row.pending_type == "scope":
+                # 授权范围 / 下架审批中：原状态继续生效，可查看范围
+                if user.is_admin or row.pending_type in ("scope", "offline"):
                     return ["summon", "shareScope"]
                 return ["summon"]
             case "approved":
@@ -257,8 +258,6 @@ class AssistantService:
                 # 已拒绝四类均展示「重新提交 / 删除 / 关闭 / 召唤」；
                 # 仅「共享审批被拒」真正可删，其余三类点击删除由前端提示不可删除
                 return ["summon", "resubmit", "shareScope", "delete"]
-            case "offline_pending":
-                return ["summon", "shareScope"]
             case "offline":
                 return ["summon", "edit", "delete", "resubmit"]
             case _:
@@ -574,7 +573,7 @@ class AssistantService:
                 ErrorCode.ASSISTANT_ALREADY_SHARED,
                 "该助理已共享过，无法删除，请进行下架处理",
             )
-        if row.share_status in ("approved", "pending", "offline_pending"):
+        if row.share_status in ("approved", "pending"):
             raise ConflictError(
                 ErrorCode.ASSISTANT_ALREADY_SHARED,
                 "该助理已共享或审批中，无法删除，请进行下架处理",

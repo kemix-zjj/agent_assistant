@@ -3,8 +3,8 @@ import type { Scope, ScopePayload } from './scope'
 /** 助理来源（docs/03 §3.1；shared 为查询派生，不落库） */
 export type AssistantSource = 'platform' | 'custom' | 'thirdparty' | 'shared'
 
-/** 共享状态（需求 4.0 共享状态与文案统一；offline_pending / offline 为下架流程） */
-export type ShareStatus = 'unshared' | 'pending' | 'approved' | 'rejected' | 'offline_pending' | 'offline'
+/** 共享状态（需求 4.0 共享状态与文案统一；审批中统一为 pending，由 pendingType 区分四类） */
+export type ShareStatus = 'unshared' | 'pending' | 'approved' | 'rejected' | 'offline'
 
 /** 审批子类 / 拒绝子类：共享审批 / 调整审批 / 授权审批 / 下架审批 */
 export type ApproveSubType = 'share' | 'change' | 'scope' | 'offline'

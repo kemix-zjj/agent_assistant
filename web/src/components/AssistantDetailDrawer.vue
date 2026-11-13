@@ -226,7 +226,10 @@ function onAction(action: AssistantAction): void {
               拒绝类型：{{ rejectTypeText }} · 拒绝原因：{{ detail.rejectReason || '管理员未填写拒绝原因' }}
             </span>
           </div>
-          <div v-if="detail.shareStatus === 'offline_pending' && detail.offlineReason" class="notice-bar is-warning">
+          <div
+            v-if="detail.shareStatus === 'pending' && detail.pendingType === 'offline' && detail.offlineReason"
+            class="notice-bar is-warning"
+          >
             <span>下架原因：{{ detail.offlineReason }}（等待管理员审批）</span>
           </div>
           <div

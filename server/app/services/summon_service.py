@@ -101,7 +101,9 @@ class SummonService:
         if row.owner_user_id == user.user_id:
             return
 
-        if row.share_status in ("rejected", "offline", "offline_pending"):
+        if row.share_status in ("rejected", "offline") or (
+            row.share_status == "pending" and row.pending_type == "offline"
+        ):
             raise NoPermissionError("该助理仅创建者可召唤")
 
         grant = self.repo.find_grant(

@@ -294,16 +294,513 @@ body {
   font-family: "SF Mono", Menlo, Consolas, monospace;
   font-size: 12px;
 }
+
+/* 关键字段字典 */
+.dict-block { margin-bottom: 28px; }
+.dict-block:last-child { margin-bottom: 0; }
+.dict-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.dict-h .bar {
+  width: 4px;
+  height: 15px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+.dict-hint {
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-2);
+}
+.table-wrap { overflow-x: auto; }
+table.dict {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+}
+table.dict th,
+table.dict td {
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid var(--border);
+}
+table.dict thead th {
+  background: #f7f9fc;
+  color: var(--text-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+table.dict td.tname {
+  background: #fbfcfe;
+  color: var(--primary-dark);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dict-block code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef4ff;
+  color: #2a4d8f;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.dict-block code.muted { background: #eef1f6; color: var(--text-3); }
+.tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tag.unshared { background: #eef1f6; color: var(--text-2); }
+.tag.approved { background: var(--green-bg); color: var(--green); }
+.tag.pending { background: var(--orange-bg); color: var(--orange); }
+.tag.rejected { background: var(--red-bg); color: var(--red); }
+.tag.offline { background: var(--purple-bg); color: var(--purple); }
+.tag.platform { background: var(--primary-light); color: var(--primary-dark); }
+.tag.subscribed { background: var(--teal-bg); color: var(--teal); }
+.rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.rule {
+  padding: 12px 14px;
+  background: #fbfcfe;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--text-2);
+}
+.rule h4 {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+.rule .sql {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f4f7fb;
+  color: #2a4d8f;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>助理共享授权 · 全链路数据流向大图</h1>
-  <p>从创建、提交共享、审批、订阅到删除 · 五张核心表在各阶段的字段变化</p>
+  <p>关键字段字典 · 助理状态编码 · 从创建、提交共享、审批、订阅到删除的字段变化</p>
 </div>
 
 <div class="flow-container">
+
+  <!-- ==================== 关键字段字典 ==================== -->
+  <div class="dict-block">
+    <div class="dict-h"><span class="bar"></span>一、核心表关键字段</div>
+    <div class="table-wrap">
+      <table class="dict">
+        <thead>
+          <tr>
+            <th style="width:130px;">表</th>
+            <th style="width:190px;">关键字段</th>
+            <th style="width:300px;">取值</th>
+            <th>含义 / 约束</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="tname" rowspan="9">assistant</td>
+            <td><code>source</code></td>
+            <td><code>platform</code> / <code>custom</code> / <code>thirdparty</code></td>
+            <td>平台内置 / 用户自建 / 第三方。平台内置在「全部」页签单独成一类</td>
+          </tr>
+          <tr>
+            <td><code>share_status</code></td>
+            <td><code>unshared</code> / <code>pending</code> / <code>approved</code> / <code>rejected</code> / <code>offline</code></td>
+            <td>共享一级状态；「我的助理」页签的五个筛选值直接对应它，审批中的四类子状态由 <code>pending_type</code> 区分</td>
+          </tr>
+          <tr>
+            <td><code>pending_type</code></td>
+            <td><code>share</code> / <code>change</code> / <code>scope</code> / <code>offline</code></td>
+            <td>仅 <code>pending</code>（审批中）时有值，区分四类审批；其余状态为 NULL</td>
+          </tr>
+          <tr>
+            <td><code>reject_type</code></td>
+            <td><code>share</code> / <code>change</code> / <code>scope</code> / <code>offline</code></td>
+            <td>仅 <code>rejected</code> 时有值，表示被拒的是哪类审批；其余状态为 NULL</td>
+          </tr>
+          <tr>
+            <td><code>has_shared</code></td>
+            <td><code>0</code> / <code>1</code></td>
+            <td>是否曾共享成功。决定版本号生成口径、该助理是否属于「本质已共享」、是否允许删除</td>
+          </tr>
+          <tr>
+            <td><code>version</code></td>
+            <td><code>""</code>（空串）/ <code>V1.0.0</code> …</td>
+            <td>空串 = 未发布；仅在审批通过时首次生成，此后尾号 +1，99 进位</td>
+          </tr>
+          <tr>
+            <td><code>authorized_count</code></td>
+            <td>整数</td>
+            <td>当前有效授权人数，随授权名册重算</td>
+          </tr>
+          <tr>
+            <td><code>last_reject_reason</code> / <code>offline_reason</code></td>
+            <td>字符串 / NULL</td>
+            <td>最近一次拒绝原因、下架原因；<code>last_approver_name</code> / <code>last_approve_time</code> 记录最近审批人</td>
+          </tr>
+          <tr>
+            <td><code>deleted_at</code></td>
+            <td>时间 / NULL</td>
+            <td>逻辑删除标记；有值后所有列表与授权查询均不可见</td>
+          </tr>
+
+          <tr>
+            <td class="tname" rowspan="3">share_scope</td>
+            <td><code>stage</code></td>
+            <td><code>requested</code> / <code>adjusted</code> / <code>effective</code></td>
+            <td>范围申请单阶段：提交时 / 审批前管理员调整 / 最终生效；只增不改</td>
+          </tr>
+          <tr>
+            <td><code>scope_mode</code></td>
+            <td><code>RANGE</code> / <code>PUBLIC</code></td>
+            <td>按范围选择 / 全员公开</td>
+          </tr>
+          <tr>
+            <td><code>approval_id</code></td>
+            <td>审批单 ID / NULL</td>
+            <td>管理员直改生成 effective 单时为 NULL；<code>org_count</code> / <code>role_count</code> / <code>position_count</code> / <code>user_count</code> / <code>grant_total</code> 为各维与展开人数</td>
+          </tr>
+
+          <tr>
+            <td class="tname" rowspan="2">share_scope_item</td>
+            <td><code>dim</code></td>
+            <td><code>org</code> / <code>role</code> / <code>position</code> / <code>user</code></td>
+            <td>四维原始选择，一行一个选项；<code>item_id</code> / <code>item_name</code> 为对应主数据 ID 与名称</td>
+          </tr>
+          <tr>
+            <td><code>scope_id</code></td>
+            <td>范围单 ID</td>
+            <td>归属 <code>share_scope.id</code>，随范围单级联删除</td>
+          </tr>
+
+          <tr>
+            <td class="tname" rowspan="4">approval</td>
+            <td><code>approval_type</code></td>
+            <td><code>share</code> / <code>change</code> / <code>scope</code> / <code>offline</code></td>
+            <td>共享 / 调整 / 授权 / 下架审批；与助理的 pending_type、reject_type 一一对应</td>
+          </tr>
+          <tr>
+            <td><code>status</code></td>
+            <td><code>pending</code> / <code>approved</code> / <code>rejected</code> / <code>terminated</code></td>
+            <td>待审批 / 通过 / 拒绝 / 因助理删除而终止；终态不可再流转</td>
+          </tr>
+          <tr>
+            <td><code>requested_scope_id</code> / <code>final_scope_id</code></td>
+            <td>范围单 ID / NULL</td>
+            <td>申请时快照 / 审批通过后复制出的 effective 快照</td>
+          </tr>
+          <tr>
+            <td><code>change_note</code> / <code>reject_reason</code></td>
+            <td>字符串 / NULL</td>
+            <td>变更说明（必填）/ 拒绝原因；同一助理同一时刻仅允许一条 pending（生成列 + 唯一索引）</td>
+          </tr>
+
+          <tr>
+            <td class="tname" rowspan="4">assistant_grant</td>
+            <td><code>grant_status</code></td>
+            <td><code>valid</code> / <code>invalid</code></td>
+            <td>授权是否有效：范围收紧差集、助理下架/删除后置 invalid</td>
+          </tr>
+          <tr>
+            <td><code>subscribe_status</code></td>
+            <td><code>subscribed</code> / <code>removed</code></td>
+            <td>被授权方的订阅状态，与 grant_status 正交；仅 valid 行参与共享列表</td>
+          </tr>
+          <tr>
+            <td><code>user_id</code> / <code>user_name</code> / <code>dept_name</code></td>
+            <td>主数据人员 ID / 姓名 / 部门</td>
+            <td>一人一行；<code>user_id</code> 对应登录账号的人员映射</td>
+          </tr>
+          <tr>
+            <td><code>source_scope_id</code> / <code>subscribe_time</code></td>
+            <td>范围单 ID / 时间</td>
+            <td>授权来源快照；订阅/移除操作时间用于共享列表排序</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== 状态编码矩阵 ==================== -->
+  <div class="dict-block">
+    <div class="dict-h"><span class="bar"></span>二、「我的助理」状态在库中的表示</div>
+    <p class="dict-hint">
+      一级状态看 <code>share_status</code>，四类审批子状态看 <code>pending_type</code> / <code>reject_type</code>；
+      「本质是否已共享」由 <code>has_shared</code> 标记。注意：<b>审批中 · 下架审批</b>同样是 <code>share_status='pending'</code>，由 <code>pending_type='offline'</code> 区分。
+    </p>
+    <div class="table-wrap">
+      <table class="dict">
+        <thead>
+          <tr>
+            <th style="width:170px;">界面状态</th>
+            <th style="width:130px;">share_status</th>
+            <th style="width:110px;">pending_type</th>
+            <th style="width:110px;">reject_type</th>
+            <th style="width:90px;">has_shared</th>
+            <th style="width:210px;">出现在哪些页签</th>
+            <th>关键说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag unshared">未共享</span></td>
+            <td><code>unshared</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>0</code></td>
+            <td>我的助理 · 未共享</td>
+            <td>私有，<code>version=""</code>；可编辑、删除、发起共享</td>
+          </tr>
+          <tr>
+            <td><span class="tag approved">已共享</span></td>
+            <td><code>approved</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 已共享<br>全部 · 已共享</td>
+            <td>授权名册有效；可编辑（走调整审批）、下架</td>
+          </tr>
+          <tr>
+            <td><span class="tag pending">审批中 · 共享审批</span></td>
+            <td><code>pending</code></td>
+            <td><code>share</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>0</code></td>
+            <td>我的助理 · 审批中</td>
+            <td>本质仍是未共享，<b>不进「全部」</b>；无编辑入口</td>
+          </tr>
+          <tr>
+            <td><span class="tag pending">审批中 · 调整审批</span></td>
+            <td><code>pending</code></td>
+            <td><code>change</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 审批中<br>全部 · 已共享（折叠）</td>
+            <td>原版本继续生效，本质已共享</td>
+          </tr>
+          <tr>
+            <td><span class="tag pending">审批中 · 授权审批</span></td>
+            <td><code>pending</code></td>
+            <td><code>scope</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 审批中<br>全部 · 已共享（折叠）</td>
+            <td>原授权范围继续生效，详情可查看范围</td>
+          </tr>
+          <tr>
+            <td><span class="tag pending">审批中 · 下架审批</span></td>
+            <td><code>pending</code></td>
+            <td><code>offline</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 审批中<br>全部 · 已共享（折叠）</td>
+            <td>审批通过后 <code>share_status</code> 变为 <code>offline</code></td>
+          </tr>
+          <tr>
+            <td><span class="tag rejected">已拒绝 · 共享审批</span></td>
+            <td><code>rejected</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>share</code></td>
+            <td><code>0</code></td>
+            <td>我的助理 · 已拒绝</td>
+            <td>本质仍是未共享，<b>不进「全部」</b>；四类中唯一可真正删除</td>
+          </tr>
+          <tr>
+            <td><span class="tag rejected">已拒绝 · 调整审批</span></td>
+            <td><code>rejected</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>change</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 已拒绝<br>全部 · 已共享（折叠）</td>
+            <td>重新提交走编辑页；删除仅弹「无法删除」提示</td>
+          </tr>
+          <tr>
+            <td><span class="tag rejected">已拒绝 · 授权审批</span></td>
+            <td><code>rejected</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>scope</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 已拒绝<br>全部 · 已共享（折叠）</td>
+            <td>重新提交走范围授权页；删除仅弹提示</td>
+          </tr>
+          <tr>
+            <td><span class="tag rejected">已拒绝 · 下架审批</span></td>
+            <td><code>rejected</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>offline</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 已拒绝<br>全部 · 已共享（折叠）</td>
+            <td>重新提交走编辑页；删除仅弹提示</td>
+          </tr>
+          <tr>
+            <td><span class="tag offline">已下架</span></td>
+            <td><code>offline</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code>1</code></td>
+            <td>我的助理 · 已下架</td>
+            <td>授权名册全部 invalid；<b>不进「全部」</b>；可重新共享、删除</td>
+          </tr>
+          <tr>
+            <td><span class="tag platform">平台内置</span></td>
+            <td><span style="color:var(--text-3);">不参与判定</span></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><span style="color:var(--text-3);">—</span></td>
+            <td>全部 · 平台内置</td>
+            <td>由 <code>assistant.source = platform</code> 判定，不属于个人状态</td>
+          </tr>
+          <tr>
+            <td><span class="tag subscribed">已订阅</span></td>
+            <td><span style="color:var(--text-3);">助理为 approved</span></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><span style="color:var(--text-3);">—</span></td>
+            <td>共享助理 · 已订阅<br>全部 · 已订阅</td>
+            <td><code>assistant_grant</code>：<code>grant_status=valid</code> 且 <code>subscribe_status=subscribed</code>，且创建人不是自己</td>
+          </tr>
+          <tr>
+            <td><span class="tag subscribed" style="background:#f1ebfe;color:var(--purple);">已移除</span></td>
+            <td><span style="color:var(--text-3);">助理为 approved</span></td>
+            <td><code class="muted">NULL</code></td>
+            <td><code class="muted">NULL</code></td>
+            <td><span style="color:var(--text-3);">—</span></td>
+            <td>共享助理 · 已移除</td>
+            <td>同上，<code>subscribe_status=removed</code>；仍保留授权关系，可重新订阅</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== 页签派生规则 ==================== -->
+  <div class="dict-block">
+    <div class="dict-h"><span class="bar"></span>三、三个页签的取数规则</div>
+    <div class="rules">
+      <div class="rule">
+        <h4>我的助理（scope=mine）</h4>
+        固定为「我创建的 custom / thirdparty 助理」，按共享一级状态筛选。
+        <div class="sql">未共享 → share_status = 'unshared'
+审批中 → share_status = 'pending'
+已共享 → share_status = 'approved'
+已拒绝 → share_status = 'rejected'
+已下架 → share_status = 'offline'</div>
+        子类角标由 <code>pending_type</code> / <code>reject_type</code> 渲染。
+      </div>
+      <div class="rule">
+        <h4>全部（scope=all）</h4>
+        仅三种状态：平台内置 + 已共享 + 已订阅。
+        <div class="sql">平台内置：assistant.source = 'platform'
+已共享（我创建的）：
+  share_status = 'approved'
+  或 pending  AND pending_type IN ('change','scope','offline')
+  或 rejected AND reject_type != 'share'（含 NULL）
+已订阅：assistant_grant.subscribe_status = 'subscribed'
+        AND grant_status = 'valid' AND 创建人 != 我</div>
+        排除：未共享、审批中 · 共享审批、已拒绝 · 共享审批、已下架。
+      </div>
+      <div class="rule">
+        <h4>共享助理（scope=shared）</h4>
+        以授权名册为准，别人创建并授权给我。
+        <div class="sql">assistant_grant.user_id = 当前人员
+AND grant_status = 'valid'
+AND assistant.owner_user_id != 当前账号
+
+订阅筛选：subscribe_status = 'subscribed' / 'removed'
+排序：已订阅在前、已移除在后，同状态按 grant_time 倒序</div>
+      </div>
+      <div class="rule">
+        <h4>「全部」页签的出参折叠</h4>
+        scope=all 时接口把本质已共享的三类审批中、四类已拒绝统一折叠为「已共享」：
+        <div class="sql">share_status: pending / rejected → approved
+pending_type / reject_type: → NULL
+reject_reason / offline_reason: → NULL</div>
+        <b>只影响接口出参，落库值不变</b>；我的助理页签仍返回真实状态与子类。
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 支撑表 ==================== -->
+  <div class="dict-block">
+    <div class="dict-h"><span class="bar"></span>四、其余支撑表速查</div>
+    <div class="table-wrap">
+      <table class="dict">
+        <thead>
+          <tr>
+            <th style="width:250px;">表</th>
+            <th style="width:340px;">关键字段</th>
+            <th>用途</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="tname">assistant_category</td>
+            <td><code>company_id</code> / <code>name</code> / <code>is_builtin</code> / <code>deleted_at</code></td>
+            <td>助理分类字典；同名唯一性由生成列 + 唯一索引保证，逻辑删除后可重建同名</td>
+          </tr>
+          <tr>
+            <td class="tname">assistant_skill_rel<br>assistant_mcp_rel<br>assistant_kb_rel</td>
+            <td><code>assistant_id</code> / <code>resource_id</code> / <code>resource_name</code> / <code>sort_no</code></td>
+            <td>技能、MCP、知识库的组成关系，按 <code>sort_no</code> 排序，随助理级联删除</td>
+          </tr>
+          <tr>
+            <td class="tname">assistant_tag</td>
+            <td><code>assistant_id</code> / <code>name</code>（≤8 字）/ <code>sort_no</code></td>
+            <td>助理标签，列表搜索按标签名模糊匹配</td>
+          </tr>
+          <tr>
+            <td class="tname">assistant_quick_question</td>
+            <td><code>assistant_id</code> / <code>content</code> / <code>sort_no</code></td>
+            <td>推荐问法，随助理级联删除</td>
+          </tr>
+          <tr>
+            <td class="tname">assistant_version_history</td>
+            <td><code>version</code> / <code>action</code> / <code>operator_name</code> / <code>remark</code> / <code>created_at</code></td>
+            <td>版本变更记录，详情页版本历史按时间倒序展示</td>
+          </tr>
+          <tr>
+            <td class="tname">assistant_summon</td>
+            <td><code>assistant_id</code> / <code>user_id</code> / <code>session_id</code> / <code>session_title</code></td>
+            <td>召唤记录，每次召唤生成独立会话，不修改助理配置</td>
+          </tr>
+          <tr>
+            <td class="tname">sys_audit_log</td>
+            <td><code>action</code> / <code>object_type</code> / <code>object_id</code> / <code>before_value</code> / <code>after_value</code> / <code>created_at</code></td>
+            <td>操作审计（JSON 前后值），按 <code>created_at</code> 做 RANGE 分区</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- ==================== 阶段 0 ==================== -->
   <div class="stage-row">
@@ -320,7 +817,10 @@ body {
         <div class="field-row"><span class="fname">owner_user_id</span><span class="fcn">创建人ID</span><span class="fval new">3001</span></div>
         <div class="field-row"><span class="fname">owner_name</span><span class="fcn">创建人姓名</span><span class="fval new">"王晓明"</span></div>
         <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval add">unshared</span></div>
-        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval none">NULL（未发布）</span></div>
+        <div class="field-row"><span class="fname">pending_type</span><span class="fcn">审批子类</span><span class="fval none">NULL</span></div>
+        <div class="field-row"><span class="fname">reject_type</span><span class="fcn">拒绝子类</span><span class="fval none">NULL</span></div>
+        <div class="field-row"><span class="fname">has_shared</span><span class="fcn">曾共享标记</span><span class="fval new">0</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval none">""（空串=未发布）</span></div>
         <div class="field-row"><span class="fname">source</span><span class="fcn">来源</span><span class="fval new">custom</span></div>
       </div>
       <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">

@@ -71,7 +71,7 @@ class AssistantRepository:
         # 我的助理：固定按 已共享 → 审批中（含下架审批中）→ 已拒绝 → 未共享 → 已下架
         status_rank = case(
             (Assistant.share_status == "approved", 0),
-            (Assistant.share_status.in_(("pending", "offline_pending")), 1),
+            (Assistant.share_status == "pending", 1),
             (Assistant.share_status == "rejected", 2),
             (Assistant.share_status == "unshared", 3),
             (Assistant.share_status == "offline", 4),
@@ -140,7 +140,6 @@ class AssistantRepository:
             Assistant.deleted_at.is_(None),
             or_(
                 Assistant.share_status == "approved",
-                Assistant.share_status == "offline_pending",
                 and_(
                     Assistant.share_status == "pending",
                     Assistant.pending_type.in_(("change", "scope", "offline")),
@@ -173,7 +172,7 @@ class AssistantRepository:
             part = self._apply_filters(mine, category_id, keyword)
             if status_filter == "pending":
                 # 「审批中」聚合共享 / 调整 / 授权 / 下架四类审批中
-                part = part.where(Assistant.share_status.in_(("pending", "offline_pending")))
+                part = part.where(Assistant.share_status == "pending")
             elif status_filter:
                 part = part.where(Assistant.share_status == status_filter)
             base = part

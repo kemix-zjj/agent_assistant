@@ -215,7 +215,7 @@ class ShareService:
             editable_by = "none"
 
         # 审批中（含下架审批中）期间不可重复提交范围变更
-        pending_any = row.share_status in ("pending", "offline_pending")
+        pending_any = row.share_status == "pending"
         editable = editable_by != "none" and pending_change is None and not pending_any
 
         scope = self._current_effective_scope(assistant_id)
@@ -321,7 +321,7 @@ class ShareService:
 
         # 分支 B：创建人调整 → 提交授权范围变更审批
         # 已共享（原范围继续生效）与已拒绝（通过后完成共享）均可提交；其余状态不可
-        if row.share_status not in ("approved", "rejected", "offline_pending"):
+        if row.share_status not in ("approved", "rejected"):
             raise ConflictError(
                 ErrorCode.SHARE_SCOPE_IMMUTABLE,
                 "仅已共享或已拒绝的助理可提交授权范围变更",
@@ -412,7 +412,7 @@ class ShareService:
     def submit_offline(
         self, assistant_id: int, reason: str, user: CurrentUser
     ) -> OfflineSubmitResult:
-        """已共享助理提交下架申请：状态转 offline_pending，进入管理员审批。"""
+        """已共享助理提交下架申请：状态转 pending + pending_type=offline，进入管理员审批。"""
         row = self.repo.find_by_id(assistant_id, user.company_id)
         if row is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
@@ -430,9 +430,13 @@ class ShareService:
             raise ConflictError(
                 ErrorCode.ASSISTANT_STATUS_CHANGED, "平台内置助理不可下架"
             )
-        if row.share_status == "offline_pending":
+        if row.share_status == "pending":
+            if row.pending_type == "offline":
+                raise ConflictError(
+                    ErrorCode.ASSISTANT_STATUS_CHANGED, "已存在进行中的下架申请"
+                )
             raise ConflictError(
-                ErrorCode.ASSISTANT_STATUS_CHANGED, "已存在进行中的下架申请"
+                ErrorCode.ASSISTANT_STATUS_CHANGED, "已存在进行中的审批，暂不可申请下架"
             )
         if row.share_status != "approved":
             raise ConflictError(
@@ -459,7 +463,7 @@ class ShareService:
         self.db.add(approval)
         self.db.flush()
 
-        row.share_status = "offline_pending"
+        row.share_status = "pending"
         row.pending_type = "offline"
         row.offline_reason = reason
         row.updated_at = now
@@ -479,12 +483,12 @@ class ShareService:
             object_type="assistant",
             object_id=assistant_id,
             before={"shareStatus": "approved"},
-            after={"shareStatus": "offline_pending", "approvalId": approval.id, "reason": reason},
+            after={"shareStatus": "pending", "approvalId": approval.id, "reason": reason},
         )
         self.db.commit()
         logger.info("下架申请已提交 assistant=%s approval=%s", assistant_id, approval.id)
         return OfflineSubmitResult(
             assistant_id=assistant_id,
-            share_status="offline_pending",
+            share_status="pending",
             approval_id=approval.id,
         )

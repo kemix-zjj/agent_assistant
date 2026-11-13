@@ -442,7 +442,7 @@ export const assistants: AssistantRow[] = [
     tags: ['差旅', '报销'],
     categoryId: 5,
     source: 'custom',
-    shareStatus: 'offline_pending',
+    shareStatus: 'pending',
     pendingType: 'offline',
     hasShared: true,
     version: 'V1.0.2',
@@ -999,7 +999,11 @@ function deriveActions(row: AssistantRow): AssistantAction[] {
     return (localStorage.getItem('at_role') || 'user') === 'admin' ? ['summon', 'shareScope'] : ['summon']
   }
   if (!isMyOwn(row)) {
-    if (row.shareStatus === 'rejected' || row.shareStatus === 'offline' || row.shareStatus === 'offline_pending') {
+    if (
+      row.shareStatus === 'rejected' ||
+      row.shareStatus === 'offline' ||
+      (row.shareStatus === 'pending' && row.pendingType === 'offline')
+    ) {
       return []
     }
     return ['summon']
@@ -1008,14 +1012,14 @@ function deriveActions(row: AssistantRow): AssistantAction[] {
     case 'unshared':
       return ['summon', 'edit', 'delete', 'share']
     case 'pending':
-      return row.pendingType === 'scope' ? ['summon', 'shareScope'] : ['summon']
+      return row.pendingType === 'scope' || row.pendingType === 'offline'
+        ? ['summon', 'shareScope']
+        : ['summon']
     case 'approved':
       return ['summon', 'edit', 'shareScope', 'offline']
     case 'rejected':
       // 四类已拒绝均展示删除入口，是否可删由详情页按拒绝子类判定
       return ['summon', 'resubmit', 'shareScope', 'delete']
-    case 'offline_pending':
-      return ['summon', 'shareScope']
     case 'offline':
       return ['summon', 'edit', 'delete', 'resubmit']
     default:
@@ -1031,7 +1035,7 @@ function toCard(row: AssistantRow, scope: 'all' | 'mine' | 'shared' = 'all'): As
   const collapsedStatus =
     collapse &&
     !!row.shareStatus &&
-    ['pending', 'rejected', 'offline_pending'].includes(row.shareStatus)
+    ['pending', 'rejected'].includes(row.shareStatus)
       ? 'approved'
       : row.shareStatus
   return {
@@ -1096,7 +1100,7 @@ export function queryAssistants(params: {
       if (grant && e.ownerName !== myName) return grant.subscribeStatus === 'subscribed'
       if (!isMyOwn(e)) return false
       // 审批中 / 已拒绝仅「非共享审批」子类属于本质已共享
-      if (e.shareStatus === 'approved' || e.shareStatus === 'offline_pending') return true
+      if (e.shareStatus === 'approved') return true
       if (e.shareStatus === 'pending') return e.pendingType !== 'share'
       return e.shareStatus === 'rejected' && e.rejectType !== 'share'
     })
@@ -1116,7 +1120,7 @@ export function queryAssistants(params: {
   if (params.scope === 'mine' && params.statusFilter) {
     const filter = params.statusFilter
     cards = cards.filter((c) => {
-      if (filter === 'pending') return c.shareStatus === 'pending' || c.shareStatus === 'offline_pending'
+      if (filter === 'pending') return c.shareStatus === 'pending'
       return c.shareStatus === filter
     })
   }
@@ -1128,7 +1132,6 @@ export function queryAssistants(params: {
   const MY_ORDER: Record<string, number> = {
     approved: 0,
     pending: 1,
-    offline_pending: 1,
     rejected: 2,
     unshared: 3,
     offline: 4
@@ -1217,7 +1220,7 @@ export function updateAssistant(id: number, payload: AssistantUpsertPayload): As
   if (!isMyOwn(row)) {
     throw new ApiError('ASSISTANT_NOT_OWNER', '非创建人不可操作', null, '')
   }
-  if (row.shareStatus === 'pending' || row.shareStatus === 'offline_pending') {
+  if (row.shareStatus === 'pending') {
     throw new ApiError('SHARE_SCOPE_IMMUTABLE', '审批中的助理不可编辑，请等待审批完成', null, '')
   }
   const dup = assistants.find((e) => e.name === payload.name && e.assistantId !== id)
@@ -1317,7 +1320,7 @@ export function deleteAssistant(id: number): { assistantId: number; deleted: boo
   if (row.shareStatus === 'rejected' && (row.rejectType !== 'share' || row.hasShared)) {
     throw new ApiError('ASSISTANT_ALREADY_SHARED', '该助理已共享过，无法删除，请进行下架处理', null, '')
   }
-  if (row.shareStatus === 'approved' || row.shareStatus === 'pending' || row.shareStatus === 'offline_pending') {
+  if (row.shareStatus === 'approved' || row.shareStatus === 'pending') {
     throw new ApiError('ASSISTANT_ALREADY_SHARED', '该助理已共享或审批中，无法删除，请进行下架处理', null, '')
   }
   const idx = assistants.findIndex((e) => e.assistantId === id)
@@ -1334,7 +1337,10 @@ export function summonAssistant(id: number): SummonResult {
   if (grant && grant.subscribeStatus === 'removed') {
     throw new ApiError('ASSISTANT_NOT_AVAILABLE', '助理已移除，请先重新订阅', null, '')
   }
-  const trialOnly = row.shareStatus === 'rejected' || row.shareStatus === 'offline' || row.shareStatus === 'offline_pending'
+  const trialOnly =
+    row.shareStatus === 'rejected' ||
+    row.shareStatus === 'offline' ||
+    (row.shareStatus === 'pending' && row.pendingType === 'offline')
   if (trialOnly && row.source !== 'platform' && !isMyOwn(row)) {
     throw new ApiError('NO_PERMISSION', '该助理仅创建者可召唤', null, '')
   }
@@ -1424,7 +1430,7 @@ export function submitShare(payload: ShareSubmitPayload): { batchNo: string; app
   return { batchNo: `B${Date.now()}`, approvalIds: ids }
 }
 
-/** 申请下架已共享助理：状态转 offline_pending，生成下架审批单 */
+/** 申请下架已共享助理：状态转 pending（pendingType=offline），生成下架审批单 */
 export function submitOffline(
   assistantId: number,
   reason: string
@@ -1472,7 +1478,7 @@ export function submitOffline(
   })
   approvals.push(approval)
 
-  row.shareStatus = 'offline_pending'
+  row.shareStatus = 'pending'
   row.pendingType = 'offline'
   row.offlineReason = reason
   row.versionHistory.unshift({
@@ -1483,7 +1489,7 @@ export function submitOffline(
     remark: reason,
     createdAt: nowStr()
   })
-  return { assistantId, shareStatus: 'offline_pending', approvalId: approval.approvalId }
+  return { assistantId, shareStatus: 'pending', approvalId: approval.approvalId }
 }
 
 /** 已选范围 → 后端 scope 结构（含展开人数与摘要） */

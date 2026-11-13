@@ -32,8 +32,8 @@ const MAP: Record<string, { text: string; cls: string }> = {
 const view = computed(() => {
   const status = props.status
   if (!status) return null
-  if (status === 'pending' || status === 'offline_pending') {
-    const sub = status === 'offline_pending' ? 'offline' : props.pendingType ?? 'share'
+  if (status === 'pending') {
+    const sub = props.pendingType ?? 'share'
     return { text: `审批中 · ${SUB_TEXT[sub]}`, cls: 'is-warning' }
   }
   if (status === 'rejected') {

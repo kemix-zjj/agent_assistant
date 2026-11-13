@@ -80,7 +80,7 @@ CREATE TABLE `assistant` (
     `owner_dept_name`    VARCHAR(128) NULL COMMENT '创建人所属部门名称快照；平台内置助理为空',
     `prompt`             TEXT         NOT NULL COMMENT '提示词，必填，≤4000 字符',
     `share_status`       VARCHAR(16)  NOT NULL DEFAULT 'unshared'
-                         COMMENT '共享状态：unshared 未共享 / pending 审批中 / approved 已共享 / rejected 已拒绝 / offline_pending 下架审批中 / offline 已下架',
+                         COMMENT '共享状态：unshared 未共享 / pending 审批中 / approved 已共享 / rejected 已拒绝 / offline 已下架；审批中由 pending_type 区分四类',
     `pending_type`       VARCHAR(16)  NULL
                          COMMENT '审批子类：share 共享审批 / change 调整审批 / scope 授权审批 / offline 下架审批；仅审批中有值',
     `reject_type`        VARCHAR(16)  NULL
@@ -108,7 +108,7 @@ CREATE TABLE `assistant` (
     CONSTRAINT `fk_assistant_category` FOREIGN KEY (`category_id`) REFERENCES `assistant_category` (`id`),
     CONSTRAINT `ck_assistant_avatar_type` CHECK (`avatar_type` IN ('char', 'image')),
     CONSTRAINT `ck_assistant_source` CHECK (`source` IN ('platform', 'custom', 'thirdparty')),
-    CONSTRAINT `ck_assistant_share_status` CHECK (`share_status` IN ('unshared', 'pending', 'approved', 'rejected', 'offline_pending', 'offline')),
+    CONSTRAINT `ck_assistant_share_status` CHECK (`share_status` IN ('unshared', 'pending', 'approved', 'rejected', 'offline')),
     CONSTRAINT `ck_assistant_pending_type` CHECK (`pending_type` IS NULL OR `pending_type` IN ('share', 'change', 'scope', 'offline')),
     CONSTRAINT `ck_assistant_reject_type` CHECK (`reject_type` IS NULL OR `reject_type` IN ('share', 'change', 'scope', 'offline'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
