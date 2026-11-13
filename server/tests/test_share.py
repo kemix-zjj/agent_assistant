@@ -708,6 +708,54 @@ def test_detail_actions_include_offline_for_approved() -> None:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
 
+def test_grantee_detail_hides_owner_approval_states() -> None:
+    """被授权方详情不暴露创建人侧审批中 / 已拒绝状态与拒绝原因，仅展示「已共享」。"""
+    aid = _create("共享提交助理授权审批被拒")
+    grantee = _h("2001", "李静")  # u1
+    try:
+        _publish(aid)
+        # 创建人提交授权范围变更 → 管理员拒绝
+        submitted = client.put(
+            f"/api/v1/assistants/{aid}/share-scope",
+            headers=OWNER,
+            json={"scope": _scope(users=["u1", "u2"]), "changeNote": "扩大授权范围"},
+        )
+        assert submitted.status_code == 200, submitted.text
+        approval_id = submitted.json()["data"]["approvalId"]
+        assert approval_id
+        rejected = client.post(
+            f"/api/v1/approvals/{approval_id}/reject",
+            headers=ADMIN,
+            json={"rejectReason": "范围过大，请收敛"},
+        )
+        assert rejected.status_code == 200, rejected.text
+
+        # 创建人视角：已拒绝 · 授权审批，保留拒绝原因与版本记录
+        owner_detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert owner_detail["shareStatus"] == "rejected"
+        assert owner_detail["rejectType"] == "scope"
+        assert owner_detail["rejectReason"] == "范围过大，请收敛"
+        assert owner_detail["actions"] == ["summon", "resubmit", "shareScope", "delete"]
+
+        # 被授权方视角：仅「已共享」，不暴露审批子类 / 拒绝原因等状态标识；
+        # 能力组成、授权范围、版本记录等基础信息与创建人一致可见
+        grantee_detail = client.get(f"/api/v1/assistants/{aid}", headers=grantee).json()["data"]
+        assert grantee_detail["shareStatus"] == "approved"
+        assert grantee_detail["pendingType"] is None
+        assert grantee_detail["rejectType"] is None
+        assert grantee_detail["rejectReason"] is None
+        assert grantee_detail["offlineReason"] is None
+        assert grantee_detail["prompt"] == owner_detail["prompt"]
+        assert grantee_detail["skills"] == owner_detail["skills"]
+        assert grantee_detail["mcps"] == owner_detail["mcps"]
+        assert grantee_detail["knowledgeBases"] == owner_detail["knowledgeBases"]
+        assert grantee_detail["shareScope"] is not None
+        assert grantee_detail["versionHistory"] == owner_detail["versionHistory"]
+        assert grantee_detail["actions"] == ["summon", "remove"]
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
 def test_status_filter_supports_all_share_states() -> None:
     """我的助理状态筛选放行全部 5 种共享状态，未知值仍拒绝。"""
     for status in ("unshared", "pending", "approved", "rejected", "offline"):

@@ -272,19 +272,19 @@ class ScopeService:
         users = [
             ScopeUserItem(id=e.id, name=e.name, dept_name=e.dept_name) for e in expanded.users
         ]
+        # 人员按当前主数据重算，展示人数必须与重算结果保持一致，避免「摘要 N 人、列表 M 人」
+        total = len(users)
         summary_items = [item.name for item in (*orgs, *positions, *roles)][:2]
         if not summary_items:
             summary_items = [item.name for item in users][:2]
-        summary = (
-            f"{'、'.join(summary_items)} 等 {scope.grant_total} 人" if summary_items else ""
-        )
+        summary = f"{'、'.join(summary_items)} 等 {total} 人" if summary_items else ""
         return Scope(
             scope_mode="RANGE",
             orgs=orgs,
             roles=roles,
             positions=positions,
             users=users,
-            grant_total=scope.grant_total,
+            grant_total=total,
             summary=summary,
         )
 

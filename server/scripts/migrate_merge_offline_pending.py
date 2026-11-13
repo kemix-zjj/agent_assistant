@@ -59,6 +59,62 @@ def main() -> None:
         )
         print(f"已重建约束 {CONSTRAINT}：{NEW_VALUES}")
 
+        # 修复历史脏数据：无待审批单却停留在「审批中 / 已拒绝」且缺少子类的行
+        repaired_pending = conn.execute(
+            text(
+                "UPDATE assistant a SET"
+                "  share_status = CASE WHEN a.has_shared = 1 THEN 'approved' ELSE 'unshared' END,"
+                "  pending_type = NULL, reject_type = NULL"
+                " WHERE a.share_status = 'pending' AND a.pending_type IS NULL"
+                "   AND NOT EXISTS (SELECT 1 FROM approval ap"
+                "                   WHERE ap.assistant_id = a.id AND ap.status = 'pending')"
+            )
+        ).rowcount
+        print(f"已修复无待审批单的 pending 行：{repaired_pending} 行")
+
+        repaired_rejected = conn.execute(
+            text(
+                "UPDATE assistant SET"
+                "  share_status = CASE WHEN has_shared = 1 THEN 'approved' ELSE 'unshared' END,"
+                "  pending_type = NULL, reject_type = NULL"
+                " WHERE share_status = 'rejected' AND reject_type IS NULL"
+            )
+        ).rowcount
+        print(f"已修复缺少拒绝子类的 rejected 行：{repaired_rejected} 行")
+
+        cleared = conn.execute(
+            text(
+                "UPDATE assistant SET pending_type = NULL, reject_type = NULL"
+                " WHERE share_status IN ('unshared', 'approved', 'offline')"
+                "   AND (pending_type IS NOT NULL OR reject_type IS NOT NULL)"
+            )
+        ).rowcount
+        print(f"已清理非审批态残留子类：{cleared} 行")
+
+        # 跨列状态一致性：审批中必须有子类、已拒绝必须有拒绝子类、其余状态不得残留
+        consistency = "ck_assistant_status_consistency"
+        exists = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS"
+                " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assistant'"
+                "   AND CONSTRAINT_NAME = :name"
+            ),
+            {"name": consistency},
+        ).scalar()
+        if not exists:
+            conn.execute(
+                text(
+                    f"ALTER TABLE assistant ADD CONSTRAINT {consistency} CHECK ("
+                    " (share_status = 'pending' AND pending_type IS NOT NULL AND reject_type IS NULL)"
+                    " OR (share_status = 'rejected' AND reject_type IS NOT NULL AND pending_type IS NULL)"
+                    " OR (share_status IN ('unshared', 'approved', 'offline')"
+                    "     AND pending_type IS NULL AND reject_type IS NULL))"
+                )
+            )
+            print(f"已新增约束 {consistency}")
+        else:
+            print(f"约束 {consistency} 已存在，跳过")
+
     print("迁移完成")
 
 

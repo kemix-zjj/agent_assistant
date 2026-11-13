@@ -110,7 +110,12 @@ CREATE TABLE `assistant` (
     CONSTRAINT `ck_assistant_source` CHECK (`source` IN ('platform', 'custom', 'thirdparty')),
     CONSTRAINT `ck_assistant_share_status` CHECK (`share_status` IN ('unshared', 'pending', 'approved', 'rejected', 'offline')),
     CONSTRAINT `ck_assistant_pending_type` CHECK (`pending_type` IS NULL OR `pending_type` IN ('share', 'change', 'scope', 'offline')),
-    CONSTRAINT `ck_assistant_reject_type` CHECK (`reject_type` IS NULL OR `reject_type` IN ('share', 'change', 'scope', 'offline'))
+    CONSTRAINT `ck_assistant_reject_type` CHECK (`reject_type` IS NULL OR `reject_type` IN ('share', 'change', 'scope', 'offline')),
+    CONSTRAINT `ck_assistant_status_consistency` CHECK (
+        (`share_status` = 'pending' AND `pending_type` IS NOT NULL AND `reject_type` IS NULL)
+        OR (`share_status` = 'rejected' AND `reject_type` IS NOT NULL AND `pending_type` IS NULL)
+        OR (`share_status` IN ('unshared', 'approved', 'offline') AND `pending_type` IS NULL AND `reject_type` IS NULL)
+    )
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
   COMMENT = '助理（页面称「助理」「数字员工」）主表';
 

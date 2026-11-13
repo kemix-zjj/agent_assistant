@@ -1156,17 +1156,23 @@ export function findAssistant(id: number): AssistantRow {
 
 export function detailOf(id: number): AssistantDetail & { categoryName: string } {
   const row = findAssistant(id)
-  const grant = grants.find((g) => g.assistantId === id)
-  const readOnly = !!grant && row.ownerName !== myUserName()
+  // 审批中 / 已拒绝 / 拒绝原因仅创建人与管理员可见；被授权方只感知「已共享」
+  const privileged = row.ownerName === myUserName() || (localStorage.getItem('at_role') || 'user') === 'admin'
+  const visibleStatus =
+    !privileged && (row.shareStatus === 'pending' || row.shareStatus === 'rejected')
+      ? 'approved'
+      : row.shareStatus
   return {
     ...row,
+    shareStatus: visibleStatus,
+    pendingType: privileged ? row.pendingType : null,
+    rejectType: privileged ? row.rejectType : null,
+    rejectReason: privileged ? row.rejectReason : null,
+    offlineReason: privileged ? row.offlineReason : null,
+    lastApproverName: privileged ? row.lastApproverName : null,
+    lastApproveTime: privileged ? row.lastApproveTime : null,
+    versionHistory: row.versionHistory,
     categoryName: catName(row.categoryId),
-    // 被授权方视角：提示词与能力组成不可见（需求 5.2）
-    prompt: readOnly ? null : row.prompt,
-    skills: readOnly ? null : row.skills,
-    mcps: readOnly ? null : row.mcps,
-    knowledgeBases: readOnly ? null : row.knowledgeBases,
-    shareScope: readOnly ? null : row.shareScope,
     actions: deriveActions(row)
   }
 }

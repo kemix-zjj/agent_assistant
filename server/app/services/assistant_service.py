@@ -274,8 +274,12 @@ class AssistantService:
             assistant_id, master_data.employee_id_for_login(user.user_id)
         )
         is_owner = row.owner_user_id == user.user_id
-        # 被授权方只读：提示词与能力组成不可见（需求 5.2）
-        readonly = grant is not None and not is_owner and not user.is_admin
+        # 审批中 / 已拒绝 / 已下架等状态标识与拒绝原因仅创建人与管理员可见；
+        # 被授权方（如已订阅用户）只感知「已共享」；能力组成、授权范围、版本记录等基础信息正常可见
+        privileged = is_owner or user.is_admin
+        visible_status = row.share_status
+        if not privileged and visible_status in ("pending", "rejected"):
+            visible_status = "approved"
 
         detail = AssistantDetail(
             assistant_id=row.id,
@@ -289,38 +293,32 @@ class AssistantService:
             category_id=row.category_id,
             category_name=row.category.name if row.category else "",
             source=row.source,
-            share_status=row.share_status,
-            pending_type=row.pending_type,
-            reject_type=row.reject_type,
+            share_status=visible_status,
+            pending_type=row.pending_type if privileged else None,
+            reject_type=row.reject_type if privileged else None,
             subscribe_status=grant.subscribe_status if grant else None,
             version=row.version,
             has_shared=bool(row.has_shared),
             owner_name=row.owner_name,
             owner_dept_name=row.owner_dept_name,
-            reject_reason=row.last_reject_reason,
-            offline_reason=row.offline_reason,
-            last_approver_name=row.last_approver_name,
-            last_approve_time=_fmt(row.last_approve_time),
+            reject_reason=row.last_reject_reason if privileged else None,
+            offline_reason=row.offline_reason if privileged else None,
+            last_approver_name=row.last_approver_name if privileged else None,
+            last_approve_time=_fmt(row.last_approve_time) if privileged else "",
             created_at=_fmt_required(row.created_at),
             updated_at=_fmt_required(row.updated_at),
-            prompt=None if readonly else row.prompt,
-            skills=None
-            if readonly
-            else [ResourceRef(id=s.resource_id, name=s.resource_name) for s in row.skills],
-            mcps=None
-            if readonly
-            else [
+            prompt=row.prompt,
+            skills=[ResourceRef(id=s.resource_id, name=s.resource_name) for s in row.skills],
+            mcps=[
                 McpRef(id=m.resource_id, name=m.resource_name, type=m.resource_type)
                 for m in row.mcps
             ],
-            knowledge_bases=None
-            if readonly
-            else [
+            knowledge_bases=[
                 KnowledgeBaseRef(id=k.resource_id, name=k.resource_name)
                 for k in row.knowledge_bases
             ],
             quick_questions=[q.content for q in row.quick_questions],
-            share_scope=None if readonly else self._current_scope(row.id),
+            share_scope=self._current_scope(row.id),
             version_history=[
                 VersionHistoryItem(
                     version=item.version,

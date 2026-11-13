@@ -84,9 +84,6 @@ const rejectTypeText = computed(() => {
   return map[detail.value?.rejectType ?? 'share'] ?? '共享审批'
 })
 
-/** 是否被授权方视角：提示词与能力组成不可见（需求 5.2） */
-const readonlyView = computed(() => !!detail.value && detail.value.prompt === null)
-
 /** 技能 / 连接器 / 知识库的名称串（对齐原型 nameOf 的「、」连接） */
 const skillsText = computed(() => (detail.value?.skills ?? []).map((s) => s.name).join('、') || '未配置')
 const mcpsText = computed(() => (detail.value?.mcps ?? []).map((m) => m.name).join('、') || '未配置')
@@ -238,10 +235,8 @@ function onAction(action: AssistantAction): void {
           >
             <span>授权范围变更审批中：审批期间原授权范围继续生效，审批通过后切换为新范围。</span>
           </div>
-          <div
-            v-if="detail.shareStatus === 'rejected' && detail.rejectType === 'scope'"
-            class="notice-bar is-info"
-          >
+          <!-- 授权范围变更被拒提示：仅创建人 / 管理员可见（被授权方接口已折叠审批信息） -->
+          <div v-if="detail.rejectType === 'scope'" class="notice-bar is-info">
             <span>授权范围变更未通过：本次变更不生效，原共享范围与已订阅用户不受影响，可重新提交授权范围变更。</span>
           </div>
         </div>
@@ -249,36 +244,31 @@ function onAction(action: AssistantAction): void {
         <!-- 能力组成（只读） -->
         <div class="detail-section">
           <div class="detail-section-title">能力组成（只读）</div>
-          <div v-if="readonlyView" class="no-permission">
-            共享助理由创建人维护，被授权方仅可召唤使用，不可查看配置。
+          <div class="cap-item">
+            <div class="cap-title">提示词</div>
+            <div class="cap-body">{{ detail.prompt || '未配置' }}</div>
           </div>
-          <template v-else>
-            <div class="cap-item">
-              <div class="cap-title">提示词</div>
-              <div class="cap-body">{{ detail.prompt || '未配置' }}</div>
+          <div class="cap-item">
+            <div class="cap-title">技能</div>
+            <div class="cap-body">{{ skillsText }}</div>
+          </div>
+          <div class="cap-item">
+            <div class="cap-title">连接器</div>
+            <div class="cap-body">{{ mcpsText }}</div>
+          </div>
+          <div class="cap-item">
+            <div class="cap-title">知识库</div>
+            <div class="cap-body">{{ kbsText }}</div>
+          </div>
+          <div class="cap-item">
+            <div class="cap-title">召唤快速问题</div>
+            <div class="cap-body">
+              <template v-if="detail.quickQuestions.length">
+                · {{ detail.quickQuestions.join('\n· ') }}
+              </template>
+              <span v-else class="scope-empty">未配置</span>
             </div>
-            <div class="cap-item">
-              <div class="cap-title">技能</div>
-              <div class="cap-body">{{ skillsText }}</div>
-            </div>
-            <div class="cap-item">
-              <div class="cap-title">连接器</div>
-              <div class="cap-body">{{ mcpsText }}</div>
-            </div>
-            <div class="cap-item">
-              <div class="cap-title">知识库</div>
-              <div class="cap-body">{{ kbsText }}</div>
-            </div>
-            <div class="cap-item">
-              <div class="cap-title">召唤快速问题</div>
-              <div class="cap-body">
-                <template v-if="detail.quickQuestions.length">
-                  · {{ detail.quickQuestions.join('\n· ') }}
-                </template>
-                <span v-else class="scope-empty">未配置</span>
-              </div>
-            </div>
-          </template>
+          </div>
         </div>
 
         <!-- 授权范围：仅已共享助理展示；调整入口只在此分区，底部不重复 -->
