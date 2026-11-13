@@ -37,7 +37,7 @@ const grouped = computed(() => {
   return [
     { title: '我的助理', items: list.filter((c) => c.source === 'custom') },
     { title: '共享助理', items: list.filter((c) => c.source === 'shared') },
-    { title: '平台预置', items: list.filter((c) => c.source === 'platform') }
+    { title: '平台内置', items: list.filter((c) => c.source === 'platform') }
   ].filter((g) => g.items.length)
 })
 
@@ -222,7 +222,7 @@ function useSuggestion(text: string): void {
                       />
                       <span class="picker-name">{{ c.name }}</span>
                       <span class="picker-meta">
-                        {{ c.source === 'platform' ? '平台预置' : c.source === 'shared' ? `共享自 ${c.sharedFrom?.ownerName ?? ''}` : '我的助理' }}
+                        {{ c.source === 'platform' ? '平台内置' : c.source === 'shared' ? `共享自 ${c.sharedFrom?.ownerName ?? ''}` : '我的助理' }}
                       </span>
                     </div>
                   </template>

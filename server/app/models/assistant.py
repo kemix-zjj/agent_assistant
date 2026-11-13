@@ -47,8 +47,16 @@ class Assistant(Base):
     owner_dept_name: Mapped[str | None] = mapped_column(String(128))
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     share_status: Mapped[str] = mapped_column(String(16), nullable=False, default="unshared")
-    version: Mapped[str] = mapped_column(String(16), nullable=False, default="v1.0")
+    # 审批子类：share 共享审批 / change 调整审批 / scope 授权审批 / offline 下架审批
+    pending_type: Mapped[str | None] = mapped_column(String(16))
+    # 拒绝子类：与 pending_type 同构，仅 rejected 状态有值
+    reject_type: Mapped[str | None] = mapped_column(String(16))
+    # 是否曾共享成功过：决定版本号生成口径与删除资格
+    has_shared: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 为空串表示「未发布」：仅在审批通过时生成或递增
+    version: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     authorized_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    offline_reason: Mapped[str | None] = mapped_column(String(200))
     last_reject_reason: Mapped[str | None] = mapped_column(String(200))
     last_approver_name: Mapped[str | None] = mapped_column(String(64))
     last_approve_time: Mapped[datetime | None] = mapped_column(DateTime)

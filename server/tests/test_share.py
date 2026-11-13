@@ -374,7 +374,7 @@ def test_share_scope_readonly_for_non_owner() -> None:
 
 
 def test_admin_scope_update_applies_directly() -> None:
-    """分支 B：管理员直接生效，重算人员级授权并升版本。"""
+    """分支 B：管理员直接生效，重算人员级授权；版本号仅在审批通过时推进。"""
     aid = _create("共享范围助理戊")
     try:
         resp = client.put(
@@ -389,7 +389,8 @@ def test_admin_scope_update_applies_directly() -> None:
         assert data["scope"]["grantTotal"] == 2
 
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
-        assert detail["version"] == "v1.1"
+        # 未共享过：管理员直改不产生版本号，仍为「未发布」
+        assert detail["version"] == ""
         assert detail["versionHistory"][0]["action"] == "scope_change"
         assert detail["shareScope"]["grantTotal"] == 2
 
@@ -515,8 +516,8 @@ def test_offline_submit_moves_to_offline_pending() -> None:
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
         assert detail["shareStatus"] == "offline_pending"
         assert detail["versionHistory"][0]["action"] == "offline_submit"
-        # 下架审批中：共享仍生效，可召唤 / 编辑 / 删除，不可再改范围或重复提交
-        assert detail["actions"] == ["summon", "edit", "delete"]
+        # 下架审批中：仅创建人可召唤，可查看授权范围；不可编辑、不可重复提交
+        assert detail["actions"] == ["summon", "shareScope"]
 
         # 进入管理员待审批列表，类型为下架申请
         pending = client.get(
@@ -568,7 +569,8 @@ def test_offline_approve_marks_offline_and_invalidates_grants() -> None:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
 
-def test_offline_reject_restores_approved() -> None:
+def test_offline_reject_marks_rejected() -> None:
+    """下架申请被拒：状态置为已拒绝 · 下架审批，原授权范围继续生效。"""
     aid = _create("共享提交助理下架丙")
     try:
         _publish(aid)
@@ -584,11 +586,14 @@ def test_offline_reject_restores_approved() -> None:
             json={"rejectReason": "业务仍在使用，暂不下架"},
         )
         assert rejected.status_code == 200, rejected.text
-        assert rejected.json()["data"]["shareStatus"] == "approved"
+        assert rejected.json()["data"]["shareStatus"] == "rejected"
 
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
-        assert detail["shareStatus"] == "approved"
+        assert detail["shareStatus"] == "rejected"
+        assert detail["rejectType"] == "offline"
         assert detail["versionHistory"][0]["action"] == "offline_reject"
+        # 已拒绝 · 下架审批：删除入口仍展示，点击时提示不可删除
+        assert "delete" in detail["actions"]
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
@@ -697,7 +702,7 @@ def test_detail_actions_include_offline_for_approved() -> None:
     try:
         _publish(aid)
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
-        assert detail["actions"] == ["summon", "edit", "delete", "shareScope", "offline"]
+        assert detail["actions"] == ["summon", "edit", "shareScope", "offline"]
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 

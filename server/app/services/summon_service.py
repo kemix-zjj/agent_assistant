@@ -89,12 +89,20 @@ class SummonService:
         )
 
     def _ensure_available(self, row: Assistant, user: CurrentUser) -> None:
-        """可用性：平台预置恒可用；自建需为创建人；共享需授权有效且已订阅。"""
+        """可用性（需求 4.0 召唤入口统一）：
+
+        - 平台内置恒可用
+        - 创建人可召唤自己的助理；已拒绝 / 已下架 / 下架审批中仅创建人可召唤（试用）
+        - 被授权方需授权有效且已订阅
+        """
         if row.source == "platform":
             return
 
         if row.owner_user_id == user.user_id:
             return
+
+        if row.share_status in ("rejected", "offline", "offline_pending"):
+            raise NoPermissionError("该助理仅创建者可召唤")
 
         grant = self.repo.find_grant(
             row.id, master_data.employee_id_for_login(user.user_id)

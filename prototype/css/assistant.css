@@ -258,7 +258,7 @@
   border-radius: 999px;
   padding: 2px 10px;
 }
-/* 卡片操作区：默认隐藏；悬停卡片时淡入展示（160ms），移出淡出 */
+/* 卡片操作区：召唤按钮常驻展示；默认浅色系，悬停卡片时切换为现有主色样式 */
 /* min-height 替代固定 height：按钮不溢出容器；flex-wrap 保证窄卡下按钮完整换行 */
 .expert-card .expert-actions {
   width: 100%;
@@ -267,14 +267,8 @@
   margin-top: auto;
   min-height: 34px;
   padding-top: var(--spacing-xs);
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 0.16s ease, visibility 0.16s ease;
-}
-.expert-card:hover .expert-actions { visibility: visible; opacity: 1; }
-/* 触屏设备无悬停：操作按钮常驻展示 */
-@media (hover: none) {
-  .expert-card .expert-actions { visibility: visible; opacity: 1; }
+  visibility: visible;
+  opacity: 1;
 }
 .expert-card .expert-actions .btn {
   flex: 1 1 auto;
@@ -306,26 +300,6 @@
 .expert-card .mini-tag.tag-more { color: var(--color-text-tertiary); }
 .expert-name-wrap { flex: 1; min-width: 0; }
 
-/* ---- 授权管理：卡片上的授权范围摘要行 ---- */
-.auth-scope-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  background: #F4F8FE;
-  border-radius: var(--radius-r2);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.auth-scope-line .icon {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  color: var(--color-primary);
-}
 .expert-name {
   display: flex;
   align-items: center;
@@ -422,83 +396,6 @@
 }
 .reject-bar.expanded .r-text { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
 .reject-bar .r-toggle { flex-shrink: 0; color: var(--color-primary); cursor: pointer; font-size: var(--font-size-xs); }
-
-/* ---------- 被拒绝助理：图标入口 + 下拉面板（不占卡片区域） ---------- */
-.reject-entry { position: relative; }
-.reject-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 10px;
-  font-size: var(--font-size-xs);
-  color: var(--color-tag-error-text);
-  background: var(--color-error-light);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  user-select: none;
-}
-.reject-btn:hover { opacity: 0.85; }
-.reject-btn .icon { width: 12px; height: 12px; }
-.reject-btn .reject-count {
-  min-width: 15px;
-  height: 15px;
-  line-height: 15px;
-  padding: 0 4px;
-  font-size: 11px;
-  color: var(--color-text-white);
-  background: var(--color-error);
-  border-radius: var(--radius-pill);
-  text-align: center;
-}
-.reject-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-  width: 340px;
-  max-height: 300px;
-  overflow: auto;
-  padding: 6px;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-bg-border);
-  border-radius: var(--radius-r2);
-  box-shadow: var(--shadow-s2);
-}
-.reject-panel-title {
-  padding: 6px 8px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-}
-.reject-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: 8px;
-  border-radius: var(--radius-r2);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-.reject-item:hover { background: var(--color-bg-hover); }
-.reject-item .icon { width: 14px; height: 14px; color: var(--color-text-tertiary); flex-shrink: 0; }
-.reject-item-main { flex: 1; min-width: 0; }
-.reject-item-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-.reject-item-reason {
-  margin-top: 2px;
-  font-size: var(--font-size-xs);
-  color: var(--color-tag-error-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ---------- 抽屉：页签 ---------- */
 .tabs-nav {
@@ -1456,16 +1353,26 @@
   border-color: #E3EAF5;
 }
 
-/* ---- 卡片按钮：幽灵「详情」+ 渐变「召唤」 ---- */
+/* ---- 卡片按钮：幽灵「详情」+ 常驻浅色「召唤」（悬停卡片时切换为渐变主色） ---- */
 .at-page .expert-card .expert-actions .btn-text:hover {
   background: rgba(54, 133, 242, 0.04);
 }
 .at-page .expert-card .expert-actions .btn-primary {
+  background: var(--color-bg-card);
+  border-color: var(--color-bg-border);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.at-page .expert-card:hover .expert-actions .btn-primary,
+.at-page .expert-card:focus-within .expert-actions .btn-primary {
   background: linear-gradient(135deg, #3685F2, #1E63D6);
   border-color: transparent;
+  color: var(--color-text-white);
   box-shadow: 0 2px 6px rgba(54, 133, 242, 0.3);
 }
-.at-page .expert-card .expert-actions .btn-primary:hover {
+.at-page .expert-card:hover .expert-actions .btn-primary:hover,
+.at-page .expert-card:focus-within .expert-actions .btn-primary:hover {
   background: linear-gradient(135deg, #2F79E0, #1857C4);
   opacity: 1;
   box-shadow: 0 4px 10px rgba(54, 133, 242, 0.4);

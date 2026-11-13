@@ -15,7 +15,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
   }
   if (!state.messages) state.messages = [];
 
-  /* 可召唤的助理：我的助理（已共享 / 未共享 / 待审批）+ 平台预置 + 已订阅的共享助理 */
+  /* 可召唤的助理：我的助理（已共享 / 未共享 / 待审批 / 已拒绝试用）+ 平台内置 + 已订阅的共享助理 */
   function available() {
     return store.experts.filter(function (e) {
       if (e.source === 'platform') return true;
@@ -101,7 +101,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
         return '<div class="nt-picker-item' + (a.id === state.assistantId ? ' active' : '') + '" data-pick="' + a.id + '">' +
           '<span class="nt-avatar" style="background:' + (a.color || '#3685F2') + '">' + window.__avatarImg(a) + '</span>' +
           '<span class="nt-picker-name">' + window.esc(a.name) + '</span>' +
-          '<span class="nt-picker-meta">' + window.esc(a.source === 'platform' ? '平台预置' : a.source === 'shared' ? '共享自' + a.owner : '我的助理') + '</span>' +
+          '<span class="nt-picker-meta">' + window.esc(a.source === 'platform' ? '平台内置' : a.source === 'shared' ? '共享自' + a.owner : '我的助理') + '</span>' +
           '</div>';
       }).join('');
     }
@@ -112,7 +112,7 @@ window.__pages['D-AT-NEWTASK'] = function (container) {
         (list.length
           ? group('我的助理', list.filter(function (a) { return a.source === 'custom'; })) +
             group('共享助理', list.filter(function (a) { return a.source === 'shared'; })) +
-            group('平台预置', list.filter(function (a) { return a.source === 'platform'; }))
+            group('平台内置', list.filter(function (a) { return a.source === 'platform'; }))
           : '<div class="nt-picker-empty">没有匹配的助理</div>') +
       '</div>' +
       '<div class="nt-picker-foot"><span class="nt-picker-add" id="pickAdd">' + window.Icon('icon-plus') + '去助理列表添加助理</span></div>';

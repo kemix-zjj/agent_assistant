@@ -320,7 +320,7 @@ body {
         <div class="field-row"><span class="fname">owner_user_id</span><span class="fcn">创建人ID</span><span class="fval new">3001</span></div>
         <div class="field-row"><span class="fname">owner_name</span><span class="fcn">创建人姓名</span><span class="fval new">"王晓明"</span></div>
         <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval add">unshared</span></div>
-        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval new">v1.0</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval none">NULL（未发布）</span></div>
         <div class="field-row"><span class="fname">source</span><span class="fcn">来源</span><span class="fval new">custom</span></div>
       </div>
       <div class="tbl-card header-only" style="flex:1 1 160px; opacity:.45;">
@@ -360,7 +360,7 @@ body {
         <div class="tbl-name">assistant</div>
         <div class="tbl-cn">助理主表</div>
         <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval chg">pending</span></div>
-        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval new">v1.2</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval none">NULL（未发布）</span></div>
         <div class="field-row"><span class="fname">authorized_count</span><span class="fcn">授权人数</span><span class="fval none">0</span></div>
       </div>
       <div class="tbl-card active green" style="flex:1 1 230px;">
@@ -468,7 +468,7 @@ body {
         <div class="tbl-cn">助理主表</div>
         <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval chg">approved</span></div>
         <div class="field-row"><span class="fname">authorized_count</span><span class="fcn">授权人数</span><span class="fval chg">1（或2）</span></div>
-        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">v1.3</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">V1.0.0</span></div>
       </div>
       <div class="tbl-card active green" style="flex:1 1 230px;">
         <div class="tbl-name">share_scope</div>
@@ -612,7 +612,7 @@ body {
         <div class="tbl-name">assistant</div>
         <div class="tbl-cn">助理主表</div>
         <div class="field-row"><span class="fname">share_status</span><span class="fcn">共享状态</span><span class="fval none">approved（不变）</span></div>
-        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">v1.4</span></div>
+        <div class="field-row"><span class="fname">version</span><span class="fcn">版本号</span><span class="fval chg">V1.0.1</span></div>
       </div>
       <div class="tbl-card active green" style="flex:1 1 220px; border-color: #9fd7bd;">
         <div class="tbl-name">share_scope</div>
@@ -694,9 +694,9 @@ body {
   <p><b>核心设计要点：</b></p>
   <p>1. <span class="key">share_scope</span> 是范围申请单，<span class="key">stage</span> 三态（requested / adjusted / effective）记录范围从提交到生效的完整过程，只增不改。</p>
   <p>2. <span class="key">share_scope_item</span> 是范围明细，1 张申请单对应 N 行，按 dim（org / role / position / user）存储四维选择。</p>
-  <p>3. <span class="key">approval</span> 是审批单，记录审批状态流转（pending → approved / rejected / terminated），<span class="key">approval_type</span> 区分 share（首次共享）和 scope_change（范围变更）。</p>
+  <p>3. <span class="key">approval</span> 是审批单，记录审批状态流转（pending → approved / rejected / terminated），<span class="key">approval_type</span> 区分 share（共享申请）、scope（授权申请）、change（调整申请）与 offline（下架申请），与助理上的 <span class="key">pending_type</span> / <span class="key">reject_type</span> 一一对应。</p>
   <p>4. <span class="key">assistant_grant</span> 是授权名册，只在审批通过或管理员直改时，将 <span class="key">effective</span> 单的维度明细按人展开写入，一人一行，带 <span class="key">grant_status</span>（授权有效性）和 <span class="key">subscribe_status</span>（被授权方订阅状态）两个正交维度。</p>
-  <p>5. 创建助理不共享时，不写任何共享表，绑定关系由 <span class="key">assistant.owner_user_id</span> 表达。</p>
+  <p>5. 创建助理不共享时，不写任何共享表，绑定关系由 <span class="key">assistant.owner_user_id</span> 表达；<span class="key">assistant.version</span> 空串表示「未发布」，仅在审批通过时生成或推进（首次记 V1.0.0，此后尾号 +1，到 99 进位）。</p>
 </div>
 
 </body>

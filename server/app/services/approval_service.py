@@ -40,11 +40,17 @@ from app.schemas.approval import (
 from app.schemas.scope import ScopePayload
 from app.services import audit_service as audit
 from app.services.scope_service import ScopeService
+from app.services.versioning import display_version, next_version
 
 logger = logging.getLogger("app.approval")
 
-TYPE_NAME = {"share": "共享申请", "scope_change": "范围变更", "offline": "下架申请"}
-VALID_TYPES = {"share", "scope_change", "offline"}
+TYPE_NAME = {
+    "share": "共享申请",
+    "scope": "授权申请",
+    "change": "调整申请",
+    "offline": "下架申请",
+}
+VALID_TYPES = set(TYPE_NAME)
 
 
 def _fmt(value: datetime | None) -> str:
@@ -142,9 +148,9 @@ class ApprovalService:
         active_scope_id = adjusted or row.requested_scope_id
         scope = self.scopes.load_snapshot(active_scope_id) if active_scope_id else None
 
-        # 范围变更：回显变更前范围；下架申请：回显当前生效范围（供详情展示）
+        # 调整申请：回显当前生效范围作为变更前基线；下架申请同理
         previous_scope = None
-        if row.approval_type in ("scope_change", "offline"):
+        if row.approval_type in ("scope", "change", "offline"):
             prev_id = self.assistants.find_effective_scope_ids([row.assistant_id]).get(
                 row.assistant_id
             )
@@ -330,14 +336,22 @@ class ApprovalService:
                 assistant, effective.id, payload, now
             )
 
+        # 版本号仅在审批通过时推进：首次共享记 V1.0.0，此后每次变更尾号 +1
         assistant.share_status = "approved"
+        assistant.pending_type = None
+        assistant.reject_type = None
+        assistant.has_shared = 1
         assistant.last_reject_reason = None
         assistant.last_approver_name = user.name
         assistant.last_approve_time = now
-        assistant.version = self._next_minor(assistant.version)
+        assistant.version = next_version(assistant.version)
         assistant.updated_at = now
 
-        action = "share_approve" if refreshed.approval_type == "share" else "scope_change"
+        action = {
+            "share": "share_approve",
+            "change": "change_approve",
+            "scope": "scope_change",
+        }.get(refreshed.approval_type, "share_approve")
         self.assistants.add_version_history(
             assistant,
             version=assistant.version,
@@ -392,6 +406,8 @@ class ApprovalService:
         """下架申请通过：助理置为已下架，全部授权失效并从被授权方助理库移除。"""
         invalidated = self.assistants.invalidate_grants(assistant.id)
         assistant.share_status = "offline"
+        assistant.pending_type = None
+        assistant.reject_type = None
         assistant.authorized_count = 0
         assistant.last_approver_name = user.name
         assistant.last_approve_time = now
@@ -399,7 +415,7 @@ class ApprovalService:
 
         self.assistants.add_version_history(
             assistant,
-            version=assistant.version,
+            version=display_version(assistant.version),
             action="offline_approve",
             operator_id=user.user_id,
             operator_name=user.name,
@@ -477,16 +493,19 @@ class ApprovalService:
         if assistant is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
 
-        # 拒绝：adjusted 快照保留但不生效，不写 grant
-        if refreshed.approval_type == "offline":
-            # 下架申请被拒：助理恢复为已共享，授权保持不变
-            assistant.share_status = "approved"
-            action = "offline_reject"
-        elif refreshed.approval_type == "scope_change":
-            action = "share_reject"
-        else:
-            assistant.share_status = "rejected"
-            action = "share_reject"
+        # 拒绝：adjusted 快照保留但不生效，不写 grant。
+        # 拒绝后统一置为 rejected，以 reject_type 区分子类（版本号保持不变）
+        reject_type = refreshed.approval_type
+        action = {
+            "share": "share_reject",
+            "change": "change_reject",
+            "scope": "scope_reject",
+            "offline": "offline_reject",
+        }.get(reject_type, "share_reject")
+
+        assistant.share_status = "rejected"
+        assistant.pending_type = None
+        assistant.reject_type = reject_type
         assistant.last_reject_reason = reason
         assistant.last_approver_name = user.name
         assistant.last_approve_time = now
@@ -494,7 +513,7 @@ class ApprovalService:
 
         self.assistants.add_version_history(
             assistant,
-            version=assistant.version,
+            version=display_version(assistant.version),
             action=action,
             operator_id=user.user_id,
             operator_name=user.name,
@@ -551,11 +570,3 @@ class ApprovalService:
             reject_reason=row.reject_reason,
             approve_time=_fmt(row.approve_time),
         )
-
-    @staticmethod
-    def _next_minor(version: str) -> str:
-        try:
-            major, minor = version.lstrip("v").split(".")
-            return f"v{major}.{int(minor) + 1}"
-        except (ValueError, AttributeError):
-            return "v1.1"

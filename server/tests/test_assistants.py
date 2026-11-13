@@ -118,12 +118,14 @@ def test_list_keyword_hits_tag() -> None:
 # ============================ 创建 ============================
 
 
-def test_create_returns_unshared_v1(created_ids: list[int]) -> None:
+def test_create_returns_unshared_unpublished(created_ids: list[int]) -> None:
     data = _create("接口测试助理甲")
     created_ids.append(data["assistantId"])
 
     assert data["shareStatus"] == "unshared"
-    assert data["version"] == "v1.0"
+    # 未共享不产生版本号，页面展示「未发布」
+    assert data["version"] == ""
+    assert data["hasShared"] is False
     assert data["source"] == "custom"
     assert data["ownerName"] == "王晓明"
     assert data["categoryName"] == "人资"
@@ -201,7 +203,7 @@ def test_detail_not_found() -> None:
 # ============================ 编辑 ============================
 
 
-def test_update_bumps_minor_version(created_ids: list[int]) -> None:
+def test_update_unshared_keeps_unpublished_version(created_ids: list[int]) -> None:
     data = _create("接口测试助理辛")
     created_ids.append(data["assistantId"])
 
@@ -212,7 +214,9 @@ def test_update_bumps_minor_version(created_ids: list[int]) -> None:
     )
     assert resp.status_code == 200
     updated = resp.json()["data"]
-    assert updated["version"] == "v1.1"
+    # 未共享助理编辑直接生效，不产生版本号
+    assert updated["version"] == ""
+    assert updated["shareStatus"] == "unshared"
     assert updated["description"].startswith("编辑后的描述")
     assert updated["versionHistory"][0]["action"] == "update"
 

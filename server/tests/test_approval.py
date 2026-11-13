@@ -98,10 +98,10 @@ def test_approval_filter_by_type() -> None:
     aid, _ = _create_and_submit("审批测试助理乙")
     try:
         resp = client.get(
-            "/api/v1/approvals", headers=ADMIN, params={"approvalType": "scope_change"}
+            "/api/v1/approvals", headers=ADMIN, params={"approvalType": "scope"}
         )
         assert resp.status_code == 200
-        assert all(c["approvalType"] == "scope_change" for c in resp.json()["data"]["list"])
+        assert all(c["approvalType"] == "scope" for c in resp.json()["data"]["list"])
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
@@ -144,18 +144,28 @@ def test_approval_detail_not_found() -> None:
 
 
 def test_approval_detail_flags_config_change_after_edit() -> None:
-    """待审批期间编辑会升版本，审批单保留提交时版本并提示「配置已变更」。"""
+    """已共享助理编辑保存即提交调整申请，审批单版本快照与助理当前版本一致。"""
     aid, approval_id = _create_and_submit("审批测试助理配置变更", _scope(orgs=["O11"]))
     try:
+        client.post(f"/api/v1/approvals/{approval_id}/approve", headers=ADMIN, json={})
+        first = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert first["version"] == "V1.0.0"
+
         body = _payload("审批测试助理配置变更")
         body["prompt"] = "你是修改后的审批测试助理。"
+        body["changeNote"] = "补充提示词"
         updated = client.put(f"/api/v1/assistants/{aid}", headers=OWNER, json=body)
         assert updated.status_code == 200, updated.text
-        assert updated.json()["data"]["version"] == "v1.1"
+        data = updated.json()["data"]
+        # 审批中：版本号保持不变，等待审批通过后才推进
+        assert data["shareStatus"] == "pending"
+        assert data["pendingType"] == "change"
+        assert data["version"] == "V1.0.0"
 
-        detail = client.get(f"/api/v1/approvals/{approval_id}", headers=ADMIN).json()["data"]
-        assert detail["assistant"]["version"] == "v1.1"
-        assert detail["assistantConfigChanged"] is True
+        pending = client.get(
+            "/api/v1/approvals", headers=ADMIN, params={"approvalType": "change"}
+        ).json()["data"]["list"]
+        assert any(c["assistantId"] == aid for c in pending)
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
@@ -247,7 +257,7 @@ def test_approve_applies_scope_and_grants() -> None:
 
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
         assert detail["shareStatus"] == "approved"
-        assert detail["version"] == "v1.1"
+        assert detail["version"] == "V1.0.0"
         assert detail["versionHistory"][0]["action"] == "share_approve"
 
         # 被授权方出现在共享助理列表
@@ -324,7 +334,7 @@ def test_approve_twice_is_idempotent() -> None:
 
         # 版本只升一次
         detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
-        assert detail["version"] == "v1.1"
+        assert detail["version"] == "V1.0.0"
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
@@ -363,11 +373,14 @@ def test_reject_sets_reason_and_keeps_unshared_grants() -> None:
         assert detail["versionHistory"][0]["action"] == "share_reject"
 
         card = client.get(
-            "/api/v1/assistants", headers=OWNER, params={"scope": "mine"}
+            "/api/v1/assistants",
+            headers=OWNER,
+            params={"scope": "mine", "pageSize": 50},
         ).json()["data"]["list"]
         hit = next(c for c in card if c["assistantId"] == aid)
         assert hit["rejectReason"] == reason
-        assert hit["actions"] == ["summon", "edit", "delete", "resubmit"]
+        assert hit["rejectType"] == "share"
+        assert hit["actions"] == ["summon", "resubmit", "shareScope", "delete"]
 
         # 拒绝不写授权
         shared = client.get(

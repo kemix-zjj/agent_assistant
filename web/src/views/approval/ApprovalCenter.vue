@@ -55,13 +55,14 @@ const rejectReason = ref('')
 
 const TYPE_TEXT: Record<string, { color: string; label: string }> = {
   share: { color: 'blue', label: '共享申请' },
-  scope_change: { color: 'default', label: '范围变更' },
+  scope: { color: 'default', label: '授权申请' },
+  change: { color: 'success', label: '调整申请' },
   offline: { color: 'warning', label: '下架申请' }
 }
 
 const currentActionable = computed(() => detail.value?.status === 'pending')
 const isOfflineType = computed(() => detail.value?.approvalType === 'offline')
-const isScopeChangeType = computed(() => detail.value?.approvalType === 'scope_change')
+const isScopeType = computed(() => detail.value?.approvalType === 'scope')
 
 const submitterLine = computed(() => {
   const d = detail.value
@@ -102,16 +103,18 @@ function typeLabel(t: string): string {
   return TYPE_TEXT[t]?.label ?? t
 }
 
-/** 列表副标题：下架申请展示原因，范围变更展示「变更授权范围」，共享申请展示授权范围 */
+/** 列表副标题：下架申请展示原因，授权 / 调整申请展示变更说明，共享申请展示授权范围 */
 function rowSubtitle(card: ApprovalCard): string {
   if (card.approvalType === 'offline') return `下架原因：${card.changeNote || ''}`
-  if (card.approvalType === 'scope_change') return card.changeNote || '变更授权范围'
+  if (card.approvalType === 'scope') return card.changeNote || '变更授权范围'
+  if (card.approvalType === 'change') return `变更内容：${card.changeNote || '内容变更'}`
   return `授权范围：${card.scopeSummary || '未设置'}`
 }
 
-function tagType(t: string): 'primary' | 'warning' | 'info' {
+function tagType(t: string): 'primary' | 'warning' | 'info' | 'success' {
   if (t === 'offline') return 'warning'
-  if (t === 'scope_change') return 'info'
+  if (t === 'scope') return 'info'
+  if (t === 'change') return 'success'
   return 'primary'
 }
 
@@ -174,10 +177,13 @@ function askApprove(): void {
   confirmTitle.value = '确认审批通过？'
   if (d.approvalType === 'offline') {
     confirmText.value = '通过后该助理将立即下架，并从所有授权对象的助理库中移除。'
-    confirmImpact.value = `助理：${d.assistant.name}`
-  } else if (d.approvalType === 'scope_change') {
+    confirmImpact.value = `助理：${d.assistant.name} · 版本号保持 ${d.assistant.version || '未发布'} 不变`
+  } else if (d.approvalType === 'scope') {
     confirmText.value = '通过后新的授权范围立即生效。'
     confirmImpact.value = `最终授权对象：${d.scope?.grantTotal ?? 0} 人 · ${d.scope?.summary ?? ''}`
+  } else if (d.approvalType === 'change') {
+    confirmText.value = '通过后本次内容变更立即生效，已授权用户刷新后使用新版本。'
+    confirmImpact.value = `变更内容：${d.changeNote || '内容变更'}`
   } else {
     confirmText.value = '通过后该助理将出现在授权对象的助理库中，并标识「共享」。'
     confirmImpact.value =
@@ -396,7 +402,7 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
               <div class="expert-name">
                 {{ detail.assistant.name }}
                 <span class="cat-tag">{{ detail.assistant.categoryName }}</span>
-                <span class="ver-tag">{{ detail.assistant.version }}</span>
+                <span class="ver-tag">{{ detail.assistant.version || '未发布' }}</span>
               </div>
               <div class="expert-tags">
                 <span v-for="t in detail.assistant.tags" :key="t" class="mini-tag">{{ t }}</span>
@@ -429,8 +435,8 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
             </div>
           </template>
 
-          <!-- 范围变更：变更前 / 变更后 -->
-          <template v-else-if="isScopeChangeType">
+          <!-- 授权申请：变更前 / 变更后 -->
+          <template v-else-if="isScopeType">
             <div class="section-title">授权范围变更</div>
             <div class="scope-block">
               <div class="scope-block-title">变更前</div>

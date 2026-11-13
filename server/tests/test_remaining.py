@@ -509,34 +509,55 @@ def test_mine_scope_includes_unshared_and_rejected() -> None:
         client.delete(f"/api/v1/assistants/{rejected}", headers=OWNER)
 
 
-def test_all_scope_contains_only_approved_self_built() -> None:
-    """「全部」只含已共享的自建助理，不含未共享 / 待审批。"""
+def test_all_scope_includes_only_effectively_shared() -> None:
+    """「全部」只含本质已共享的审批中 / 已拒绝；未共享与「共享审批」两类不出现。"""
     unshared = _create("补全测试助理全部边界")
-    pending = _create("补全测试助理待审批态")
-    approved = _create("补全测试助理已共享态")
+    pending_share = _create("补全测试助理共享审批中")
+    approved = _create("补全测试助理调整审批中")
+    rejected_share = _create("补全测试助理共享被拒")
     try:
         client.post(
             "/api/v1/shares",
             headers=OWNER,
-            json={"assistantIds": [pending], "scope": _scope(users=["u1"])},
+            json={"assistantIds": [pending_share], "scope": _scope(users=["u1"])},
         )
         _publish(approved)
+        # 已共享后编辑 → 调整审批中，此时仍应计入「全部 · 已共享」
+        update_body = _payload("补全测试助理调整审批中")
+        update_body["changeNote"] = "调整描述"
+        update = client.put(f"/api/v1/assistants/{approved}", headers=OWNER, json=update_body)
+        assert update.status_code == 200, update.text
+        submitted = client.post(
+            "/api/v1/shares",
+            headers=OWNER,
+            json={"assistantIds": [rejected_share], "scope": _scope(users=["u1"])},
+        )
+        client.post(
+            f"/api/v1/approvals/{submitted.json()['data']['approvalIds'][0]}/reject",
+            headers=ADMIN,
+            json={"rejectReason": "范围过大，请收敛"},
+        )
 
-        all_ids = [
-            c["assistantId"]
-            for c in client.get(
-                "/api/v1/assistants",
-                headers=OWNER,
-                params={"scope": "all", "pageSize": 50},
-            ).json()["data"]["list"]
-        ]
+        all_rows = client.get(
+            "/api/v1/assistants",
+            headers=OWNER,
+            params={"scope": "all", "pageSize": 50},
+        ).json()["data"]["list"]
+        all_ids = [c["assistantId"] for c in all_rows]
+        # 调整审批中本质已共享：计入全部，角标折叠为「已共享」且不展开子类
         assert approved in all_ids
+        pending_card = next(c for c in all_rows if c["assistantId"] == approved)
+        assert pending_card["shareStatus"] == "approved"
+        assert pending_card["pendingType"] is None
         assert unshared not in all_ids
-        assert pending not in all_ids
+        # 共享审批中 / 已拒绝 · 共享审批从未共享成功，只在「我的助理」展示
+        assert pending_share not in all_ids
+        assert rejected_share not in all_ids
     finally:
         client.delete(f"/api/v1/assistants/{unshared}", headers=OWNER)
-        client.delete(f"/api/v1/assistants/{pending}", headers=OWNER)
+        client.delete(f"/api/v1/assistants/{pending_share}", headers=OWNER)
         client.delete(f"/api/v1/assistants/{approved}", headers=OWNER)
+        client.delete(f"/api/v1/assistants/{rejected_share}", headers=OWNER)
 
 
 def test_shared_scope_excludes_own_assistants() -> None:
@@ -598,40 +619,59 @@ def test_all_scope_three_card_kinds() -> None:
         client.delete(f"/api/v1/assistants/{mine_approved}", headers=OWNER)
 
 
-# ============================ 授权管理（管理员） ============================
+# ============================ 列表页签口径 ============================
 
 
-def test_auth_scope_lists_shared_assistants_with_scope_summary() -> None:
-    """scope=auth：列出全部已共享助理，并在卡片上带授权范围摘要。"""
-    aid = _create("补全测试助理授权管理")
+def test_auth_scope_removed() -> None:
+    """「授权管理」页签已按需求移除，scope=auth 不再受理。"""
+    resp = client.get(
+        "/api/v1/assistants", headers=ADMIN, params={"scope": "auth", "pageSize": 50}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "PARAM_INVALID"
+
+
+def test_rejected_shared_cannot_be_deleted() -> None:
+    """已拒绝 · 调整审批（曾共享过）不可删除。"""
+    aid = _create("补全测试助理已共享被拒")
     try:
         _publish(aid)
-        resp = client.get(
-            "/api/v1/assistants", headers=ADMIN, params={"scope": "auth", "pageSize": 50}
+        # 已共享后编辑 → 调整审批 → 被拒
+        body = {
+            "name": "补全测试助理已共享被拒",
+            "avatarType": "char",
+            "avatarChar": "测",
+            "avatarColor": "#3685F2",
+            "description": "用于校验「已拒绝 · 调整审批」删除拦截的测试助理描述。",
+            "tags": ["测试"],
+            "categoryId": 2,
+            "prompt": "你是补全测试助理。",
+            "skillIds": [],
+            "mcpIds": [],
+            "knowledgeBaseIds": [],
+            "quickQuestions": [],
+            "changeNote": "调整描述",
+        }
+        client.put(f"/api/v1/assistants/{aid}", headers=OWNER, json=body)
+        pending = client.get(
+            "/api/v1/approvals", headers=ADMIN, params={"approvalType": "change"}
+        ).json()["data"]["list"]
+        approval_id = next(c["approvalId"] for c in pending if c["assistantId"] == aid)
+        client.post(
+            f"/api/v1/approvals/{approval_id}/reject",
+            headers=ADMIN,
+            json={"rejectReason": "内容不足"},
         )
-        assert resp.status_code == 200, resp.text
-        row = next(
-            (c for c in resp.json()["data"]["list"] if c["assistantId"] == aid), None
-        )
-        assert row is not None
-        assert row["source"] == "custom"
-        assert row["shareStatus"] == "approved"
-        assert row["actions"] == ["shareScope"]
-        assert row["shareScope"] is not None
-        assert row["shareScope"]["grantTotal"] >= 1
-    finally:
-        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 
+        detail = client.get(f"/api/v1/assistants/{aid}", headers=OWNER).json()["data"]
+        assert detail["shareStatus"] == "rejected"
+        assert detail["rejectType"] == "change"
+        # 四类已拒绝均展示删除入口，由详情页按子类提示不可删除
+        assert "delete" in detail["actions"]
 
-def test_auth_scope_excludes_unshared_and_rejected() -> None:
-    """未共享的助理不出现在授权管理列表。"""
-    aid = _create("补全测试助理未共享")
-    try:
-        resp = client.get(
-            "/api/v1/assistants", headers=ADMIN, params={"scope": "auth", "pageSize": 50}
-        )
-        ids = [c["assistantId"] for c in resp.json()["data"]["list"]]
-        assert aid not in ids
+        resp = client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+        assert resp.status_code == 409
+        assert "无法删除" in resp.json()["message"]
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 

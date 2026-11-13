@@ -116,12 +116,13 @@
       prompt: PROMPT_TPL.replace('{0}', '招聘面试助理').replace('{1}', '招聘流程、面试评估与录用规则'),
       skills: ['s1', 's2', 's4'], mcps: ['m1', 'm2'], kbs: ['k1'],
       status: 'approved', authorizedCount: 2, usageCount: 128, createTime: '2026-10-18 09:24', updateTime: '2026-10-23 16:40',
-      version: 'v1.2', scope: { orgs: ['O11'], users: ['u5'] },
+      version: 'V1.0.2', hasShared: true, scope: { orgs: ['O11'], users: ['u5'] },
       quickQuestions: ['校招面试提问清单怎么设计？', '如何评估候选人的稳定性？', '录用审批需要准备哪些材料？'],
       history: [
-        { version: 'v1.2', action: '编辑更新', operator: '王晓明', time: '2026-10-23 16:40', remark: '补充校招场景提示词' },
-        { version: 'v1.1', action: '授权范围变更', operator: '王建国', time: '2026-10-21 10:12', remark: '新增薪酬绩效组（林晓）' },
-        { version: 'v1.0', action: '创建', operator: '王晓明', time: '2026-10-18 09:24', remark: '手动创建' }
+        { version: 'V1.0.2', action: '变更审批通过（编辑更新）', operator: '王建国', time: '2026-10-23 16:40', remark: '补充校招场景提示词' },
+        { version: 'V1.0.1', action: '授权范围变更', operator: '王建国', time: '2026-10-21 10:12', remark: '新增薪酬绩效组（林晓）' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-10-19 10:05', remark: '共享至人力资源部 · 招聘组' },
+        { version: '未发布', action: '创建', operator: '王晓明', time: '2026-10-18 09:24', remark: '手动创建' }
       ]
     },
     {
@@ -130,11 +131,63 @@
       desc: '按月解释薪资结构与个税口径，核对薪资异常项并给出调整建议，支持按部门维度汇总。',
       prompt: PROMPT_TPL.replace('{0}', '薪酬核算助理').replace('{1}', '薪资结构、个税与社保公积金口径'),
       skills: ['s3', 's4'], mcps: ['m2', 'm4'], kbs: ['k2'],
-      status: 'approved', authorizedCount: 6, usageCount: 46, createTime: '2026-10-15 14:02', updateTime: '2026-10-22 10:08',
-      version: 'v1.0', scope: { orgs: ['O1'], users: [] },
+      status: 'pending', pendingType: 'scope',
+      authorizedCount: 6, usageCount: 46, createTime: '2026-10-15 14:02', updateTime: '2026-10-25 16:20',
+      version: 'V1.0.0', hasShared: true, scope: { orgs: ['O1'], users: [] },
       quickQuestions: ['本月薪资异常项怎么核对？', '个税专项附加扣除怎么处理？'],
       history: [
-        { version: 'v1.0', action: '创建并共享', operator: '王晓明', time: '2026-10-15 14:02', remark: '手动创建，首次申请共享' }
+        { version: 'V1.0.0', action: '提交授权范围变更审批', operator: '王晓明', time: '2026-10-25 16:20', remark: '新增智慧云仓事业部' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-10-16 09:20', remark: '共享至人力资源部' },
+        { version: '未发布', action: '创建并申请共享', operator: '王晓明', time: '2026-10-15 14:02', remark: '手动创建，首次申请共享' }
+      ]
+    },
+    {
+      id: 'E1007', name: '岗位职级答疑助理', avatar: '职', color: '#3685F2', source: 'custom', category: '人资',
+      tags: ['职级', '岗位'], owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      desc: '解释岗位职级体系、晋升通道与任职资格要求，支持按序列检索标准条款。',
+      prompt: PROMPT_TPL.replace('{0}', '岗位职级答疑助理').replace('{1}', '岗位职级体系与任职资格要求'),
+      skills: ['s4'], mcps: [], kbs: ['k1'],
+      status: 'pending', pendingType: 'share',
+      authorizedCount: 3, usageCount: 0, createTime: '2026-10-24 10:12', updateTime: '2026-10-25 09:30',
+      version: '', hasShared: false, scope: { orgs: ['O11'], users: ['u5'] },
+      quickQuestions: ['P5 晋升 P6 需要满足哪些条件？', '任职资格认证的流程是怎样的？'],
+      history: [
+        { version: '未发布', action: '提交共享申请', operator: '王晓明', time: '2026-10-25 09:30', remark: '首次申请共享，共享至招聘组' },
+        { version: '未发布', action: '创建', operator: '王晓明', time: '2026-10-24 10:12', remark: '手动创建' }
+      ]
+    },
+    {
+      id: 'E1008', name: '绩效面谈助理', avatar: '绩', color: '#04D999', source: 'custom', category: '人资',
+      tags: ['绩效', '面谈'], owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      desc: '按考核结果生成面谈提纲与改进建议，输出面谈记录模板与后续跟踪项。',
+      prompt: PROMPT_TPL.replace('{0}', '绩效面谈助理').replace('{1}', '绩效面谈流程与改进计划制定'),
+      skills: ['s2', 's4'], mcps: ['m2'], kbs: ['k2'],
+      status: 'pending', pendingType: 'change',
+      authorizedCount: 5, usageCount: 64, createTime: '2026-09-18 14:05', updateTime: '2026-10-26 11:20',
+      version: 'V1.0.1', hasShared: true, scope: { orgs: ['O1'], users: [] },
+      quickQuestions: ['绩效面谈怎么开场比较自然？', '改进计划需要包含哪些要素？'],
+      history: [
+        { version: 'V1.0.1', action: '提交变更审批', operator: '王晓明', time: '2026-10-26 11:20', remark: '补充低绩效员工面谈话术' },
+        { version: 'V1.0.1', action: '变更审批通过（编辑更新）', operator: '王建国', time: '2026-10-10 15:00', remark: '补充面谈提纲模板' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-09-19 10:20', remark: '共享至人力资源部' }
+      ]
+    },
+    {
+      id: 'E1009', name: '差旅报销助理', avatar: '差', color: '#FF813B', source: 'custom', category: '经营管理',
+      tags: ['差旅', '报销'], owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      desc: '解答差旅标准、报销单据要求与审批口径，支持按城市等级校验住宿标准。',
+      prompt: PROMPT_TPL.replace('{0}', '差旅报销助理').replace('{1}', '差旅标准与报销单据要求'),
+      skills: ['s4'], mcps: ['m4'], kbs: ['k6'],
+      status: 'offline_pending', pendingType: 'offline',
+      authorizedCount: 8, usageCount: 152, createTime: '2026-08-20 09:00', updateTime: '2026-10-26 16:40',
+      offlineReason: '差旅标准已并入新版费用管控助理，申请下架后统一迁移。',
+      version: 'V1.0.2', hasShared: true, scope: { orgs: ['O1', 'O12'], users: [] },
+      quickQuestions: ['一线城市住宿标准是多少？', '报销单据缺少发票怎么处理？'],
+      history: [
+        { version: 'V1.0.2', action: '提交下架申请', operator: '王晓明', time: '2026-10-26 16:40', remark: '差旅标准并入新版费用管控助理（审批中 · 下架审批）' },
+        { version: 'V1.0.2', action: '变更审批通过（编辑更新）', operator: '王建国', time: '2026-09-30 11:15', remark: '补充住宿标准分档' },
+        { version: 'V1.0.1', action: '变更审批通过（编辑更新）', operator: '王建国', time: '2026-09-10 14:20', remark: '补充报销单据清单' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-08-21 10:00', remark: '共享至人力资源部' }
       ]
     },
     {
@@ -144,9 +197,9 @@
       prompt: PROMPT_TPL.replace('{0}', '考勤答疑助理').replace('{1}', '请假、调休、加班与补卡规则'),
       skills: ['s4'], mcps: ['m3'], kbs: ['k3'],
       status: 'unshared', authorizedCount: 0, usageCount: 3, createTime: '2026-10-21 11:16', updateTime: '2026-10-21 11:16',
-      version: 'v1.0', scope: { orgs: [], users: [] },
+      version: '', scope: { orgs: [], users: [] },
       history: [
-        { version: 'v1.0', action: '创建', operator: '王晓明', time: '2026-10-21 11:16', remark: '手动创建' }
+        { version: '未发布', action: '创建', operator: '王晓明', time: '2026-10-21 11:16', remark: '手动创建' }
       ]
     },
     {
@@ -155,22 +208,57 @@
       desc: '输出车间巡检清单与隐患整改建议，可按厂区维度汇总隐患分布与整改完成率。',
       prompt: PROMPT_TPL.replace('{0}', '环安巡检助理').replace('{1}', '车间巡检标准与隐患整改要求'),
       skills: ['s5'], mcps: ['m6'], kbs: ['k5'],
-      status: 'rejected', authorizedCount: 0, usageCount: 0, createTime: '2026-10-19 16:30', updateTime: '2026-10-24 15:02',
+      status: 'rejected', rejectType: 'share', hasShared: false,
+      authorizedCount: 0, usageCount: 0, createTime: '2026-10-19 16:30', updateTime: '2026-10-24 15:02',
       rejectReason: '授权范围包含外协单位组织节点，请收敛至本公司部门后重新提交。',
       approver: '王建国', approveTime: '2026-10-24 15:02', lastScope: { orgs: ['O1'], users: ['u2'] },
-      version: 'v1.1', scope: { orgs: ['O1'], users: ['u2'] },
+      version: '', scope: { orgs: ['O1'], users: ['u2'] },
       history: [
-        { version: 'v1.1', action: '编辑更新', operator: '王晓明', time: '2026-10-24 14:20', remark: '补充隐患分级说明' },
-        { version: 'v1.0', action: '创建并共享', operator: '王晓明', time: '2026-10-19 16:30', remark: '手动创建，首次申请共享' }
+        { version: '未发布', action: '共享审批被拒绝（已拒绝 · 共享审批）', operator: '王建国', time: '2026-10-24 15:02', remark: '授权范围含外协单位节点' },
+        { version: '未发布', action: '编辑更新', operator: '王晓明', time: '2026-10-24 14:20', remark: '补充隐患分级说明' },
+        { version: '未发布', action: '创建并申请共享', operator: '王晓明', time: '2026-10-19 16:30', remark: '手动创建，首次申请共享' }
       ]
     },
-    /* ---- 平台预置助理 ---- */
-    { id: 'P01', name: '智能会议助理', avatar: '会', color: '#5E9DF5', source: 'platform', category: '协同办公', tags: ['会议', '纪要'], desc: '会议前生成议程，会议中记录要点，会议后输出纪要与待办，并同步到日程。', status: 'platform', version: 'v1.6', usageCount: 856 },
-    { id: 'P02', name: 'AI 陪练助理', avatar: '练', color: '#04D999', source: 'platform', category: '人资', tags: ['培训', '陪练'], desc: '按岗位场景模拟客户或员工对话，实时评分并给出改进建议。', status: 'platform', version: 'v2.1', usageCount: 423 },
-    { id: 'P03', name: 'AI 面试助理', avatar: '面', color: '#FF813B', source: 'platform', category: '人资', tags: ['面试', '评估'], desc: '按岗位模板发起结构化面试，输出候选人能力画像与面评报告。', status: 'platform', version: 'v1.9', usageCount: 317 },
-    { id: 'P04', name: '人效分析助理', avatar: '效', color: '#3685F2', source: 'platform', category: '人资', tags: ['人效', '分析'], desc: '汇总人力投入与产出数据，输出部门人效对比与改善建议。', status: 'platform', version: 'v1.3', usageCount: 189 },
-    { id: 'P05', name: '智慧云仓助理', avatar: '仓', color: '#2468F2', source: 'platform', category: '智慧云仓', tags: ['仓储', '调度'], desc: '解答库存、盘点与调度规则，支持按库区维度汇总异常。', status: 'platform', version: 'v1.2', usageCount: 95 },
-    { id: 'P06', name: '环安合规助理', avatar: '安', color: '#00B780', source: 'platform', category: '环安', tags: ['环安', '合规'], desc: '检索环安法规与内部标准，输出合规检查项与整改建议。', status: 'platform', version: 'v1.1', usageCount: 64 },
+    {
+      id: 'E1005', name: '培训签到助理', avatar: '签', color: '#5E9DF5', source: 'custom', category: '人资',
+      tags: ['培训', '签到'], owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      desc: '按培训场次生成签到清单与出勤统计，输出未参训人员提醒，支持按部门汇总参训率。',
+      prompt: PROMPT_TPL.replace('{0}', '培训签到助理').replace('{1}', '培训签到与出勤统计规则'),
+      skills: ['s4'], mcps: ['m2'], kbs: ['k3'],
+      status: 'rejected', rejectType: 'offline', hasShared: true, authorizedCount: 4, usageCount: 36,
+      createTime: '2026-09-28 09:40', updateTime: '2026-10-25 11:10',
+      rejectReason: '该助理仍有 4 个授权对象在用，下架原因不充分，请补充说明后重新提交。',
+      approver: '王建国', approveTime: '2026-10-25 11:10', lastScope: { orgs: ['O11'], users: [] },
+      version: 'V1.0.1', scope: { orgs: ['O11'], users: [] },
+      history: [
+        { version: 'V1.0.1', action: '下架申请被拒绝（已拒绝 · 下架审批）', operator: '王建国', time: '2026-10-25 11:10', remark: '下架原因不充分' },
+        { version: 'V1.0.1', action: '变更审批通过（授权范围）', operator: '王建国', time: '2026-10-02 10:00', remark: '新增人力资源部' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-09-29 09:15', remark: '共享至人力资源部' }
+      ]
+    },
+    {
+      id: 'E1006', name: '员工手册问答助理', avatar: '册', color: '#00B780', source: 'custom', category: '人资',
+      tags: ['制度', '手册'], owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      desc: '解答员工手册条款、假期与福利规则，支持按章节检索并给出原文依据。',
+      prompt: PROMPT_TPL.replace('{0}', '员工手册问答助理').replace('{1}', '员工手册条款、假期与福利规则'),
+      skills: ['s4'], mcps: [], kbs: ['k3'],
+      status: 'offline', hasShared: true, authorizedCount: 0, usageCount: 58,
+      createTime: '2026-09-10 10:20', updateTime: '2026-10-20 15:30',
+      offlineReason: '员工手册已改版，旧版本内容过期，下架后合并进新版助理。',
+      approver: '王建国', approveTime: '2026-10-20 15:30',
+      version: 'V1.0.0', scope: { orgs: ['O1'], users: [] },
+      history: [
+        { version: 'V1.0.0', action: '下架生效', operator: '王建国', time: '2026-10-20 15:30', remark: '员工手册改版' },
+        { version: 'V1.0.0', action: '首次共享审批通过', operator: '王建国', time: '2026-09-11 10:00', remark: '共享至人力资源部' }
+      ]
+    },
+    /* ---- 平台内置助理 ---- */
+    { id: 'P01', name: '智能会议助理', avatar: '会', color: '#5E9DF5', source: 'platform', category: '协同办公', tags: ['会议', '纪要'], desc: '会议前生成议程，会议中记录要点，会议后输出纪要与待办，并同步到日程。', status: 'platform', version: 'V1.6.0', usageCount: 856 },
+    { id: 'P02', name: 'AI 陪练助理', avatar: '练', color: '#04D999', source: 'platform', category: '人资', tags: ['培训', '陪练'], desc: '按岗位场景模拟客户或员工对话，实时评分并给出改进建议。', status: 'platform', version: 'V2.1.0', usageCount: 423 },
+    { id: 'P03', name: 'AI 面试助理', avatar: '面', color: '#FF813B', source: 'platform', category: '人资', tags: ['面试', '评估'], desc: '按岗位模板发起结构化面试，输出候选人能力画像与面评报告。', status: 'platform', version: 'V1.9.0', usageCount: 317 },
+    { id: 'P04', name: '人效分析助理', avatar: '效', color: '#3685F2', source: 'platform', category: '人资', tags: ['人效', '分析'], desc: '汇总人力投入与产出数据，输出部门人效对比与改善建议。', status: 'platform', version: 'V1.3.0', usageCount: 189 },
+    { id: 'P05', name: '智慧云仓助理', avatar: '仓', color: '#2468F2', source: 'platform', category: '智慧云仓', tags: ['仓储', '调度'], desc: '解答库存、盘点与调度规则，支持按库区维度汇总异常。', status: 'platform', version: 'V1.2.0', usageCount: 95 },
+    { id: 'P06', name: '环安合规助理', avatar: '安', color: '#00B780', source: 'platform', category: '环安', tags: ['环安', '合规'], desc: '检索环安法规与内部标准，输出合规检查项与整改建议。', status: 'platform', version: 'V1.1.0', usageCount: 64 },
     /* ---- 被授权共享助理 ---- */
     {
       id: 'S2001', name: '员工关系咨询助理', avatar: '员', color: '#3685F2', source: 'shared', category: '人资',
@@ -178,7 +266,7 @@
       desc: '解答劳动合同、转正、调岗与离职相关问题，输出处理路径与风险提示。',
       prompt: '你是九牧集团员工关系咨询助理，负责解答劳动合同与用工风险问题。',
       skills: ['s4'], mcps: ['m2'], kbs: ['k3'],
-      subscribed: true, authorizedAt: '2026-10-12 09:00', version: 'v1.1', usageCount: 87
+      subscribed: true, authorizedAt: '2026-10-12 09:00', version: 'V1.1.0', usageCount: 87
     },
     {
       id: 'S2002', name: '仓储盘点助理', avatar: '盘', color: '#2468F2', source: 'shared', category: '智慧云仓',
@@ -186,7 +274,7 @@
       desc: '指导盘点作业流程，解释差异处理规则，输出盘点复盘要点。',
       prompt: '你是智慧云仓仓储盘点助理，负责指导盘点作业与差异处理。',
       skills: ['s5'], mcps: ['m5'], kbs: ['k4'],
-      subscribed: true, authorizedAt: '2026-10-10 15:20', version: 'v1.0', usageCount: 52
+      subscribed: true, authorizedAt: '2026-10-10 15:20', version: 'V1.0.0', usageCount: 52
     },
     {
       id: 'S2003', name: '安全培训助理', avatar: '培', color: '#FF813B', source: 'shared', category: '环安',
@@ -194,7 +282,7 @@
       desc: '按岗位输出安全培训大纲与考试题，支持生成培训签到与考核清单。',
       prompt: '你是环安管理部安全培训助理，负责输出培训大纲与考核题。',
       skills: ['s8'], mcps: [], kbs: ['k5'],
-      subscribed: true, authorizedAt: '2026-10-08 10:05', version: 'v1.3', usageCount: 31
+      subscribed: true, authorizedAt: '2026-10-08 10:05', version: 'V1.3.0', usageCount: 31
     },
     {
       id: 'S2004', name: '客户报价助理', avatar: '报', color: '#FF4D5D', source: 'shared', category: '经营管理',
@@ -202,17 +290,17 @@
       desc: '按价格政策校验报价单，解释折扣审批口径，输出报价风险提示。',
       prompt: '你是经营管理中心客户报价助理，负责校验报价单与折扣政策。',
       skills: ['s7'], mcps: [], kbs: ['k6'],
-      subscribed: false, authorizedAt: '2026-09-28 17:40', version: 'v1.0', usageCount: 12
+      subscribed: false, authorizedAt: '2026-09-28 17:40', version: 'V1.0.0', usageCount: 12
     }
   ];
 
-  /* 审批单类型：share 共享申请 / offline 下架申请 / scope 授权范围变更 */
+  /* 审批单类型：share 共享申请 / scope 授权申请 / change 调整申请 / offline 下架申请 */
   var APPROVALS = [
     {
       id: 'AP20261025001', type: 'share', expertId: 'X9001', expertName: '车间排班助理', avatar: '排', color: '#5E9DF5',
       category: '人资', tags: ['排班', '考勤'], desc: '按产线节拍与人员技能矩阵生成排班建议，输出缺岗预警。',
       prompt: '你是生产车间排班助理，负责依据节拍与技能矩阵生成排班建议。',
-      skills: ['s4'], mcps: ['m3'], kbs: ['k3'], version: 'v1.0',
+      skills: ['s4'], mcps: ['m3'], kbs: ['k3'], version: '',
       owner: '李静', ownerDept: '人力资源部 · 招聘组',
       submitter: '李静', submitterDept: '人力资源部 · 招聘组', submitTime: '2026-10-25 09:12',
       changeNote: '首次申请共享，覆盖招聘组与仓储运营部',
@@ -222,11 +310,51 @@
       id: 'AP20261025002', type: 'share', expertId: 'X9002', expertName: '关务合规问答助理', avatar: '关', color: '#3685F2',
       category: '智慧云仓', tags: ['关务', '合规'], desc: '解答进出口报关资料要求与合规风险点，输出资料清单。',
       prompt: '你是关务合规问答助理，负责解答报关资料与合规风险问题。',
-      skills: ['s4'], mcps: ['m5'], kbs: ['k4'], version: 'v1.0',
+      skills: ['s4'], mcps: ['m5'], kbs: ['k4'], version: '',
       owner: '陈志远', ownerDept: '智慧云仓事业部 · 仓储运营部',
       submitter: '陈志远', submitterDept: '智慧云仓事业部 · 仓储运营部', submitTime: '2026-10-25 14:36',
       changeNote: '首次申请共享，仅限智慧云仓事业部',
       scope: { orgs: ['O12'], users: [] }, status: 'pending'
+    },
+    {
+      id: 'AP20261025003', type: 'scope', expertId: 'E1002', expertName: '薪酬核算助理', avatar: '薪', color: '#04D999',
+      category: '人资', tags: ['薪酬', '核算'], desc: '按月解释薪资结构与个税口径，核对薪资异常项并给出调整建议，支持按部门维度汇总。',
+      prompt: PROMPT_TPL.replace('{0}', '薪酬核算助理').replace('{1}', '薪资结构、个税与社保公积金口径'),
+      skills: ['s3', 's4'], mcps: ['m2', 'm4'], kbs: ['k2'], version: 'V1.0.0',
+      owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      submitter: '王晓明', submitterDept: '人力资源部 · 招聘组', submitTime: '2026-10-25 16:20',
+      changeNote: '新增智慧云仓事业部',
+      scope: { orgs: ['O1', 'O12'], users: ['u5'] }, oldScope: { orgs: ['O1'], users: [] }, status: 'pending'
+    },
+    {
+      id: 'AP20261025004', type: 'share', expertId: 'E1007', expertName: '岗位职级答疑助理', avatar: '职', color: '#3685F2',
+      category: '人资', tags: ['职级', '岗位'], desc: '解释岗位职级体系、晋升通道与任职资格要求，支持按序列检索标准条款。',
+      prompt: PROMPT_TPL.replace('{0}', '岗位职级答疑助理').replace('{1}', '岗位职级体系与任职资格要求'),
+      skills: ['s4'], mcps: [], kbs: ['k1'], version: '',
+      owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      submitter: '王晓明', submitterDept: '人力资源部 · 招聘组', submitTime: '2026-10-25 09:30',
+      changeNote: '首次申请共享，共享至招聘组',
+      scope: { orgs: ['O11'], users: ['u5'] }, status: 'pending'
+    },
+    {
+      id: 'AP20261025005', type: 'change', expertId: 'E1008', expertName: '绩效面谈助理', avatar: '绩', color: '#04D999',
+      category: '人资', tags: ['绩效', '面谈'], desc: '按考核结果生成面谈提纲与改进建议，输出面谈记录模板与后续跟踪项。',
+      prompt: PROMPT_TPL.replace('{0}', '绩效面谈助理').replace('{1}', '绩效面谈流程与改进计划制定'),
+      skills: ['s2', 's4'], mcps: ['m2'], kbs: ['k2'], version: 'V1.0.1',
+      owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      submitter: '王晓明', submitterDept: '人力资源部 · 招聘组', submitTime: '2026-10-26 11:20',
+      changeNote: '补充低绩效员工面谈话术',
+      scope: { orgs: ['O1'], users: [] }, status: 'pending'
+    },
+    {
+      id: 'AP20261025006', type: 'offline', expertId: 'E1009', expertName: '差旅报销助理', avatar: '差', color: '#FF813B',
+      category: '经营管理', tags: ['差旅', '报销'], desc: '解答差旅标准、报销单据要求与审批口径，支持按城市等级校验住宿标准。',
+      prompt: PROMPT_TPL.replace('{0}', '差旅报销助理').replace('{1}', '差旅标准与报销单据要求'),
+      skills: ['s4'], mcps: ['m4'], kbs: ['k6'], version: 'V1.0.2',
+      owner: '王晓明', ownerDept: '人力资源部 · 招聘组',
+      submitter: '王晓明', submitterDept: '人力资源部 · 招聘组', submitTime: '2026-10-26 16:40',
+      reason: '差旅标准已并入新版费用管控助理，申请下架后统一迁移。',
+      scope: { orgs: ['O1', 'O12'], users: [] }, status: 'pending'
     }
   ];
 

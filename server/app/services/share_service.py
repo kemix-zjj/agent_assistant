@@ -1,6 +1,12 @@
-"""共享授权服务：提交共享申请、回显范围、调整范围（对应 docs/03 §6.1 ~ §6.3）。
+"""共享授权服务：提交共享申请、回显范围、调整范围、申请下架（docs/03 §6.1 ~ §6.4）。
 
 事务边界：提交共享为单事务，失败整体回滚（文档 Q-09：批量提交整批失败）。
+
+审批单类型与审批子类一一对应：
+- `share` 共享申请：首次共享（未共享 → 审批中 · 共享审批）
+- `change` 调整申请：已共享助理内容变更（已共享 → 审批中 · 调整审批）
+- `scope` 授权申请：授权范围变更（已共享 / 已拒绝 → 审批中 · 授权审批）
+- `offline` 下架申请：已共享助理下架（已共享 → 审批中 · 下架审批）
 """
 
 import logging
@@ -22,6 +28,7 @@ from app.models.approval import Approval
 from app.models.assistant import Assistant
 from app.models.scope import AssistantGrant, ShareScope
 from app.repositories.assistant_repo import AssistantRepository
+from app.schemas.common import OfflineSubmitResult
 from app.schemas.scope import (
     Scope,
     ScopePayload,
@@ -31,29 +38,13 @@ from app.schemas.scope import (
     ShareSubmitPayload,
     ShareSubmitResult,
 )
-from app.schemas.common import OfflineSubmitResult
 from app.services import audit_service as audit
+from app.services.numbering import approval_no, batch_no
 from app.services.scope_service import ScopeService
 
 logger = logging.getLogger("app.share")
 
 MAX_BATCH = 20
-
-
-def _batch_no() -> str:
-    # 单号需完整精度，不能用落库用的秒级时间
-    now = datetime.now()
-    return f"B{now:%Y%m%d%H%M%S}{now.microsecond:06d}"
-
-
-def _approval_no(seq: int) -> str:
-    """审批单号：AP + 时间戳（含微秒）+ 批次内序号。
-
-    秒级时间戳 + 随机数在同一秒内批量提交时仍可能撞上 uk_approval_no，
-    因此用微秒保证唯一（长度 25，适配 VARCHAR(32)）。
-    """
-    now = datetime.now()
-    return f"AP{now:%Y%m%d%H%M%S}{now.microsecond:06d}{seq:02d}"
 
 
 class ShareService:
@@ -83,14 +74,17 @@ class ShareService:
                 raise NoPermissionError("仅创建人可提交共享申请")
             assistants.append(row)
 
-        # 3. 状态必须为 unshared / rejected / offline
-        #    offline（已下架）允许重新提交共享申请，等同于重新上架；
-        #    平台预置助理不存在该状态，无需额外排除
+        # 3. 仅「本质未共享」的助理可提交共享申请：
+        #    unshared / 已拒绝·共享审批（首次共享被拒）/ offline（重新共享）。
+        #    已拒绝的调整、授权、下架审批必须走编辑页或范围授权页，不能在此重复提交。
         for row in assistants:
-            if row.share_status not in ("unshared", "rejected", "offline"):
+            allowed = row.share_status in ("unshared", "offline") or (
+                row.share_status == "rejected" and row.reject_type == "share"
+            )
+            if not allowed:
                 raise ConflictError(
                     ErrorCode.ASSISTANT_ALREADY_SHARED,
-                    "待审批或已共享的助理不可重复提交",
+                    "审批中或已共享的助理不可重复提交共享申请",
                     {"assistantId": row.id},
                 )
 
@@ -112,13 +106,13 @@ class ShareService:
         expanded = self.scopes.expand(payload.scope)
 
         now = now_second()
-        batch_no = _batch_no()
+        current_batch_no = batch_no()
         approval_ids: list[int] = []
         for index, row in enumerate(assistants, start=1):
             # 先建审批单，再建请求范围快照（快照需回填 approval_id）
             approval = Approval(
-                approval_no=_approval_no(index),
-                batch_no=batch_no,
+                approval_no=approval_no(index),
+                batch_no=current_batch_no,
                 company_id=user.company_id,
                 approval_type="share",
                 assistant_id=row.id,
@@ -147,10 +141,14 @@ class ShareService:
 
             old_status = row.share_status
             row.share_status = "pending"
+            # 首次共享 / 重新共享（已拒绝、已下架）统一为共享审批
+            row.pending_type = "share"
+            row.reject_type = None
+            row.last_reject_reason = None
             row.updated_at = now
             self.repo.add_version_history(
                 row,
-                version=row.version,
+                version=row.version or "未发布",
                 action="share_submit",
                 operator_id=user.user_id,
                 operator_name=user.name,
@@ -167,7 +165,7 @@ class ShareService:
                 after={
                     "shareStatus": "pending",
                     "approvalId": approval.id,
-                    "batchNo": batch_no,
+                    "batchNo": current_batch_no,
                     "scopeMode": payload.scope.scope_mode,
                     "grantTotal": expanded.grant_total,
                     "scope": payload.scope.model_dump(by_alias=True),
@@ -178,13 +176,13 @@ class ShareService:
         self.db.commit()
         logger.info(
             "共享申请已提交 batch=%s assistants=%s approvals=%s scope_total=%s",
-            batch_no,
+            current_batch_no,
             assistant_ids,
             approval_ids,
             expanded.grant_total,
         )
         return ShareSubmitResult(
-            batch_no=batch_no,
+            batch_no=current_batch_no,
             approval_ids=approval_ids,
             submitted_count=len(approval_ids),
             assistant_status="pending",
@@ -199,11 +197,11 @@ class ShareService:
         if row is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
 
-        # 进行中的范围变更申请
+        # 进行中的授权范围变更申请
         pending_change = self.db.scalar(
             select(Approval).where(
                 Approval.assistant_id == assistant_id,
-                Approval.approval_type == "scope_change",
+                Approval.approval_type == "scope",
                 Approval.status == "pending",
             )
         )
@@ -216,8 +214,9 @@ class ShareService:
         else:
             editable_by = "none"
 
-        # 进行中的范围变更申请存在时，创建人不可再次提交
-        editable = editable_by != "none" and pending_change is None
+        # 审批中（含下架审批中）期间不可重复提交范围变更
+        pending_any = row.share_status in ("pending", "offline_pending")
+        editable = editable_by != "none" and pending_change is None and not pending_any
 
         scope = self._current_effective_scope(assistant_id)
         return ShareScopeResponse(
@@ -266,8 +265,8 @@ class ShareService:
         if not user.is_admin and not is_owner:
             raise NoPermissionError("无权调整该助理的共享范围")
 
-        # 与进行中的 share 申请并存时不可调整
-        if row.share_status == "pending":
+        # 与进行中的审批并存时不可调整（管理员同样受限，避免覆盖审批快照）
+        if row.share_status == "pending" or self.repo.count_pending_approvals(assistant_id) > 0:
             raise ConflictError(
                 ErrorCode.SHARE_SCOPE_IMMUTABLE,
                 "待审批期间不可修改授权范围",
@@ -275,7 +274,7 @@ class ShareService:
 
         now = now_second()
 
-        # 分支 B/C：管理员直接生效（平台预置助理同样走此分支）
+        # 分支 A：管理员直接生效（平台内置 / 已共享走此分支；审批中已被上方拦截）
         if user.is_admin:
             old_grant_total = row.authorized_count
             scope_row = self.scopes.create_snapshot(
@@ -286,17 +285,16 @@ class ShareService:
                 created_by=user.user_id,
                 approval_id=None,
             )
-            self._rebuild_grants(row, scope_row, payload.scope, user, now)
+            self.scopes.rebuild_grants(row, scope_row.id, payload.scope, now)
 
-            row.version = self._next_minor_version(row.version)
             row.updated_at = now
             self.repo.add_version_history(
                 row,
-                version=row.version,
+                version=row.version or "未发布",
                 action="scope_change",
                 operator_id=user.user_id,
                 operator_name=user.name,
-                remark=payload.change_note or f"管理员调整授权范围，共 {scope_row.grant_total} 人",
+                remark=payload.change_note or f"管理员调整授权范围（直接生效），共 {scope_row.grant_total} 人",
                 created_at=now,
             )
             audit.record(
@@ -321,17 +319,23 @@ class ShareService:
                 scope=self.scopes.load_snapshot(scope_row.id),
             )
 
-        # 分支 A：创建人调整已共享助理 → 提交范围变更审批
-        if row.share_status != "approved":
+        # 分支 B：创建人调整 → 提交授权范围变更审批
+        # 已共享（原范围继续生效）与已拒绝（通过后完成共享）均可提交；其余状态不可
+        if row.share_status not in ("approved", "rejected", "offline_pending"):
             raise ConflictError(
                 ErrorCode.SHARE_SCOPE_IMMUTABLE,
-                "仅已共享的助理可提交范围变更",
+                "仅已共享或已拒绝的助理可提交授权范围变更",
+            )
+        if row.share_status == "pending":
+            raise ConflictError(
+                ErrorCode.SHARE_SCOPE_IMMUTABLE,
+                "待审批期间不可修改授权范围",
             )
 
         pending = self.db.scalar(
             select(Approval).where(
                 Approval.assistant_id == assistant_id,
-                Approval.approval_type == "scope_change",
+                Approval.approval_type == "scope",
                 Approval.status == "pending",
             )
         )
@@ -343,10 +347,10 @@ class ShareService:
             )
 
         approval = Approval(
-            approval_no=_approval_no(1),
+            approval_no=approval_no(1),
             batch_no=None,
             company_id=user.company_id,
-            approval_type="scope_change",
+            approval_type="scope",
             assistant_id=assistant_id,
             assistant_version=row.version,
             status="pending",
@@ -371,14 +375,29 @@ class ShareService:
         )
         approval.requested_scope_id = scope_row.id
 
+        old_status = row.share_status
+        row.share_status = "pending"
+        row.pending_type = "scope"
+        row.reject_type = None
+        row.last_reject_reason = None
+        row.updated_at = now
         self.repo.add_version_history(
             row,
-            version=row.version,
+            version=row.version or "未发布",
             action="scope_change",
             operator_id=user.user_id,
             operator_name=user.name,
             remark=payload.change_note or "提交授权范围变更申请",
             created_at=now,
+        )
+        audit.record(
+            self.db,
+            user=user,
+            action="scope_change",
+            object_type="assistant",
+            object_id=assistant_id,
+            before={"shareStatus": old_status},
+            after={"shareStatus": "pending", "approvalId": approval.id},
         )
         self.db.commit()
         return ShareScopeUpdateResult(
@@ -387,17 +406,6 @@ class ShareService:
             approval_id=approval.id,
             scope=self.scopes.load_snapshot(scope_row.id),
         )
-
-    def _rebuild_grants(
-        self,
-        row: Assistant,
-        scope_row: ShareScope,
-        payload: ScopePayload,
-        user: CurrentUser,
-        now: datetime,
-    ) -> None:
-        """重算人员级授权（逻辑收敛在 ScopeService，审批通过时复用）。"""
-        self.scopes.rebuild_grants(row, scope_row.id, payload, now)
 
     # ============================ 申请下架 ============================
 
@@ -417,10 +425,10 @@ class ShareService:
         if len(reason) > 200:
             raise ParamInvalidError("下架原因最多 200 字", "reason")
 
-        # 仅已共享可申请下架；平台预置不可下架
+        # 仅已共享可申请下架；平台内置不可下架
         if row.source == "platform":
             raise ConflictError(
-                ErrorCode.ASSISTANT_STATUS_CHANGED, "平台预置助理不可下架"
+                ErrorCode.ASSISTANT_STATUS_CHANGED, "平台内置助理不可下架"
             )
         if row.share_status == "offline_pending":
             raise ConflictError(
@@ -433,7 +441,7 @@ class ShareService:
 
         now = now_second()
         approval = Approval(
-            approval_no=_approval_no(1),
+            approval_no=approval_no(1),
             batch_no=None,
             company_id=user.company_id,
             approval_type="offline",
@@ -452,10 +460,12 @@ class ShareService:
         self.db.flush()
 
         row.share_status = "offline_pending"
+        row.pending_type = "offline"
+        row.offline_reason = reason
         row.updated_at = now
         self.repo.add_version_history(
             row,
-            version=row.version,
+            version=row.version or "未发布",
             action="offline_submit",
             operator_id=user.user_id,
             operator_name=user.name,
@@ -478,11 +488,3 @@ class ShareService:
             share_status="offline_pending",
             approval_id=approval.id,
         )
-
-    @staticmethod
-    def _next_minor_version(version: str) -> str:
-        try:
-            major, minor = version.lstrip("v").split(".")
-            return f"v{major}.{int(minor) + 1}"
-        except (ValueError, AttributeError):
-            return "v1.1"

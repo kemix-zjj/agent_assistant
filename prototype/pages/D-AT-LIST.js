@@ -7,19 +7,32 @@ window.__pages['D-AT-LIST'] = function (container) {
     keyword: '',
     statusFilter: 'all',
     subFilter: 'all',
-    selected: {},
-    rejectPanel: false
+    selected: {}
   });
 
   var STATUS = {
     unshared: { cls: 'default', text: '未共享' },
-    pending: { cls: 'warning', text: '待审批' },
+    pending: { cls: 'warning', text: '审批中' },
     approved: { cls: 'success', text: '已共享' },
     rejected: { cls: 'error', text: '已拒绝' },
     offline_pending: { cls: 'warning', text: '下架审批中' },
     offline: { cls: 'gray', text: '已下架' },
-    platform: { cls: 'default', text: '平台预置' }
+    platform: { cls: 'default', text: '平台内置' }
   };
+  /* 已拒绝描述：共享审批 / 调整审批 / 授权审批 / 下架审批（角标为「已拒绝 · {描述}」） */
+  var REJECT_TYPE = { share: '共享审批', change: '调整审批', scope: '授权审批', offline: '下架审批' };
+  function rejectTypeText(e) {
+    return REJECT_TYPE[e.rejectType] || REJECT_TYPE.share;
+  }
+  /* 审批中描述：共享审批 / 调整审批 / 授权审批 / 下架审批（角标为「审批中 · {描述}」） */
+  var PENDING_TYPE = { share: '共享审批', change: '调整审批', scope: '授权审批', offline: '下架审批' };
+  function pendingTypeOf(e) {
+    if (e.status === 'offline_pending') return 'offline';
+    return e.pendingType && PENDING_TYPE[e.pendingType] ? e.pendingType : 'share';
+  }
+  function pendingTypeText(e) {
+    return PENDING_TYPE[pendingTypeOf(e)];
+  }
   /* 分类清单动态取自数据（管理员可增删改） */
   function catList() { return ['全部'].concat(store.categories); }
 
@@ -34,6 +47,20 @@ window.__pages['D-AT-LIST'] = function (container) {
     /* 共享助理没有共享状态，展示订阅状态 */
     if (e.source === 'shared') {
       return window.Tag(e.subscribed ? 'success' : 'default', e.subscribed ? '已订阅' : '已移除');
+    }
+    /* 「全部」页签只按三种状态展示（平台内置 / 已共享 / 已订阅）：
+       自建与第三方接入的助理无论处于审批中、已拒绝还是已共享，一律按「已共享」展示；
+       审批中 / 已拒绝的明细子类仅在「我的助理」展示 */
+    if (S.scope === 'all' && (e.source === 'custom' || e.source === 'thirdparty')) {
+      return window.Tag('success', '已共享');
+    }
+    /* 已拒绝：角标带子类描述（已拒绝 · 共享审批 / 调整审批 / 授权审批 / 下架审批） */
+    if (e.status === 'rejected') {
+      return window.Tag('error', '已拒绝 · ' + rejectTypeText(e));
+    }
+    /* 审批中：角标同样带子类描述（审批中 · 共享审批 / 调整审批 / 授权审批 / 下架审批） */
+    if (e.status === 'pending' || e.status === 'offline_pending') {
+      return window.Tag('warning', '审批中 · ' + pendingTypeText(e));
     }
     var s = STATUS[e.status] || STATUS.unshared;
     return window.Tag(s.cls, s.text);
@@ -82,26 +109,31 @@ window.__pages['D-AT-LIST'] = function (container) {
   function scopeList() {
     if (S.scope === 'mine') return myAssistants();
     if (S.scope === 'shared') return sharedAssistants();
-    /* 授权管理（仅管理员）：全部已共享 / 共享审批中的助理 */
-    if (S.scope === 'auth') {
-      return store.experts.filter(function (e) {
-        return (e.source === 'custom' || e.source === 'thirdparty') &&
-          (e.status === 'approved' || e.status === 'offline_pending');
-      });
-    }
     return allAssistants();
+  }
+  /* 状态筛选口径：「审批中」= 共享审批 + 调整审批 + 授权审批 + 下架审批；「已拒绝」= 全部拒绝子类 */
+  function matchStatus(e, v) {
+    if (!v || v === 'all') return true;
+    if (v === 'pending') return e.status === 'pending' || e.status === 'offline_pending';
+    if (v === 'rejected') return e.status === 'rejected';
+    if (v === 'approved') return e.status === 'approved';
+    return e.status === v;
   }
   function filtered() {
     return scopeList().filter(function (e) {
-      /* 全部页签：仅展示「可用且已共享」的助理（平台预置 / 已共享 approved / 已订阅共享）；
-         未共享、待审批、已拒绝、下架中等不可用或未共享状态一律不出现 */
+      /* 全部页签 = 平台内置 + 已共享 + 已订阅三种状态：
+         「已共享」除 approved 外，还包含创建人已提交审批中的助理（含共享 / 调整 / 授权 / 下架审批）
+         与已拒绝的助理（不含「已拒绝 · 共享审批」，因其从未共享成功） */
       if (S.scope === 'all') {
-        var sharedAndUsable = e.source === 'platform' || e.status === 'approved' ||
-          (e.source === 'shared' && e.subscribed);
-        if (!sharedAndUsable) return false;
+        var mineShared = e.status === 'approved' || e.status === 'pending' || e.status === 'offline_pending' ||
+          (e.status === 'rejected' && e.rejectType !== 'share');
+        var inAll = e.source === 'platform' ||
+          (e.source === 'shared' && e.subscribed) ||
+          ((e.source === 'custom' || e.source === 'thirdparty') && mineShared);
+        if (!inAll) return false;
       }
-      /* 已拒绝的助理仅在「我的助理」以卡片展示并标注状态 */
-      if (e.status === 'rejected' && S.scope !== 'mine') return false;
+      /* 已拒绝 · 共享审批（首次共享被拒，从未共享成功）仅在我的助理展示 */
+      if (e.status === 'rejected' && e.rejectType === 'share' && S.scope !== 'mine') return false;
       if (S.category !== '全部' && e.category !== S.category) return false;
       if (S.keyword) {
         var k = S.keyword.toLowerCase();
@@ -109,7 +141,7 @@ window.__pages['D-AT-LIST'] = function (container) {
           (e.tags || []).some(function (t) { return t.toLowerCase().indexOf(k) >= 0; });
         if (!hit) return false;
       }
-      if (S.scope === 'mine' && S.statusFilter !== 'all' && e.status !== S.statusFilter) return false;
+      if (S.scope === 'mine' && !matchStatus(e, S.statusFilter)) return false;
       if (S.scope === 'shared') {
         if (S.subFilter === 'subscribed' && !e.subscribed) return false;
         if (S.subFilter === 'removed' && e.subscribed) return false;
@@ -129,12 +161,42 @@ window.__pages['D-AT-LIST'] = function (container) {
     return tb.localeCompare(ta);
   }
 
+  /* ---------- 页签内的固定顺序 ---------- */
+  /* 我的助理：已共享 → 审批中（含下架审批中） → 已拒绝 → 未共享 → 已下架 */
+  var MY_STATUS_ORDER = { approved: 0, pending: 1, offline_pending: 1, rejected: 2, unshared: 3, offline: 4 };
+  function myRank(e) {
+    var r = MY_STATUS_ORDER[e.status];
+    return typeof r === 'number' ? r : 9;
+  }
+  /* 全部助理：平台内置 → 已共享 → 已订阅 */
+  function allRank(e) {
+    if (e.source === 'platform') return 0;
+    if (e.source === 'shared') return 2;
+    return 1;
+  }
+  function sortedList() {
+    return filtered().sort(function (a, b) {
+      var d = 0;
+      if (S.scope === 'mine') d = myRank(a) - myRank(b);
+      else if (S.scope === 'all') d = allRank(a) - allRank(b);
+      else if (S.scope === 'shared') d = (b.subscribed ? 1 : 0) - (a.subscribed ? 1 : 0);
+      return d !== 0 ? d : updatedDesc(a, b);
+    });
+  }
+
   /* ---------- 版本 / 记录 ---------- */
+  /* 版本号规则：首次共享审批通过记 V1.0.0；此后每次变更审批通过尾号 +1；
+     尾号到 99 后向前进 1（minor +1）并重新从 0 计数，如 V1.0.99 → V1.1.0 */
   function nextVersion(cur) {
-    var parts = String(cur || 'v1.0').replace('v', '').split('.');
-    var major = parts[0] || '1';
-    var minor = (parseInt(parts[1], 10) || 0) + 1;
-    return 'v' + major + '.' + minor;
+    /* 无版本号（未共享成功过）时，本次通过即为首个正式版本 V1.0.0，不做 +1 */
+    var m = /^V(\d+)\.(\d+)\.(\d+)$/.exec(String(cur || ''));
+    if (!m) return 'V1.0.0';
+    var major = parseInt(m[1], 10);
+    var minor = parseInt(m[2], 10);
+    var patch = parseInt(m[3], 10);
+    patch += 1;
+    if (patch > 99) { patch = 0; minor += 1; }
+    return 'V' + major + '.' + minor + '.' + patch;
   }
   function logHistory(e, version, action, remark) {
     e.history = e.history || [];
@@ -169,7 +231,6 @@ window.__pages['D-AT-LIST'] = function (container) {
           '<div class="seg" data-scope="all">全部</div>' +
           '<div class="seg" data-scope="mine">我的助理</div>' +
           '<div class="seg" data-scope="shared">共享助理</div>' +
-          (window.__isAdmin() ? '<div class="seg" data-scope="auth">授权管理</div>' : '') +
         '</div>' +
         '<div class="scope-right">' +
           '<div class="scope-search">' + window.Icon('icon-search') +
@@ -187,7 +248,6 @@ window.__pages['D-AT-LIST'] = function (container) {
       '<div class="list-meta">' +
         '<span id="metaText"></span>' +
         '<div class="meta-right">' +
-          '<div class="reject-wrap" id="rejectWrap"></div>' +
           '<div class="sel-bar" id="selBar">已选 <span class="count-num" id="selCount">0</span> 个助理' +
             '<button class="btn btn-primary" id="btnShare">' + window.Icon('icon-share') + '共享</button>' +
             '<button class="btn btn-text" id="btnClearSel">清空</button></div>' +
@@ -201,7 +261,6 @@ window.__pages['D-AT-LIST'] = function (container) {
     el.addEventListener('click', function () {
       S.scope = el.getAttribute('data-scope');
       S.selected = {};
-      S.rejectPanel = false;
       if (S.scope !== 'mine') S.statusFilter = 'all';
       if (S.scope === 'shared') S.subFilter = 'all';
       S.showSkeleton = true; /* 范围切换演示加载态 */
@@ -237,8 +296,6 @@ window.__pages['D-AT-LIST'] = function (container) {
   paint();
 
   function paint() {
-    /* 权限守卫：「授权管理」仅管理员可见可用，非管理员自动回落 */
-    if (S.scope === 'auth' && !window.__isAdmin()) S.scope = 'all';
     /* 分类守卫：当前选中分类已被删除时回落到「全部」 */
     if (S.category !== '全部' && store.categories.indexOf(S.category) < 0) S.category = '全部';
     /* 分类页签：随新增分类动态刷新 */
@@ -266,10 +323,11 @@ window.__pages['D-AT-LIST'] = function (container) {
     var fs = container.querySelector('#filterSelect');
     if (S.scope === 'mine') {
       fs.style.display = '';
+      /* 状态筛选：全部 / 未共享 / 已共享 / 审批中 / 已拒绝 / 已下架
+         「审批中」聚合 共享审批 + 调整审批 + 授权审批 + 下架审批；「已拒绝」聚合 共享审批 + 调整审批 + 授权审批 + 下架审批（拒绝子类） */
       fs.innerHTML = '<option value="all">状态：全部</option><option value="unshared">状态：未共享</option>' +
-        '<option value="pending">状态：待审批</option><option value="approved">状态：已共享</option>' +
-        '<option value="rejected">状态：已拒绝</option><option value="offline_pending">状态：下架审批中</option>' +
-        '<option value="offline">状态：已下架</option>';
+        '<option value="approved">状态：已共享</option><option value="pending">状态：审批中</option>' +
+        '<option value="rejected">状态：已拒绝</option><option value="offline">状态：已下架</option>';
       fs.value = S.statusFilter;
     } else if (S.scope === 'shared') {
       fs.style.display = '';
@@ -280,7 +338,7 @@ window.__pages['D-AT-LIST'] = function (container) {
       fs.style.display = 'none';
     }
 
-    var list = filtered().sort(updatedDesc);
+    var list = sortedList();
     var grid = container.querySelector('#grid');
 
     /* 加载态：首次进入与范围切换时展示骨架屏 */
@@ -293,18 +351,10 @@ window.__pages['D-AT-LIST'] = function (container) {
     }
     grid.innerHTML = list.length ? list.map(cardHtml).join('') : emptyHtml();
 
-    var scopeName = S.scope === 'mine' ? '我的助理' : S.scope === 'shared' ? '共享助理'
-      : S.scope === 'auth' ? '已共享助理' : '助理';
-    container.querySelector('#metaText').textContent = S.scope === 'auth'
-      ? '共 ' + list.length + ' 个' + scopeName + ' · 点击卡片查看详情'
-      : S.scope === 'all'
-        ? '共 ' + list.length + ' 个' + scopeName + '（可用且已共享） · 悬浮卡片可快捷召唤，点击卡片查看详情'
-        : '共 ' + list.length + ' 个' + scopeName + ' · 悬浮卡片可快捷召唤，点击卡片查看详情';
-
-    /* 被拒绝入口：仅在「全部」范围展示（我的助理中已直接以卡片呈现） */
-    var rejected = S.scope === 'all' ? myAssistants().filter(function (e) { return e.status === 'rejected'; }) : [];
-    if (!rejected.length) S.rejectPanel = false;
-    container.querySelector('#rejectWrap').innerHTML = rejected.length ? rejectEntryHtml(rejected) : '';
+    var scopeName = S.scope === 'mine' ? '我的助理' : S.scope === 'shared' ? '共享助理' : '助理';
+    container.querySelector('#metaText').textContent = S.scope === 'all'
+      ? '共 ' + list.length + ' 个' + scopeName + '（平台内置 · 已共享 · 已订阅） · 点击卡片查看详情'
+      : '共 ' + list.length + ' 个' + scopeName + ' · 点击卡片查看详情';
 
     var selIds = Object.keys(S.selected).filter(function (k) { return S.selected[k]; });
     var selBar = container.querySelector('#selBar');
@@ -326,10 +376,6 @@ window.__pages['D-AT-LIST'] = function (container) {
         '<div class="empty-state-text">' + (S.subFilter === 'removed'
           ? '没有已移除的共享助理'
           : S.subFilter === 'subscribed' ? '暂无已订阅的共享助理' : '暂无共享给你的助理') + '</div></div>';
-    }
-    if (S.scope === 'auth') {
-      return '<div class="empty-state"><div class="empty-icon">' + window.Icon('icon-shield', 'icon-lg') + '</div>' +
-        '<div class="empty-state-text">暂无已共享的助理，共享申请审批通过后将出现在这里</div></div>';
     }
     return '<div class="empty-state"><div class="empty-icon">' + window.Icon('icon-search', 'icon-lg') + '</div>' +
       '<div class="empty-state-text">' + (S.keyword ? '未找到匹配的助理' : '暂无可用助理') + '</div></div>';
@@ -468,30 +514,6 @@ window.__pages['D-AT-LIST'] = function (container) {
     return html;
   }
 
-  /* ---------- 被拒绝助理：图标入口 + 下拉面板 ---------- */
-  function rejectEntryHtml(rejected) {
-    return '<div class="reject-entry">' +
-      '<span class="reject-btn' + (S.rejectPanel ? ' open' : '') + '" data-act="toggleRejectPanel" data-id="" ' +
-        'title="查看被拒绝的共享申请">' + window.Icon('icon-alert') + '被拒绝' +
-        '<span class="reject-count">' + rejected.length + '</span></span>' +
-      (S.rejectPanel
-        ? '<div class="reject-panel">' +
-            '<div class="reject-panel-title">被拒绝的助理 · 共 ' + rejected.length + ' 个</div>' +
-            rejected.map(rejectItemHtml).join('') +
-          '</div>'
-        : '') +
-    '</div>';
-  }
-  function rejectItemHtml(e) {
-    return '<div class="reject-item" data-act="detail" data-id="' + e.id + '">' +
-      avatarHtml(e, 'width:28px;height:28px;flex:0 0 28px;font-size:12px', 'span') +
-      '<div class="reject-item-main">' +
-        '<div class="reject-item-name">' + window.esc(e.name) + verTag(e) + '</div>' +
-        '<div class="reject-item-reason">拒绝原因：' + window.esc(e.rejectReason || '管理员未填写拒绝原因') + '</div>' +
-      '</div>' +
-      window.Icon('icon-chevron-right') +
-    '</div>';
-  }
 
   function cardHtml(e) {
     var mine = isMine(e);
@@ -506,39 +528,15 @@ window.__pages['D-AT-LIST'] = function (container) {
         ? '<span class="mini-tag tag-more" title="共 ' + tagArr.length + ' 个标签：' + window.esc(tagArr.join('、')) + '">+' + (tagArr.length - 2) + '</span>'
         : '');
 
-    /* 卡片交互：按钮默认隐藏；悬停显底色并展示「召唤」；点击卡片直接查看详情 */
-    /* 授权管理页签保留常驻操作入口 */
-    var isAuthView = S.scope === 'auth';
+    /* 卡片交互：召唤按钮常驻展示，默认浅色系，悬停卡片时切换为现有主色样式；点击卡片查看详情 */
+    /* 已拒绝、已下架、下架审批中：仅创建者（我的助理范围）可召唤；已移除的共享助理不可召唤 */
     var act = [];
-    if (isAuthView) {
-      act.push(btn('detail', e, '详情'));
-      act.push(btn('scope', e, '调整范围', true));
-    } else {
-      /* 已拒绝：仅创建者（我的助理范围）可召唤试用；其余状态维持原有规则 */
-      var canSummon = e.status === 'rejected'
-        ? mine
-        : e.status !== 'offline' && e.status !== 'offline_pending' &&
-          (e.source !== 'shared' || e.subscribed);
-      if (canSummon) act.push(btn('summon', e, '召唤', true));
-    }
+    var canSummon = (e.status === 'rejected' || e.status === 'offline' || e.status === 'offline_pending')
+      ? mine
+      : (e.source !== 'shared' || e.subscribed);
+    if (canSummon) act.push(btn('summon', e, '召唤', true));
 
-    /* 授权管理：卡片直接展示授权范围摘要 */
-    var scopeLine = '';
-    if (isAuthView) {
-      var sc = e.scope || {};
-      scopeLine = '<div class="auth-scope-line">' + window.Icon('icon-shield') +
-        (sc.public
-          ? '授权范围：公开（全公司可用）'
-          : '授权对象 ' + window.scopeCount(sc) + ' 个 · ' + window.esc(window.scopeSummary(sc))) +
-        ' · 权限级别：标准调用</div>';
-    }
-
-    /* 我的助理：被拒绝的助理以卡片展示并标注拒绝状态与原因 */
-    var rejectBar = '';
-    if (S.scope === 'mine' && e.status === 'rejected') {
-      rejectBar = '<div class="reject-bar"><span class="r-text">拒绝原因：' +
-        window.esc(e.rejectReason || '管理员未填写拒绝原因') + '</span></div>';
-    }
+    /* 我的助理：拒绝原因不在卡片上单独展示，仅在卡片角标标注「已拒绝 · {子类}」，原因在详情中查看 */
 
     return '<div class="expert-card' + (showCheck ? ' has-check' : '') + (checked ? ' selected' : '') + '" data-id="' + e.id + '">' +
       (showCheck ? '<label class="checkbox-item card-check"><input type="checkbox" data-check="' + e.id + '"' + (checked ? ' checked' : '') + '></label>' : '') +
@@ -550,8 +548,6 @@ window.__pages['D-AT-LIST'] = function (container) {
         '</div>' +
       '</div>' +
       '<div class="expert-desc">' + window.esc((e.desc || '').slice(0, 60)) + ((e.desc || '').length > 60 ? '…' : '') + '</div>' +
-      scopeLine +
-      rejectBar +
       '<div class="expert-actions">' + act.join('') + '</div>' +
     '</div>';
   }
@@ -582,11 +578,6 @@ window.__pages['D-AT-LIST'] = function (container) {
         var id = el.getAttribute('data-id');
         var act = el.getAttribute('data-act');
         var e = store.experts.filter(function (x) { return x.id === id; })[0];
-        if (act === 'toggleRejectPanel') {
-          S.rejectPanel = !S.rejectPanel;
-          paint();
-          return;
-        }
         if (!e) return;
         if (act === 'summon') summon(e);
         if (act === 'detail') openDetail(e);
@@ -604,14 +595,14 @@ window.__pages['D-AT-LIST'] = function (container) {
    * 召唤：进入新建任务页，输入框底部带上助理
    * ============================================================ */
   function summon(a) {
-    if (a.status === 'offline' || a.status === 'offline_pending') {
-      window.toast('该助理已下架，无法召唤', 'error');
-      return;
-    }
-    /* 已拒绝的助理：仅创建者可召唤（试用），且不改变其审批状态 */
-    if (a.status === 'rejected') {
+    /* 已拒绝、已下架、下架审批中：仅创建者可召唤（试用），且不改变其审批状态 */
+    if (a.status === 'rejected' || a.status === 'offline' || a.status === 'offline_pending') {
       if (!isMine(a)) {
-        window.toast('已拒绝的助理仅创建者可召唤', 'error');
+        window.toast(a.status === 'rejected'
+          ? '已拒绝的助理仅创建者可召唤'
+          : a.status === 'offline_pending'
+            ? '下架审批中的助理仅创建者可召唤'
+            : '已下架的助理仅创建者可召唤', 'error');
         return;
       }
       a.usageCount = (a.usageCount || 0) + 1;
@@ -620,7 +611,11 @@ window.__pages['D-AT-LIST'] = function (container) {
         at: nowStr(), messages: []
       };
       window.__renderTasks();
-      window.toast('已召唤「' + a.name + '」（创建者试用，不影响其共享审批状态）');
+      window.toast(a.status === 'rejected'
+        ? '已召唤「' + a.name + '」（创建者试用，不影响其共享审批状态）'
+        : a.status === 'offline_pending'
+          ? '已召唤「' + a.name + '」（下架审批中，仅创建者试用）'
+          : '已召唤「' + a.name + '」（已下架，仅创建者试用）');
       setTimeout(function () { window.__switchPage('D-AT-NEWTASK'); }, 260);
       return;
     }
@@ -641,8 +636,14 @@ window.__pages['D-AT-LIST'] = function (container) {
   function openDetail(e) {
     var mine = isMine(e);
     var shared = e.source === 'shared';
-    var canEdit = mine && e.status !== 'offline_pending' && e.status !== 'offline';
-    var canScope = (e.status === 'approved' || e.status === 'offline_pending') && (mine || window.__isAdmin());
+    /* 审批中（含共享 / 授权 / 下架审批中）与已拒绝不提供编辑入口：
+       已拒绝统一通过「重新提交」进入编辑页（授权已拒绝进入范围授权页）；
+       已下架支持编辑，且按「未共享」逻辑直接保存生效，不提交审批 */
+    var canEdit = mine && e.status !== 'pending' && e.status !== 'offline_pending' &&
+      e.status !== 'rejected';
+    /* 授权范围：已共享 / 下架审批中 由创建人或管理员修改；已拒绝仅创建人可通过「修改授权范围」重新发起审批 */
+    var canScope = ((e.status === 'approved' || e.status === 'offline_pending') && (mine || window.__isAdmin())) ||
+      (e.status === 'rejected' && mine);
 
     var scopeChips = window.scopeChipsHtml(e.scope || {});
 
@@ -660,7 +661,7 @@ window.__pages['D-AT-LIST'] = function (container) {
         '<div style="flex:1;min-width:0">' +
           '<div class="detail-name">' + window.esc(e.name) + statusTag(e) + verTag(e) + '</div>' +
           '<div class="detail-meta">' + window.esc(e.category || '') + ' · ' +
-            (e.source === 'platform' ? '平台预置' : e.source === 'shared' ? '共享自 ' + e.owner
+            (e.source === 'platform' ? '平台内置' : e.source === 'shared' ? '共享自 ' + e.owner
               : (e.source === 'thirdparty' ? '第三方接入 · ' + (e.platform || '自定义') : '创建人 ' + e.owner)) +
             ' · 更新于 ' + window.esc(e.updateTime || e.createTime || '-') + '</div>' +
           '<div class="expert-tags">' + (e.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
@@ -674,10 +675,18 @@ window.__pages['D-AT-LIST'] = function (container) {
           ? '<div class="cap-item"><div class="cap-title">接入信息</div><div class="cap-body">平台：' + window.esc(e.platform || '自定义') +
             '\n接入地址：' + window.esc(e.endpoint || '-') + '\nAppID：' + window.esc(e.appId || '-') + '</div></div>'
           : '') +
-        (e.status === 'rejected' && e.rejectReason
-          ? '<div class="reject-bar"><span class="r-text">拒绝原因：' + window.esc(e.rejectReason) + '</span></div>' : '') +
+        (e.status === 'rejected'
+          ? '<div class="reject-bar"><span class="r-text">拒绝类型：' + rejectTypeText(e) + ' · 拒绝原因：' +
+            window.esc(e.rejectReason || '管理员未填写拒绝原因') +
+            (e.rejectType === 'scope' ? '（仅本次变更不生效，原共享范围与已订阅用户不受影响）' : '') + '</span></div>' : '') +
         (e.status === 'offline_pending' && e.offlineReason
           ? '<div class="notice-bar">' + window.Icon('icon-alert') + '<span>下架原因：' + window.esc(e.offlineReason) + '（等待管理员审批）</span></div>' : '') +
+        (e.status === 'pending' && e.pendingType === 'scope'
+          ? '<div class="notice-bar info">' + window.Icon('icon-info') +
+            '<span>授权范围变更审批中：审批期间原授权范围继续生效，审批通过后切换为新范围。</span></div>' : '') +
+        (e.status === 'rejected' && e.rejectType === 'scope'
+          ? '<div class="notice-bar info">' + window.Icon('icon-info') +
+            '<span>授权范围变更未通过：本次变更不生效，原共享范围与已订阅用户不受影响，可重新提交授权范围变更。</span></div>' : '') +
       '</div>' +
 
       '<div class="detail-section">' +
@@ -693,7 +702,9 @@ window.__pages['D-AT-LIST'] = function (container) {
         '</div></div>' +
       '</div>' +
 
-      (e.status === 'approved' || e.status === 'offline_pending'
+      /* 授权范围区块与已共享详情保持一致：已拒绝同样展示（只读，重新提交时再调整） */
+      (e.status === 'approved' || e.status === 'offline_pending' || e.status === 'rejected' ||
+        (e.status === 'pending' && e.pendingType === 'scope')
         ? '<div class="detail-section">' +
             '<div class="detail-section-title">授权范围' +
               '<button class="btn btn-text" id="btnEditScope">' + (canScope ? '修改授权范围' : '查看') + '</button></div>' +
@@ -703,14 +714,14 @@ window.__pages['D-AT-LIST'] = function (container) {
         : '') +
 
       '<div class="detail-section">' +
-        '<div class="detail-section-title">版本记录<span class="form-hint" style="margin-left:8px;font-weight:400">编辑保存会生成新版本，已共享的助理需重新审批</span></div>' +
+        '<div class="detail-section-title">版本记录<span class="form-hint" style="margin-left:8px;font-weight:400">首次共享审批通过记为 V1.0.0，此后每次变更审批通过尾号 +1（到 99 进位）</span></div>' +
         '<div class="ver-list">' + history + '</div>' +
       '</div>';
 
     /* 卡片操作已收敛，除详情/召唤外的按钮统一收进详情抽屉底部 */
     var isRejected = mine && e.status === 'rejected';
     var extraBtns = '';
-    /* 管理员可查看并调整平台预置与所有已共享助理的授权范围 */
+    /* 管理员可查看并调整平台内置与所有已共享助理的授权范围 */
     if (window.__isAdmin() &&
       (e.source === 'platform' || e.status === 'approved' || e.status === 'offline_pending')) {
       extraBtns += '<button class="btn btn-default" id="btnScopeD">授权范围</button>';
@@ -722,16 +733,23 @@ window.__pages['D-AT-LIST'] = function (container) {
     }
     if (mine) {
       if (e.status === 'approved') extraBtns += '<button class="btn btn-danger-text" id="btnOfflineD">下架</button>';
-      if (e.status === 'offline') extraBtns += '<button class="btn btn-default" id="btnReshareD">重新共享</button>';
+      /* 已下架：创建人可重新共享，也可直接删除（不再受「曾共享过」限制） */
+      if (e.status === 'offline') extraBtns += '<button class="btn btn-default" id="btnReshareD">重新共享</button>' +
+        '<button class="btn btn-danger-text" id="btnDeleteD">删除</button>';
       if (e.status === 'unshared') extraBtns += '<button class="btn btn-danger-text" id="btnDeleteD">删除</button>';
     }
+    /* 已拒绝：底部按钮与已共享一致——已共享的「下架」位置替换为「重新提交」；
+       「删除」对已拒绝状态始终展示，点击后按状态判定是否允许删除 */
+    var canDeleteR = isRejected;
+    /* 召唤入口：已下架 / 下架审批中仅创建人可召唤（试用）；被移除的共享助理不可召唤 */
+    var canSummonD = !(shared && !e.subscribed) &&
+      !((e.status === 'offline' || e.status === 'offline_pending') && !mine);
     var footer = (canEdit ? '<button class="btn btn-default" id="btnEdit">' + window.Icon('icon-edit') + '编辑</button>' : '') +
       extraBtns +
-      (isRejected ? '<button class="btn btn-danger-text" id="btnDeleteR">删除</button>' +
-        '<button class="btn btn-default" id="btnResubmitR">重新提交</button>' : '') +
+      (isRejected ? '<button class="btn btn-default" id="btnResubmitR">重新提交</button>' : '') +
+      (canDeleteR ? '<button class="btn btn-danger-text" id="btnDeleteR">删除</button>' : '') +
       '<button class="btn btn-default" data-close>关闭</button>' +
-      (e.status === 'offline' || e.status === 'offline_pending' || (isRejected && !mine) ||
-        (shared && !e.subscribed) ? '' : '<button class="btn btn-primary" id="btnSummon">召唤</button>');
+      (canSummonD ? '<button class="btn btn-primary" id="btnSummon">召唤</button>' : '');
 
     window.openDrawer({
       title: '助理详情 · ' + e.name,
@@ -756,7 +774,23 @@ window.__pages['D-AT-LIST'] = function (container) {
         var btnScope = root.querySelector('#btnEditScope');
         if (btnScope) {
           btnScope.addEventListener('click', function () {
-            if (!canScope) { window.toast('仅创建人或公司管理员可修改授权范围', 'error'); return; }
+            if (!canScope) {
+              /* 授权范围变更审批中：仅可查看，不可重复提交 */
+              if (e.status === 'pending' && e.pendingType === 'scope') {
+                window.toast('授权范围变更审批中，审批期间原授权范围继续生效');
+                return;
+              }
+              if (e.status === 'rejected' && e.rejectType === 'scope') {
+                window.toast('授权范围变更未通过，请通过「重新提交」重新发起；原共享范围继续生效');
+                return;
+              }
+              if (e.status === 'rejected') {
+                window.toast('该助理共享审批未通过，请通过「重新提交」重新发起');
+                return;
+              }
+              window.toast('仅创建人或公司管理员可修改授权范围', 'error');
+              return;
+            }
             api.close();
             openScope(e);
           });
@@ -772,7 +806,9 @@ window.__pages['D-AT-LIST'] = function (container) {
         if (btnResubmitR) {
           btnResubmitR.addEventListener('click', function () {
             api.close();
-            openShare([e.id], e);
+            /* 重新提交入口：授权已拒绝 → 范围授权页；其余拒绝类型（共享 / 调整 / 下架）→ 编辑页 */
+            if (e.rejectType === 'scope') openScope(e);
+            else openWizard(e);
           });
         }
         /* 从卡片迁入的操作 */
@@ -826,19 +862,44 @@ window.__pages['D-AT-LIST'] = function (container) {
    * 删除（仅未共享 / 已拒绝 / 已下架）
    * ============================================================ */
   function deleteAssistant(e) {
+    /* 已拒绝的两种删除口径：
+       ① 共享已拒绝（首次共享被拒绝、从未共享过）→ 支持删除，弹框确认后清空全部助理数据；
+       ② 调整已拒绝 / 下架已拒绝（已共享过）→ 不允许删除，提示走下架处理 */
+    if (e.status === 'rejected' && e.hasShared) {
+      window.openModal({
+        title: '无法删除该助理',
+        width: 480,
+        body: '<div class="notice-bar">' + window.Icon('icon-alert') +
+          '<span>该助理已共享过，无法删除，请进行下架处理。</span></div>',
+        footer: '<button class="btn btn-primary" data-close>我知道了</button>'
+      });
+      return;
+    }
+    var firstRejected = e.status === 'rejected';
+    var isOffline = e.status === 'offline';
     window.confirmDialog({
       title: '确认删除该助理？',
-      text: '删除后该助理将从你的助理库中永久移除，且不可恢复。',
-      impact: e.status === 'pending'
-        ? '该助理存在待审批的共享申请，删除后申请将被终止。'
-        : '当前助理尚未共享，删除仅影响你自己。',
+      text: firstRejected
+        ? '删除后所有该助理数据全部删除，是否确定删除？'
+        : '删除后该助理将从你的助理库中永久移除，且不可恢复。',
+      impact: firstRejected
+        ? '「' + e.name + '」为首次共享审批被拒绝（已拒绝 · 共享审批），删除后其配置、版本记录与审批记录将一并删除。'
+        : isOffline
+          ? '「' + e.name + '」已下架，删除后其配置与授权记录一并清除，被授权方不可再重新订阅；历史审批记录保留供追溯。'
+          : e.status === 'pending'
+            ? '该助理存在待审批的共享申请，删除后申请将被终止。'
+            : '当前助理尚未共享，删除仅影响你自己。',
       okText: '确认删除',
       danger: true,
       onOk: function () {
         store.experts = store.experts.filter(function (x) { return x.id !== e.id; });
-        store.approvals.forEach(function (a) {
-          if (a.expertId === e.id && a.status === 'pending') a.status = 'terminated';
-        });
+        if (firstRejected) {
+          store.approvals = store.approvals.filter(function (a) { return a.expertId !== e.id; });
+        } else {
+          store.approvals.forEach(function (a) {
+            if (a.expertId === e.id && a.status === 'pending') a.status = 'terminated';
+          });
+        }
         delete S.selected[e.id];
         paint();
         window.toast('已删除「' + e.name + '」');
@@ -860,7 +921,7 @@ window.__pages['D-AT-LIST'] = function (container) {
           '<textarea class="form-textarea" id="offlineReason" rows="4" maxlength="200" ' +
             'placeholder="请说明下架原因，例如：规则调整、内容过期、能力合并等（1-200 字）"></textarea>' +
           '<div class="input-counter"><span id="offlineCount">0</span>/200</div></div>' +
-        '<div class="form-hint">当前版本：' + window.esc(e.version || 'v1.0') + ' · 授权对象 ' + (e.authorizedCount || 0) + ' 个</div>',
+        '<div class="form-hint">当前版本：' + window.esc(e.version || '未发布') + ' · 授权对象 ' + (e.authorizedCount || 0) + ' 个</div>',
       footer: '<button class="btn btn-default" data-close>取消</button>' +
         '<button class="btn btn-danger" id="offlineOk" disabled>提交下架申请</button>',
       onMount: function (root, api) {
@@ -875,6 +936,7 @@ window.__pages['D-AT-LIST'] = function (container) {
           var reason = ta.value.trim();
           if (!reason) { window.toast('请填写下架原因', 'error'); return; }
           e.status = 'offline_pending';
+          e.pendingType = 'offline';
           e.offlineReason = reason;
           logHistory(e, e.version, '提交下架申请', reason);
           pushApproval({
@@ -979,6 +1041,15 @@ window.__pages['D-AT-LIST'] = function (container) {
             window.__reload();
             window.toast(pub ? '共享范围已更新为「公开」并立即生效' : '授权范围已更新并立即生效');
           } else {
+            /* 创建人提交授权范围变更：状态变更为「审批中 · 授权审批」；
+               已共享助理审批期间原授权范围继续生效，已拒绝助理则通过后完成共享 */
+            var fromRejected = e.status === 'rejected';
+            e.status = 'pending';
+            e.pendingType = 'scope';
+            e.rejectReason = '';
+            delete e.rejectType;
+            e.updateTime = nowStr();
+            logHistory(e, e.version || '未发布', '提交授权范围变更审批', window.scopeSummary(v));
             pushApproval({
               id: 'AP' + Date.now(), type: 'scope',
               expertId: e.id, expertName: e.name, avatar: e.avatar, color: e.color,
@@ -990,7 +1061,10 @@ window.__pages['D-AT-LIST'] = function (container) {
               status: 'pending'
             });
             api.close();
-            window.toast('已提交共享范围变更申请，等待管理员审批');
+            window.__reload();
+            window.toast(fromRejected
+              ? '已提交授权范围变更，审批通过后完成共享'
+              : '已提交授权范围变更，审批期间原授权范围继续生效');
           }
         });
       }
@@ -1094,7 +1168,10 @@ window.__pages['D-AT-LIST'] = function (container) {
     var resTab = 'skill';
     var resMarket = 'internal';
     var resKw = '';
-    var needReapprove = isEdit && editing.status === 'approved';
+    /* 已共享过的助理（含已拒绝）编辑后需重新走变更审批，审批通过才生成新版本号；
+       已下架助理的编辑按「未共享」逻辑直接保存生效，不提交审批、不产生版本号 */
+    var needReapprove = isEdit && editing.status !== 'offline' &&
+      (editing.status === 'approved' || editing.hasShared || editing.status === 'rejected');
 
     /* 共享范围（仅新建时可选）：与授权范围改版保持一致，统一用穿梭框 */
     var wzRefreshPreview = null;
@@ -1185,11 +1262,19 @@ window.__pages['D-AT-LIST'] = function (container) {
       '<div class="wz-pane" data-pane="3" style="display:none">' +
         (needReapprove
           ? '<div class="notice-bar">' + window.Icon('icon-alert') +
-              '<span>该助理已共享（' + window.esc(editing.version || 'v1.0') + '）。保存后将生成新版本并重新提交审批，审批通过后新版本才生效。</span></div>' +
+              '<span>' + (editing.hasShared
+                ? '该助理已共享过（当前版本 ' + window.esc(editing.version || '未发布') +
+                  '）。保存后进入变更审批，审批通过时版本号尾号 +1，审批被拒绝则版本号保持不变。'
+                : '该助理共享审批未通过（当前版本 未发布）。保存后重新提交共享审批，审批通过时生成首个正式版本 V1.0.0。') +
+              '</span></div>' +
             '<div class="form-item"><label class="form-label"><span class="req">*</span>变更说明</label>' +
               '<textarea class="form-textarea" id="wzNote" rows="3" maxlength="200" placeholder="向审批人说明本次修改内容，例如：补充校招场景提示词"></textarea></div>'
           : (isEdit
-            ? '<div class="notice-bar info">' + window.Icon('icon-info') + '<span>该助理当前未在共享中，保存后仅更新你自己可见的版本。</span></div>'
+            ? '<div class="notice-bar info">' + window.Icon('icon-info') + '<span>' +
+                (editing.status === 'offline'
+                  ? '该助理已下架，保存后立即生效：不提交审批、不产生版本号，也不改变下架状态。'
+                  : '该助理当前未在共享中，保存后仅更新你自己可见的版本。') +
+              '</span></div>'
             : '<div class="form-item"><label class="form-label">是否立即申请共享</label>' +
                 '<div class="flex gap-lg" style="margin-top:8px">' +
                   '<label class="checkbox-item"><input type="radio" name="shareMode" value="no" checked><span>暂不共享</span></label>' +
@@ -1212,7 +1297,7 @@ window.__pages['D-AT-LIST'] = function (container) {
                     '<div class="scope-empty" id="wzScopeEmpty">尚未选择授权对象</div></div>' +
                 '</div>' +
               '</div>')) +
-        (isEdit ? '' : '<div class="form-hint mt-base">创建后将生成版本 v1.0</div>') +
+        (isEdit ? '' : '<div class="form-hint mt-base">首次共享审批通过后生成版本号 V1.0.0</div>') +
       '</div>';
 
     var api = window.openDrawer({
@@ -1618,7 +1703,9 @@ window.__pages['D-AT-LIST'] = function (container) {
             s.classList.toggle('done', i < n);
           });
           prevBtn.style.display = n === 1 ? 'none' : '';
-          nextBtn.textContent = n === 3 ? (isEdit ? '保存' : '完成创建') : '下一步';
+          nextBtn.textContent = n === 3
+      ? (isEdit ? (needReapprove ? '保存并提交审批' : '保存') : '完成创建')
+      : '下一步';
           root.querySelector('.drawer-body').scrollTop = 0;
         }
         goStep(1);
@@ -1683,31 +1770,37 @@ window.__pages['D-AT-LIST'] = function (container) {
           if (isEdit) {
             Object.keys(payload).forEach(function (k) { editing[k] = payload[k]; });
             editing.updateTime = nowStr();
-            var nextVer = nextVersion(editing.version);
-
             if (needReapprove) {
-              /* 已共享：升版本 + 重新提交审批 */
-              editing.version = nextVer;
+              /* 已共享过：仅提交变更审批，版本号在审批通过时才 +1 */
               editing.status = 'pending';
-              logHistory(editing, nextVer, '编辑更新', note);
+              /* 审批子类：已共享过（含调整、下架被拒）→ 调整审批；从未共享过 → 共享审批 */
+              editing.pendingType = editing.hasShared ? 'change' : 'share';
+              editing.rejectReason = '';
+              delete editing.rejectType;
+              logHistory(editing, editing.version || '未发布', '提交变更审批', note);
               pushApproval({
-                id: 'AP' + Date.now(), type: 'share',
+                /* 审批单类型与审批子类保持一致：已共享过 → 调整申请；首次共享 → 共享申请 */
+                id: 'AP' + Date.now(), type: editing.pendingType,
                 expertId: editing.id, expertName: editing.name, avatar: editing.avatar, color: editing.color,
                 category: editing.category, tags: editing.tags, desc: editing.desc, prompt: editing.prompt,
-                skills: editing.skills, mcps: editing.mcps, kbs: editing.kbs, version: nextVer,
+                skills: editing.skills, mcps: editing.mcps, kbs: editing.kbs, version: editing.version || '',
                 owner: editing.owner, ownerDept: editing.ownerDept,
                 submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
                 changeNote: note, scope: editing.scope || { orgs: [], users: [] }, status: 'pending'
               });
               api.close();
               window.__reload();
-              window.toast('已生成 ' + nextVer + ' 并重新提交审批');
+              window.toast(editing.version
+                ? '已提交变更审批，审批通过后版本号尾号 +1'
+                : '已提交共享审批，审批通过后生成 V1.0.0');
             } else {
-              editing.version = nextVer;
-              logHistory(editing, nextVer, '编辑更新', '未共享状态下编辑');
+              /* 未共享 / 已下架：编辑直接生效，不产生版本号、不提交审批、不改变共享状态 */
+              var isOfflineEdit = editing.status === 'offline';
+              logHistory(editing, editing.version || '未发布', '编辑更新',
+                isOfflineEdit ? '已下架状态下编辑（直接生效）' : '未共享状态下编辑');
               api.close();
               window.__reload();
-              window.toast('已保存，当前版本 ' + nextVer);
+              window.toast(isOfflineEdit ? '已保存，修改立即生效（不产生版本号）' : '已保存');
             }
             return;
           }
@@ -1728,15 +1821,17 @@ window.__pages['D-AT-LIST'] = function (container) {
           var created = {
             id: 'E' + Date.now(), source: 'custom', owner: me().name, ownerDept: me().dept,
             status: wantShare ? 'pending' : 'unshared', authorizedCount: 0,
-            createTime: nowStr(), updateTime: nowStr(), version: 'v1.0',
+            createTime: nowStr(), updateTime: nowStr(), version: '',
             scope: shareScope,
             history: [{
-              version: 'v1.0', action: wantShare ? '创建并申请共享' : '创建',
+              version: '未发布', action: wantShare ? '创建并申请共享' : '创建',
               operator: me().name, time: nowStr(),
               remark: wantShare ? ('手动创建，提交共享申请（' + (shareAuth === 'public' ? '公开' : '范围授权') + '）') : '手动创建'
             }]
           };
           Object.keys(payload).forEach(function (k) { created[k] = payload[k]; });
+          /* 审批子类：首次申请共享 → 共享审批 */
+          if (wantShare) created.pendingType = 'share';
           store.experts.unshift(created);
 
           if (wantShare) {
@@ -1745,7 +1840,7 @@ window.__pages['D-AT-LIST'] = function (container) {
               id: 'AP' + Date.now(), type: 'share',
               expertId: created.id, expertName: created.name, avatar: created.avatar, color: created.color,
               category: created.category, tags: created.tags, desc: created.desc, prompt: created.prompt,
-              skills: created.skills, mcps: created.mcps, kbs: created.kbs, version: 'v1.0',
+              skills: created.skills, mcps: created.mcps, kbs: created.kbs, version: '',
               owner: created.owner, ownerDept: created.ownerDept,
               submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
               changeNote: '首次申请共享', scope: created.scope, status: 'pending'
@@ -1843,9 +1938,9 @@ window.__pages['D-AT-LIST'] = function (container) {
             prompt: '（由' + platform + '托管，提示词与能力在第三方平台维护）',
             skills: [], mcps: [], kbs: [],
             status: 'unshared', authorizedCount: 0, scope: { orgs: [], users: [] },
-            createTime: nowStr(), updateTime: nowStr(), version: 'v1.0',
+            createTime: nowStr(), updateTime: nowStr(), version: '',
             history: [{
-              version: 'v1.0', action: '接入创建', operator: me().name, time: nowStr(),
+              version: '未发布', action: '接入创建', operator: me().name, time: nowStr(),
               remark: '接入 ' + platform
             }]
           };
@@ -1943,17 +2038,20 @@ window.__pages['D-AT-LIST'] = function (container) {
 
           targets.forEach(function (t) {
             t.status = 'pending';
+            /* 审批子类：共享提交（首次 / 重新提交）→ 共享审批 */
+            t.pendingType = 'share';
             t.scope = cloneScope(v);
             t.authorizedCount = total;
             t.rejectReason = '';
+            delete t.rejectType;
             t.updateTime = nowStr();
-            logHistory(t, t.version || 'v1.0', resubmitExpert ? '重新提交共享申请' : '提交共享申请', '');
+            logHistory(t, t.version || '未发布', resubmitExpert ? '重新提交共享申请' : '提交共享申请', '');
             pushApproval({
               id: 'AP' + Date.now() + Math.floor(Math.random() * 100),
               type: 'share',
               expertId: t.id, expertName: t.name, avatar: t.avatar, color: t.color,
               category: t.category, tags: t.tags, desc: t.desc, prompt: t.prompt,
-              skills: t.skills, mcps: t.mcps, kbs: t.kbs, version: t.version || 'v1.0',
+              skills: t.skills, mcps: t.mcps, kbs: t.kbs, version: t.version || '',
               owner: t.owner, ownerDept: t.ownerDept,
               submitter: me().name, submitterDept: me().dept, submitTime: nowStr(),
               changeNote: resubmitExpert ? '重新提交' : '首次申请共享',
@@ -1971,19 +2069,23 @@ window.__pages['D-AT-LIST'] = function (container) {
   }
 
   /* ============================================================
-   * 审批中心（共享 / 下架 / 范围变更）
+   * 审批中心（共享 / 授权 / 调整 / 下架 四类申请）
    * ============================================================ */
-  var TYPE_TEXT = { share: ['blue', '共享申请'], offline: ['warning', '下架申请'], scope: ['default', '范围变更'] };
+  var TYPE_TEXT = {
+    share: ['blue', '共享申请'],
+    scope: ['default', '授权申请'],
+    change: ['success', '调整申请'],
+    offline: ['warning', '下架申请']
+  };
 
   function pendingApprList() {
     return store.approvals.filter(function (a) { return a.status === 'pending'; });
   }
   function apprSub(a) {
-    return a.type === 'offline'
-      ? '下架原因：' + (a.reason || '')
-      : a.type === 'scope'
-        ? '变更授权范围'
-        : '授权范围：' + summarizeScope(a.scope);
+    if (a.type === 'offline') return '下架原因：' + (a.reason || '');
+    if (a.type === 'scope') return '变更授权范围';
+    if (a.type === 'change') return '变更内容：' + (a.changeNote || '内容变更') + ' · 授权范围：' + summarizeScope(a.scope);
+    return '授权范围：' + summarizeScope(a.scope);
   }
   function apprItemHtml(a) {
     var t = TYPE_TEXT[a.type] || TYPE_TEXT.share;
@@ -1991,7 +2093,7 @@ window.__pages['D-AT-LIST'] = function (container) {
       avatarHtml({ avatar: a.avatar, color: a.color, name: a.expertName }) +
       '<div class="appr-main">' +
         '<div class="appr-name">' + window.esc(a.expertName) + window.Tag(t[0], t[1]) +
-          '<span class="ver-tag">' + window.esc(a.version || 'v1.0') + '</span></div>' +
+          '<span class="ver-tag">' + window.esc(a.version || '未发布') + '</span></div>' +
         '<div class="appr-meta">提交人：' + window.esc(a.submitter) + ' · ' + window.esc(a.submitTime) + '</div>' +
         '<div class="appr-scope">' + window.esc(apprSub(a)) + '</div></div>' +
       window.Icon('icon-chevron-right') + '</div>';
@@ -2003,7 +2105,7 @@ window.__pages['D-AT-LIST'] = function (container) {
         avatarHtml({ avatar: a.avatar, color: a.color, name: a.expertName }) +
         '<div class="appr-main">' +
           '<div class="appr-name">' + window.esc(a.expertName) + window.Tag(t[0], t[1]) + '</div>' +
-          '<div class="appr-meta">' + window.esc(a.version || 'v1.0') + ' · 提交人：' + window.esc(a.submitter) + '</div>' +
+          '<div class="appr-meta">' + window.esc(a.version || '未发布') + ' · 提交人：' + window.esc(a.submitter) + '</div>' +
         '</div></div>' +
       '<div class="appr-scope">' + window.esc(apprSub(a)) + '</div>' +
       '<div class="appr-card-foot"><span>' + window.esc(a.submitTime) + '</span>' +
@@ -2025,7 +2127,7 @@ window.__pages['D-AT-LIST'] = function (container) {
         '<div class="page-head">' +
           '<div>' +
             '<div class="page-title">审批中心</div>' +
-            '<div class="page-subtitle">集中处理共享申请、下架申请与范围变更，支持按列表或卡片查看。</div>' +
+            '<div class="page-subtitle">集中处理共享申请、授权申请、调整申请与下架申请，支持按列表或卡片查看。</div>' +
           '</div>' +
           '<div class="page-head-actions">' +
             '<button class="btn btn-default" id="apprBack">' + window.Icon('icon-arrow-left') + '返回列表</button>' +
@@ -2154,7 +2256,7 @@ window.__pages['D-AT-LIST'] = function (container) {
       '<div class="expert-card-top" style="margin-bottom:12px">' +
         avatarHtml({ avatar: appr.avatar, color: appr.color, name: appr.expertName }) +
         '<div class="expert-name-wrap"><div class="expert-name">' + window.esc(appr.expertName) +
-          window.Tag('blue', appr.category) + '<span class="ver-tag">' + window.esc(appr.version || 'v1.0') + '</span></div>' +
+          window.Tag('blue', appr.category) + '<span class="ver-tag">' + window.esc(appr.version || '未发布') + '</span></div>' +
           '<div class="expert-tags">' + (appr.tags || []).map(function (t) { return '<span class="mini-tag">' + window.esc(t) + '</span>'; }).join('') + '</div>' +
         '</div></div>' +
       '<div class="cap-item"><div class="cap-title">描述</div><div class="cap-body">' + window.esc(appr.desc || '') + '</div></div>' +
@@ -2253,18 +2355,29 @@ window.__pages['D-AT-LIST'] = function (container) {
           var people = window.scopeCount(scopeSel);
           var target = store.experts.filter(function (e) { return e.id === appr.expertId; })[0];
 
+          /* 版本号口径：下架通过不变更；首次共享通过记 V1.0.0；其余变更（内容 / 授权范围 / 重新共享）尾号 +1 */
+          var curVer = (target && target.version) ? target.version : '';
+          var verLine = type === 'offline'
+            ? '版本号保持 ' + (curVer || '未发布') + ' 不变'
+            : '版本号：' + (curVer || '未发布') + ' → ' +
+              ((target && target.hasShared) ? nextVersion(curVer) : 'V1.0.0');
+
           var passText = type === 'offline'
             ? '通过后该助理将立即下架，并从所有授权对象的助理库中移除。'
             : type === 'scope'
               ? '通过后新的授权范围立即生效。'
-              : '通过后该助理将出现在授权对象的助理库中，并标识「共享」。';
+              : type === 'change'
+                ? '通过后本次内容变更立即生效，已授权用户刷新后使用新版本。'
+                : '通过后该助理将出现在授权对象的助理库中，并标识「共享」。';
 
           window.confirmDialog({
             title: '确认审批通过？',
             text: passText,
-            impact: type === 'offline' ? '助理：' + appr.expertName
-              : '最终授权对象：' + people + ' 人 · ' + window.scopeSummary(scopeSel) +
-                (adjusted ? '（已按管理员调整结果生效）' : ''),
+            impact: type === 'offline' ? '助理：' + appr.expertName + ' · ' + verLine
+              : type === 'change'
+                ? '变更内容：' + (appr.changeNote || '内容变更') + ' · ' + verLine
+                : '最终授权对象：' + people + ' 人 · ' + window.scopeSummary(scopeSel) +
+                  (adjusted ? '（已按管理员调整结果生效）' : '') + ' · ' + verLine,
             okText: '确认通过',
             onOk: function () {
               appr.status = 'approved';
@@ -2273,26 +2386,41 @@ window.__pages['D-AT-LIST'] = function (container) {
 
               if (type === 'offline') {
                 if (target) {
+                  /* 下架通过：状态转为已下架，版本号保持不变 */
                   target.status = 'offline';
                   target.updateTime = nowStr();
-                  logHistory(target, target.version, '下架生效', appr.reason || '');
+                  logHistory(target, target.version || '未发布', '下架生效', appr.reason || '');
                 }
               } else if (type === 'scope') {
                 if (target) {
+                  /* 授权范围变更审批通过：版本号尾号 +1（从未生成过版本时记 V1.0.0），状态回到已共享，新范围生效 */
+                  target.version = nextVersion(target.version);
+                  /* 已拒绝 · 共享审批通过「修改授权范围」重新提交时，通过即视为首次共享成功 */
+                  target.hasShared = true;
                   target.scope = cloneScope(appr.scope);
                   target.authorizedCount = window.scopeCount(appr.scope);
+                  target.status = 'approved';
+                  delete target.pendingType;
+                  target.rejectReason = '';
+                  delete target.rejectType;
                   target.updateTime = nowStr();
                   logHistory(target, target.version, '授权范围变更', window.scopeSummary(appr.scope));
                 }
               } else {
                 appr.scope = cloneScope(scopeSel);
                 if (target) {
+                  /* 首次共享审批通过 → 记为 V1.0.0；已共享过的变更审批通过 → 尾号 +1 */
+                  target.version = target.hasShared ? nextVersion(target.version) : 'V1.0.0';
+                  target.hasShared = true;
                   target.status = 'approved';
                   target.authorizedCount = people;
                   target.scope = cloneScope(scopeSel);
                   target.rejectReason = '';
+                  delete target.rejectType;
+                  delete target.pendingType;
                   target.updateTime = nowStr();
-                  logHistory(target, target.version, '共享审批通过', appr.changeNote || '');
+                  logHistory(target, target.version,
+                    appr.type === 'change' ? '变更审批通过（内容变更）' : '共享审批通过', appr.changeNote || '');
                 }
               }
               drawerApi.close();
@@ -2323,23 +2451,40 @@ window.__pages['D-AT-LIST'] = function (container) {
               ok.addEventListener('click', function () {
                 var reason = ta.value.trim();
                 if (!reason) { window.toast('请填写拒绝原因', 'error'); return; }
+                /* 拒绝：仅写入拒绝类型与原因，版本号保持不变（首次共享被拒仍为「未发布」） */
                 appr.status = 'rejected';
                 appr.rejectReason = reason;
                 appr.approver = me().name;
                 appr.approveTime = nowStr();
                 var target = store.experts.filter(function (e) { return e.id === appr.expertId; })[0];
                 if (target) {
+                  /* 拒绝后统一置为「已拒绝」，并以拒绝类型区分子类 */
                   if (type === 'offline') {
-                    target.status = 'approved';
+                    target.status = 'rejected';
+                    target.rejectType = 'offline';
+                    target.rejectReason = reason;
                     target.offlineReason = '';
-                    logHistory(target, target.version, '下架申请被拒绝', reason);
+                    delete target.pendingType;
+                    logHistory(target, target.version || '未发布', '下架申请被拒绝', reason);
                   } else if (type === 'scope') {
-                    logHistory(target, target.version, '范围变更被拒绝', reason);
+                    /* 授权范围变更被拒：状态置为已拒绝（已拒绝 · 授权审批）；
+                       仅本次变更不生效，原共享范围与已订阅用户不受影响 */
+                    target.status = 'rejected';
+                    target.rejectType = 'scope';
+                    target.rejectReason = reason;
+                    delete target.pendingType;
+                    target.lastScope = { orgs: appr.scope.orgs || [], users: appr.scope.users || [] };
+                    logHistory(target, target.version || '未发布',
+                      '授权范围变更被拒绝（已拒绝 · 授权审批，原共享范围继续生效）', reason);
                   } else {
                     target.status = 'rejected';
+                    /* 从未共享过 → 已拒绝 · 共享审批（可删除）；已共享过 → 已拒绝 · 调整审批（不可删除） */
+                    target.rejectType = target.hasShared ? 'change' : 'share';
                     target.rejectReason = reason;
+                    delete target.pendingType;
                     target.lastScope = { orgs: appr.scope.orgs || [], users: appr.scope.users || [] };
-                    logHistory(target, target.version, '共享审批被拒绝', reason);
+                    logHistory(target, target.version || '未发布',
+                      target.hasShared ? '变更审批被拒绝' : '共享审批被拒绝', reason);
                   }
                   target.updateTime = nowStr();
                 }

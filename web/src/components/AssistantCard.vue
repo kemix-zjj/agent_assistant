@@ -2,22 +2,21 @@
 import { computed } from 'vue'
 import AssistantAvatar from './AssistantAvatar.vue'
 import StatusTag from './StatusTag.vue'
-import { useUserStore } from '@/stores/user'
+import { displayVersion } from '@/api/mock'
 import type { AssistantCard, AssistantAction } from '@/types/assistant'
 
-/** 助理卡片：列表页四范围共用，按钮由后端 actions 驱动
- * 整卡点击进详情；召唤按钮默认常驻，悬停有渐变、描边与轻微上浮动效；标签最多 2 个其余 +N。
+/** 助理卡片：列表三范围共用，按钮由后端 actions 驱动
+ * 整卡点击进详情；召唤按钮常驻展示，悬停有渐变、描边与轻微上浮动效；标签最多 2 个其余 +N。
  */
 const props = defineProps<{
   card: AssistantCard
-  scope?: 'all' | 'mine' | 'shared' | 'auth'
+  scope?: 'all' | 'mine' | 'shared'
   selectable?: boolean
   selected?: boolean
-  expandedReject?: boolean
 }>()
 
 const emit = defineEmits<{
-  action: [action: AssistantAction | 'detail' | 'toggleReject', card: AssistantCard]
+  action: [action: AssistantAction | 'detail', card: AssistantCard]
   'update:selected': [value: boolean]
 }>()
 
@@ -33,41 +32,27 @@ const ACTION_LABEL: Record<AssistantAction, string> = {
   resubscribe: '重新订阅'
 }
 
-const userStore = useUserStore()
-/** 授权管理页签：卡片常驻「详情 / 调整范围」，其余范围仅展示召唤（悬停） */
-const isAuthView = computed(() => props.scope === 'auth')
+/** 卡片只展示召唤入口，其余操作收进详情抽屉 */
+const visibleActions = computed<AssistantAction[]>(() =>
+  (props.card.actions ?? []).filter((a) => a === 'summon')
+)
 
-/**
- * 卡片按钮：需求 F-EXP-002 平台预置授权范围仅管理员可见；
- * 编辑/删除/共享/重新提交只出现在「我的助理」，其余操作收进详情抽屉。
- */
-const visibleActions = computed<AssistantAction[]>(() => {
-  const actions = props.card.actions ?? []
-  if (isAuthView.value) {
-    return actions.includes('shareScope') && userStore.isAdmin ? ['shareScope'] : []
-  }
-  return actions.filter((a) => a === 'summon')
-})
-
+/** 批量共享只允许勾选「本质未共享」的助理（未共享；共享审批被拒需走详情重新提交） */
 const canShare = computed(
   () =>
     props.scope === 'mine' &&
     props.card.source !== 'shared' &&
-    (props.card.shareStatus === 'unshared' ||
-      props.card.shareStatus === 'rejected' ||
-      props.card.shareStatus === 'offline')
+    props.card.shareStatus === 'unshared'
 )
 
 /** 标签：最多展示 2 个，其余以 +N 收拢（完整标签见详情） */
 const visibleTags = computed(() => props.card.tags.slice(0, 2))
 const moreTagCount = computed(() => Math.max(props.card.tags.length - 2, 0))
 
-const authScopeLine = computed(() => {
-  const scope = props.card.shareScope
-  if (!scope) return '授权范围：未设置'
-  if (scope.scopeMode === 'PUBLIC') return '授权范围：公开（全公司可用）'
-  return `授权对象 ${scope.grantTotal} 人 · ${scope.summary || '未设置'}`
-})
+/** 角标口径：全部页签不展开审批 / 拒绝子类，明细子类只在「我的助理」展示 */
+const showSubType = computed(() => props.scope === 'mine')
+
+const versionText = computed(() => displayVersion(props.card.version))
 
 function onAction(action: AssistantAction): void {
   emit('action', action, props.card)
@@ -83,14 +68,13 @@ function onCardClick(event: MouseEvent): void {
 <template>
   <div
     class="assistant-card"
-    :class="{ selected, 'has-check': selectable, 'is-auth': isAuthView }"
+    :class="{ selected, 'has-check': canShare }"
     @click="onCardClick"
   >
     <el-checkbox
-      v-if="selectable"
+      v-if="canShare"
       class="card-check"
       :model-value="selected"
-      :disabled="!canShare"
       @update:model-value="(v: boolean | string | number) => emit('update:selected', !!v)"
     />
 
@@ -107,11 +91,16 @@ function onCardClick(event: MouseEvent): void {
       <div class="card-name-wrap">
         <div class="card-name">
           <span class="name-text">{{ card.name }}</span>
-          <!-- 状态角标：平台预置 / 已共享（我创建）/ 已订阅（别人创建）三类互斥 -->
+          <!-- 状态角标：平台内置 / 已共享（我创建）/ 已订阅（别人创建）三类互斥 -->
           <StatusTag v-if="card.source === 'platform'" status="platform" />
           <StatusTag v-else-if="card.source === 'shared'" :status="card.subscribeStatus" />
-          <StatusTag v-else-if="card.shareStatus" :status="card.shareStatus" />
-          <span class="ver-tag">{{ card.version }}</span>
+          <StatusTag
+            v-else-if="card.shareStatus"
+            :status="card.shareStatus"
+            :pending-type="showSubType ? card.pendingType : null"
+            :reject-type="showSubType ? card.rejectType : null"
+          />
+          <span class="ver-tag">{{ versionText }}</span>
         </div>
         <div class="card-tags">
           <span v-for="t in visibleTags" :key="t" class="mini-tag">{{ t }}</span>
@@ -128,27 +117,15 @@ function onCardClick(event: MouseEvent): void {
 
     <div class="card-desc">{{ card.descriptionTruncated }}</div>
 
-    <div v-if="isAuthView" class="auth-scope-line">{{ authScopeLine }}</div>
-
-    <div v-if="card.shareStatus === 'rejected' && scope === 'mine'" class="reject-bar">
-      <span class="reject-text">拒绝原因：{{ card.rejectReason || '管理员未填写拒绝原因' }}</span>
-    </div>
-
     <div class="card-actions">
-      <template v-if="isAuthView">
-        <button class="act-btn act-btn-text" @click.stop="emit('action', 'detail', card)">详情</button>
-        <button class="act-btn act-btn-primary" @click.stop="onAction('shareScope')">调整范围</button>
-      </template>
-      <template v-else>
-        <button
-          v-for="a in visibleActions"
-          :key="a"
-          class="act-btn act-btn-primary"
-          @click.stop="onAction(a)"
-        >
-          {{ ACTION_LABEL[a] }}
-        </button>
-      </template>
+      <button
+        v-for="a in visibleActions"
+        :key="a"
+        class="act-btn act-btn-primary"
+        @click.stop="onAction(a)"
+      >
+        {{ ACTION_LABEL[a] }}
+      </button>
     </div>
   </div>
 </template>
@@ -266,40 +243,6 @@ function onCardClick(event: MouseEvent): void {
   min-height: 40px;
 }
 
-.auth-scope-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--at-text-weak);
-  background: #f4f8fe;
-  border-radius: 4px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.reject-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 6px 8px;
-  background: #fff6f5;
-  border-radius: 4px;
-  font-size: 12px;
-  line-height: 18px;
-  color: #d92d20;
-}
-
-.reject-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 /* 卡片操作：召唤按钮默认常驻展示
  * 尺寸对齐 prototype .expert-actions：按钮等分占满卡片宽度、30px 高、12px 字号 */
 .card-actions {
@@ -353,16 +296,5 @@ function onCardClick(event: MouseEvent): void {
 .act-btn-primary:active {
   transform: translateY(0);
   box-shadow: 0 2px 6px rgba(54, 133, 242, 0.3);
-}
-
-.act-btn-text {
-  color: #646a73;
-  background: #fff;
-  border-color: var(--at-border);
-}
-
-.act-btn-text:hover {
-  color: var(--at-brand);
-  border-color: var(--at-brand);
 }
 </style>

@@ -53,10 +53,6 @@ const loadError = ref(false)
 const categories = ref<CategoryItem[]>([])
 const selectedIds = ref<number[]>([])
 
-/** 被拒绝助理：工具条入口 + 下拉面板（不占卡片区） */
-const rejectedList = ref<AssistantCardType[]>([])
-const rejectPanel = ref(false)
-
 const createOptionDialog = ref(false)
 const createDrawer = ref(false)
 const thirdPartyDrawer = ref(false)
@@ -75,7 +71,6 @@ const deleteSaving = ref(false)
 const activeAssistantId = ref<number | null>(null)
 const shareTargets = ref<AssistantCardType[]>([])
 const shareInitialScope = ref<ScopePayload | null>(null)
-const editingAffectedCount = ref(0)
 const scopeTarget = ref<AssistantCardType | null>(null)
 const scopePayload = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
 const scopeSaving = ref(false)
@@ -86,29 +81,27 @@ const editingCategoryId = ref<number | null>(null)
 const editingCategoryName = ref('')
 const categorySaving = ref(false)
 
-const SCOPE_TABS = computed<Array<{ key: ListScope; label: string }>>(() => {
-  const tabs: Array<{ key: ListScope; label: string }> = [
-    { key: 'all', label: '全部' },
-    { key: 'mine', label: '我的助理' },
-    { key: 'shared', label: '共享助理' }
-  ]
-  if (userStore.isAdmin) tabs.push({ key: 'auth', label: '授权管理' })
-  return tabs
-})
+/** 三个页签：全部 / 我的助理 / 共享助理（授权管理已按需求移除） */
+const SCOPE_TABS: Array<{ key: ListScope; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'mine', label: '我的助理' },
+  { key: 'shared', label: '共享助理' }
+]
 
+/** 状态筛选：审批中聚合四类审批中，已拒绝聚合全部拒绝子类 */
 const STATUS_OPTIONS = [
   { value: '', label: '状态：全部' },
-  { value: 'unshared', label: '未共享' },
-  { value: 'pending', label: '待审批' },
-  { value: 'approved', label: '已共享' },
-  { value: 'rejected', label: '已拒绝' },
-  { value: 'offline_pending', label: '下架审批中' },
-  { value: 'offline', label: '已下架' }
+  { value: 'unshared', label: '状态：未共享' },
+  { value: 'approved', label: '状态：已共享' },
+  { value: 'pending', label: '状态：审批中' },
+  { value: 'rejected', label: '状态：已拒绝' },
+  { value: 'offline', label: '状态：已下架' }
 ]
 
 const SUB_OPTIONS = [
-  { value: 'subscribed', label: '已订阅' },
-  { value: 'removed', label: '已移除' }
+  { value: '', label: '订阅状态：全部' },
+  { value: 'subscribed', label: '状态：已订阅' },
+  { value: 'removed', label: '状态：已移除' }
 ]
 
 const selectedCards = computed(() =>
@@ -151,24 +144,9 @@ async function loadList(): Promise<void> {
   }
 }
 
-/** 「全部」范围下，我的助理中被拒绝的助理收进工具条下拉面板 */
-async function loadRejected(): Promise<void> {
-  if (scope.value !== 'all') {
-    rejectedList.value = []
-    rejectPanel.value = false
-    return
-  }
-  try {
-    const res = await getAssistants({ scope: 'mine', statusFilter: 'rejected', page: 1, pageSize: 50 })
-    rejectedList.value = res.list
-    if (!res.list.length) rejectPanel.value = false
-  } catch {
-    rejectedList.value = []
-  }
-}
-
+/** 「全部」范围下按后端透传的角标口径展示，无需再额外拉取被拒绝列表 */
 async function refreshAll(): Promise<void> {
-  await Promise.all([loadList(), loadRejected()])
+  await loadList()
   approvalStore.refreshPendingCount()
 }
 
@@ -201,14 +179,6 @@ watch(
   }
 )
 
-/** 权限守卫：非管理员不能停留在「授权管理」 */
-watch(
-  () => userStore.isAdmin,
-  (isAdmin) => {
-    if (!isAdmin && scope.value === 'auth') scope.value = 'all'
-  }
-)
-
 /** 分类被删除后回落「全部」 */
 watch(categories, (next) => {
   if (categoryId.value && !next.some((c) => c.categoryId === categoryId.value)) {
@@ -219,7 +189,7 @@ watch(categories, (next) => {
 function switchScope(next: ListScope): void {
   scope.value = next
   statusFilter.value = ''
-  subscribeFilter.value = next === 'shared' ? 'subscribed' : ''
+  subscribeFilter.value = ''
 }
 
 function toggleSelect(card: AssistantCardType, value: boolean): void {
@@ -232,14 +202,11 @@ function toggleSelect(card: AssistantCardType, value: boolean): void {
 
 /* ---------------- 卡片操作 ---------------- */
 
-async function onCardAction(action: AssistantAction | 'detail' | 'toggleReject', card: AssistantCardType): Promise<void> {
+async function onCardAction(action: AssistantAction | 'detail', card: AssistantCardType): Promise<void> {
   switch (action) {
     case 'detail':
       activeAssistantId.value = card.assistantId
       detailDrawer.value = true
-      break
-    case 'toggleReject':
-      rejectPanel.value = !rejectPanel.value
       break
     case 'summon':
       await handleSummon(card)
@@ -281,16 +248,20 @@ function detailToCard(d: AssistantDetail): AssistantCardType {
     descriptionTruncated: desc.length > 60 ? `${desc.slice(0, 60)}…` : desc,
     source: d.source,
     shareStatus: d.shareStatus,
-    subscribeStatus: null,
+    pendingType: d.pendingType,
+    rejectType: d.rejectType,
+    subscribeStatus: d.subscribeStatus,
     version: d.version,
+    hasShared: d.hasShared,
     ownerName: d.ownerName,
     ownerTitle: d.ownerDeptName,
     sharedFrom: d.source === 'shared' && d.ownerName
       ? { ownerName: d.ownerName, ownerDeptName: d.ownerDeptName ?? '' }
       : null,
-    rejectReason: null,
-    lastApproverName: null,
-    lastApproveTime: null,
+    rejectReason: d.rejectReason,
+    offlineReason: d.offlineReason,
+    lastApproverName: d.lastApproverName,
+    lastApproveTime: d.lastApproveTime,
     authorizedCount: d.shareScope?.grantTotal ?? 0,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
@@ -307,7 +278,6 @@ async function onDetailAction(action: AssistantAction, detail: AssistantDetail):
   switch (action) {
     case 'edit':
       activeAssistantId.value = card.assistantId
-      editingAffectedCount.value = card.authorizedCount
       editDrawer.value = true
       break
     case 'delete':
@@ -317,7 +287,15 @@ async function onDetailAction(action: AssistantAction, detail: AssistantDetail):
       openShareDialog(card, null)
       break
     case 'resubmit':
-      await openResubmitDialog(card)
+      // 已下架 → 重新共享；已拒绝 · 授权审批 → 范围授权页；其余已拒绝 → 编辑页重新提交
+      if (detail.shareStatus === 'offline') {
+        openShareDialog(card, null)
+      } else if (detail.rejectType === 'scope') {
+        await openScope(card)
+      } else {
+        activeAssistantId.value = card.assistantId
+        editDrawer.value = true
+      }
       break
     case 'remove':
       await handleSubscription(card, 'remove')
@@ -395,19 +373,6 @@ function openShareDialog(card: AssistantCardType, initial: ScopePayload | null):
   shareTargets.value = [card]
   shareInitialScope.value = initial
   shareDialog.value = true
-}
-
-/** 重新提交：先回显上次被拒的申请范围，再走 POST /shares */
-async function openResubmitDialog(card: AssistantCardType): Promise<void> {
-  let initial: ScopePayload | null = null
-  try {
-    const { getShareScopeApi } = await import('@/api')
-    const res = await getShareScopeApi(card.assistantId)
-    if (res.scope) initial = toScopePayload(res.scope)
-  } catch {
-    // 回显失败不阻断，用户可重新选择
-  }
-  openShareDialog(card, initial)
 }
 
 function toScopePayload(scopeValue: {
@@ -597,7 +562,6 @@ const emptyText = computed(() => {
   if (scope.value === 'shared') {
     return subscribeFilter.value === 'removed' ? '没有已移除的共享助理' : '暂无共享给你的助理'
   }
-  if (scope.value === 'auth') return '暂无已共享的助理，共享申请审批通过后将出现在这里'
   return isEmptyFiltered.value ? '没有符合条件的助理，试试调整筛选条件' : '暂无可用助理'
 })
 </script>
@@ -668,34 +632,12 @@ const emptyText = computed(() => {
 
     <div class="list-meta">
       <span class="meta-text">
-        <template v-if="scope === 'auth'">
-          共 {{ total }} 个已共享助理 · 点击卡片查看详情
+        <template v-if="scope === 'all'">
+          共 {{ total }} 个助理（平台内置 · 已共享 · 已订阅） · 点击卡片查看详情
         </template>
-        <template v-else>
-          共 {{ total }} 个助理 · 悬浮卡片可快捷召唤，点击卡片查看详情
-        </template>
+        <template v-else>共 {{ total }} 个助理 · 点击卡片查看详情</template>
       </span>
       <div class="meta-right">
-        <el-popover v-model:visible="rejectPanel" placement="bottom-end" :width="340" trigger="click">
-          <template #reference>
-            <span v-if="rejectedList.length" class="reject-btn" title="查看被拒绝的共享申请">
-              被拒绝<span class="reject-count">{{ rejectedList.length }}</span>
-            </span>
-            <span v-else class="reject-placeholder" />
-          </template>
-          <div class="reject-panel">
-            <div class="reject-panel-title">被拒绝的助理 · 共 {{ rejectedList.length }} 个</div>
-            <div
-              v-for="r in rejectedList"
-              :key="r.assistantId"
-              class="reject-item"
-              @click="onCardAction('detail', r)"
-            >
-              <div class="reject-item-name">{{ r.name }}</div>
-              <div class="reject-item-reason">拒绝原因：{{ r.rejectReason || '管理员未填写拒绝原因' }}</div>
-            </div>
-          </div>
-        </el-popover>
         <div v-if="scope === 'mine' && selectedCount" class="sel-bar">
           已选 <span class="count-num">{{ selectedCount }}</span> 个助理
           <el-button type="primary" size="small" @click="openBatchShare">共享</el-button>
@@ -752,7 +694,6 @@ const emptyText = computed(() => {
       v-model="editDrawer"
       :categories="categories"
       :assistant-id="activeAssistantId"
-      :affected-grant-count="editingAffectedCount"
       @saved="onSaved"
       @create-category="onCategoryCreated"
     />
@@ -1011,65 +952,6 @@ const emptyText = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.reject-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
-  color: #d92d20;
-  background: #ffece8;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.reject-placeholder {
-  display: none;
-}
-
-.reject-btn .reject-count {
-  min-width: 15px;
-  height: 15px;
-  line-height: 15px;
-  padding: 0 4px;
-  font-size: 11px;
-  color: #fff;
-  background: #d92d20;
-  border-radius: 999px;
-  text-align: center;
-}
-
-.reject-panel-title {
-  padding: 6px 8px;
-  font-size: 12px;
-  color: var(--at-text-weak);
-}
-
-.reject-item {
-  padding: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.reject-item:hover {
-  background: #f5f7fa;
-}
-
-.reject-item-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.reject-item-reason {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #d92d20;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sel-bar {

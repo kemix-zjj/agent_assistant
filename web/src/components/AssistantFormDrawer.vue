@@ -24,6 +24,7 @@ import type {
 } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
+import { displayVersion } from '@/api/mock'
 import { PRESET_AVATARS, resolvePresetKey, presetColor } from '@/utils/avatar'
 import { useUserStore } from '@/stores/user'
 
@@ -35,8 +36,6 @@ const props = defineProps<{
   modelValue: boolean
   categories: CategoryItem[]
   assistantId?: number | null
-  /** 已共享助理编辑时的授权对象数，用于变更影响提示 */
-  affectedGrantCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -64,7 +63,9 @@ const draft = reactive({
   skillIds: [] as string[],
   mcpIds: [] as string[],
   knowledgeBaseIds: [] as string[],
-  quickQuestions: [] as string[]
+  quickQuestions: [] as string[],
+  /** 已共享过的助理编辑保存时必填，随变更审批单落库 */
+  changeNote: ''
 })
 
 /** 当前选中的系统默认头像键（P1~P6），编辑历史字符头像时按 ID 稳定回推 */
@@ -98,8 +99,15 @@ const userStore = useUserStore()
 const nameLen = computed(() => draft.name.length)
 const promptLen = computed(() => draft.prompt.length)
 
-/** 已共享助理编辑时提示「变更立即生效」（docs/03 §3.4） */
-const needReapprove = computed(() => isEdit.value && (props.affectedGrantCount ?? 0) > 0)
+/** 编辑时的当前共享状态与版本号（用于步骤 3 提示文案） */
+const editStatus = ref<string | null>(null)
+const editVersion = ref('')
+const editHasShared = ref(false)
+
+/** 已共享过且未下架的助理（含调整 / 授权 / 下架被拒）编辑保存后进入变更审批 */
+const needReapprove = computed(
+  () => isEdit.value && editHasShared.value && editStatus.value !== 'offline'
+)
 
 /* ---------------- 资源过滤（市场 + 搜索） ---------------- */
 
@@ -181,8 +189,12 @@ function resetDraft(): void {
     skillIds: [],
     mcpIds: [],
     knowledgeBaseIds: [],
-    quickQuestions: []
+    quickQuestions: [],
+    changeNote: ''
   })
+  editStatus.value = null
+  editVersion.value = ''
+  editHasShared.value = false
   step.value = 1
   tagInput.value = ''
   qqInput.value = ''
@@ -225,8 +237,12 @@ async function loadDetail(): Promise<void> {
       skillIds: (d.skills ?? []).map((s) => s.id),
       mcpIds: (d.mcps ?? []).map((m) => m.id),
       knowledgeBaseIds: (d.knowledgeBases ?? []).map((k) => k.id),
-      quickQuestions: [...d.quickQuestions]
+      quickQuestions: [...d.quickQuestions],
+      changeNote: ''
     })
+    editStatus.value = d.shareStatus
+    editVersion.value = d.version
+    editHasShared.value = d.hasShared
   } catch (e) {
     ElMessage.error(e instanceof ApiError ? e.message : '助理详情加载失败')
     emit('update:modelValue', false)
@@ -448,9 +464,14 @@ async function submitCategory(): Promise<void> {
 /* ---------------- 步骤切换 / 提交 ---------------- */
 
 const canPrev = computed(() => step.value > 1)
+/** 编辑保存会触发审批（已共享变更 / 已拒绝共享重新提交）时，按钮改为「保存并提交审批」 */
+const submitForApproval = computed(
+  () => isEdit.value && (needReapprove.value || editStatus.value === 'rejected')
+)
 const nextLabel = computed(() => {
   if (step.value < 3) return '下一步'
-  return isEdit.value ? '保存' : '完成创建'
+  if (isEdit.value) return submitForApproval.value ? '保存并提交审批' : '保存'
+  return '完成创建'
 })
 
 function goStep(n: number): void {
@@ -498,6 +519,11 @@ async function submit(): Promise<void> {
       return
     }
   }
+  // 已共享过的助理编辑保存即转为变更审批，需填写变更说明
+  if (isEdit.value && needReapprove.value && !draft.changeNote.trim()) {
+    ElMessage.error('请填写变更说明')
+    return
+  }
 
   saving.value = true
   try {
@@ -514,12 +540,19 @@ async function submit(): Promise<void> {
       skillIds: [...draft.skillIds],
       mcpIds: [...draft.mcpIds],
       knowledgeBaseIds: [...draft.knowledgeBaseIds],
-      quickQuestions: [...draft.quickQuestions]
+      quickQuestions: [...draft.quickQuestions],
+      changeNote: draft.changeNote.trim() || undefined
     }
 
     if (isEdit.value && props.assistantId) {
-      await updateAssistantApi(props.assistantId, payload)
-      ElMessage.success('已保存')
+      const detail = await updateAssistantApi(props.assistantId, payload)
+      ElMessage.success(
+        detail.shareStatus === 'pending'
+          ? detail.hasShared
+            ? '已提交变更审批，审批通过后版本号尾号 +1'
+            : '已提交共享审批'
+          : '已保存'
+      )
     } else {
       const created = await createAssistantApi(payload)
       if (shareMode.value === 'yes') {
@@ -840,13 +873,26 @@ function close(): void {
             type="warning"
             :closable="false"
             show-icon
-            :title="`该助理已共享给 ${props.affectedGrantCount} 个授权对象，保存后变更将立即对其生效。`"
+            :title="`该助理已共享过（当前版本 ${displayVersion(editVersion)}）。保存后进入变更审批，审批通过时版本号尾号 +1，审批被拒绝则版本号保持不变。`"
           />
-          <div class="form-hint mt-base">共享状态与已生效授权范围不变；如需调整授权范围，请在卡片「共享范围」中提交变更申请。</div>
+          <div class="form-hint mt-base">审批期间原授权范围继续生效，已授权用户继续使用当前已生效版本。</div>
+          <div class="form-item mt-base">
+            <label class="form-label required">变更说明</label>
+            <el-input v-model="draft.changeNote" maxlength="200" placeholder="请说明本次变更内容，便于管理员审批" />
+          </div>
         </template>
 
         <template v-else-if="isEdit">
-          <el-alert type="info" :closable="false" show-icon title="该助理当前未在共享中，保存后仅更新你自己可见的版本。" />
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            :title="editStatus === 'offline'
+              ? '该助理已下架，保存后直接生效，不提交审批、不产生版本号。'
+              : editStatus === 'rejected'
+                ? '该助理共享申请被拒绝，保存后提交新一轮共享审批，审批通过后版本号 V1.0.0。'
+                : '该助理当前未在共享中，保存后仅更新你自己可见的版本，不产生版本号。'"
+          />
         </template>
 
         <template v-else>
@@ -868,7 +914,7 @@ function close(): void {
               tip="按组织、岗位、角色、人员批量选择，来源维度会把人展开带进「按人员」；最终共享对象是人员。上限：组织 50 个节点、岗位/角色各 50 项、人员 200 人。"
             />
           </div>
-          <div class="form-hint mt-base">创建后将生成版本 v1.0</div>
+          <div class="form-hint mt-base">创建后不产生版本号，首次共享审批通过时记为 V1.0.0</div>
         </template>
       </div>
     </div>

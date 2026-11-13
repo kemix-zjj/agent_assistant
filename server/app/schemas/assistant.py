@@ -46,6 +46,8 @@ class AssistantUpsertPayload(BaseModel):
     mcp_ids: list[str] = Field(default_factory=list, max_length=20)
     knowledge_base_ids: list[str] = Field(default_factory=list, max_length=10)
     quick_questions: list[str] = Field(default_factory=list, max_length=6)
+    # 已共享过的助理编辑保存时会转为变更审批，需带变更说明
+    change_note: str | None = Field(default=None, max_length=200)
 
     @field_validator("name", "description")
     @classmethod
@@ -118,14 +120,6 @@ class SharedFrom(CamelModel):
     owner_dept_name: str | None = None
 
 
-class ShareScopeSummary(CamelModel):
-    """授权管理页签卡片上的范围摘要（仅 scope=auth 返回）。"""
-
-    scope_mode: Literal["RANGE", "PUBLIC"]
-    summary: str
-    grant_total: int
-
-
 class AssistantCard(CamelModel):
     """列表卡片：不含提示词与能力组成明细。"""
 
@@ -141,25 +135,31 @@ class AssistantCard(CamelModel):
     description: str
     source: str
     share_status: str | None = None
+    # 审批子类 / 拒绝子类：share / change / scope / offline
+    pending_type: str | None = None
+    reject_type: str | None = None
     subscribe_status: str | None = None
+    # 空串表示「未发布」
     version: str
+    has_shared: bool = False
     owner_name: str | None = None
     owner_title: str | None = None
     shared_from: SharedFrom | None = None
     reject_reason: str | None = None
+    offline_reason: str | None = None
     last_approver_name: str | None = None
     last_approve_time: str | None = None
     authorized_count: int = 0
     created_at: str
     updated_at: str
     authorized_at: str | None = None
-    share_scope: ShareScopeSummary | None = None
     actions: list[AssistantAction] = []
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description_truncated(self) -> str:
         return f"{self.description[:60]}…" if len(self.description) > 60 else self.description
+
 
 
 class VersionHistoryItem(CamelModel):
@@ -184,9 +184,17 @@ class AssistantDetail(CamelModel):
     category_name: str
     source: str
     share_status: str | None = None
+    pending_type: str | None = None
+    reject_type: str | None = None
+    subscribe_status: str | None = None
     version: str
+    has_shared: bool = False
     owner_name: str | None = None
     owner_dept_name: str | None = None
+    reject_reason: str | None = None
+    offline_reason: str | None = None
+    last_approver_name: str | None = None
+    last_approve_time: str | None = None
     created_at: str
     updated_at: str
     # 被授权方视角下置为 null（需求 5.2）

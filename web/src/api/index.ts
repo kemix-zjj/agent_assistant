@@ -71,7 +71,7 @@ export function updateSubscriptionApi(
   return request({ url: `/assistants/${assistantId}/subscription`, method: 'put', data: { action } })
 }
 
-/** 已共享助理调整范围 / 平台预置配置范围 */
+/** 已共享助理调整范围 / 平台内置配置范围 */
 export function updateShareScopeApi(assistantId: number, scope: ScopePayload): Promise<{ scope: Scope }> {
   if (USE_MOCK) return delay({ scope: mock.scopeFromPayload(scope) })
   return request({ url: `/assistants/${assistantId}/share-scope`, method: 'put', data: { scope } })

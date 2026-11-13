@@ -145,12 +145,12 @@ def test_delete_category_requires_admin() -> None:
     assert resp.json()["code"] == "NO_PERMISSION"
 
 
-def test_auth_scope_requires_admin() -> None:
+def test_invalid_scope_rejected() -> None:
     resp = client.get(
         "/api/v1/assistants",
         headers={"X-User-Id": "1001"},
         params={"scope": "auth"},
     )
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "NO_PERMISSION"
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "PARAM_INVALID"
 

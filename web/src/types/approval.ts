@@ -1,8 +1,8 @@
 import type { AvatarType } from './assistant'
 import type { Scope } from './scope'
 
-/** 审批单类型（本期实现 share / scope_change，offline 预留） */
-export type ApprovalType = 'share' | 'scope_change' | 'offline'
+/** 审批单类型：共享申请 / 授权申请 / 调整申请 / 下架申请 */
+export type ApprovalType = 'share' | 'scope' | 'change' | 'offline'
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'terminated'
 

@@ -6,11 +6,14 @@ export type AssistantSource = 'platform' | 'custom' | 'thirdparty' | 'shared'
 /** 共享状态（需求 4.0 共享状态与文案统一；offline_pending / offline 为下架流程） */
 export type ShareStatus = 'unshared' | 'pending' | 'approved' | 'rejected' | 'offline_pending' | 'offline'
 
+/** 审批子类 / 拒绝子类：共享审批 / 调整审批 / 授权审批 / 下架审批 */
+export type ApproveSubType = 'share' | 'change' | 'scope' | 'offline'
+
 /** 订阅状态（被授权方自主开关） */
 export type SubscribeStatus = 'subscribed' | 'removed'
 
-/** 列表范围 */
-export type ListScope = 'all' | 'mine' | 'shared' | 'auth'
+/** 列表范围（本期仅三个页签） */
+export type ListScope = 'all' | 'mine' | 'shared'
 
 /** 头像形态 */
 export type AvatarType = 'char' | 'image'
@@ -27,13 +30,6 @@ export type AssistantAction =
   | 'remove'
   | 'resubscribe'
 
-/** 授权管理卡片上的范围摘要（仅 scope=auth 返回） */
-export interface ShareScopeSummary {
-  scopeMode: 'RANGE' | 'PUBLIC'
-  summary: string
-  grantTotal: number
-}
-
 /** 列表卡片项（GET /assistants，不含 prompt） */
 export interface AssistantCard {
   assistantId: number
@@ -49,18 +45,26 @@ export interface AssistantCard {
   descriptionTruncated: string
   source: AssistantSource
   shareStatus: ShareStatus | null
+  /** 审批子类：仅「我的助理」范围返回 */
+  pendingType: ApproveSubType | null
+  /** 拒绝子类：仅「我的助理」范围返回 */
+  rejectType: ApproveSubType | null
   subscribeStatus: SubscribeStatus | null
+  /** 空串表示「未发布」 */
   version: string
+  /** 是否曾共享成功过，决定删除资格与版本号口径 */
+  hasShared: boolean
   ownerName: string | null
   ownerTitle: string | null
   sharedFrom: { ownerName: string; ownerDeptName: string } | null
   rejectReason: string | null
+  offlineReason: string | null
   lastApproverName: string | null
   lastApproveTime: string | null
   authorizedCount: number
   createdAt: string
   updatedAt: string
-  shareScope?: ShareScopeSummary | null
+  authorizedAt?: string | null
   actions: AssistantAction[]
 }
 
@@ -114,9 +118,17 @@ export interface AssistantDetail {
   categoryName: string
   source: AssistantSource
   shareStatus: ShareStatus | null
+  pendingType: ApproveSubType | null
+  rejectType: ApproveSubType | null
+  subscribeStatus: SubscribeStatus | null
   version: string
+  hasShared: boolean
   ownerName: string | null
   ownerDeptName: string | null
+  rejectReason: string | null
+  offlineReason: string | null
+  lastApproverName: string | null
+  lastApproveTime: string | null
   createdAt: string
   updatedAt: string
   /** 被授权方视角下为 null（需求 5.2） */
@@ -146,6 +158,8 @@ export interface AssistantUpsertPayload {
   mcpIds: string[]
   knowledgeBaseIds: string[]
   quickQuestions: string[]
+  /** 已共享过的助理编辑保存会转为变更审批，需带变更说明 */
+  changeNote?: string
 }
 
 /** 删除影响面（GET /assistants/{id}/delete-impact） */

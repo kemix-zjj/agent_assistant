@@ -16,6 +16,7 @@ from app.core.errors import (
 )
 from app.core.security import CurrentUser
 from app.core.timeutils import now_second
+from app.models.approval import Approval
 from app.models.assistant import Assistant
 from app.models.scope import AssistantGrant, ShareScope
 from app.repositories.assistant_repo import AssistantRepository
@@ -31,15 +32,17 @@ from app.schemas.assistant import (
     McpRef,
     ResourceRef,
     SharedFrom,
-    ShareScopeSummary,
     VersionHistoryItem,
 )
 from app.services import resource_catalog
 from app.services import master_data
+from app.services import audit_service as audit
+from app.services.numbering import approval_no
+from app.services.versioning import display_version
 
 logger = logging.getLogger("app.assistant")
 
-VALID_SCOPES = {"all", "mine", "shared", "auth"}
+VALID_SCOPES = {"all", "mine", "shared"}
 VALID_STATUS = {
     "unshared",
     "pending",
@@ -50,16 +53,23 @@ VALID_STATUS = {
 }
 VALID_SUBSCRIBE = {"subscribed", "removed"}
 
+# 状态筛选口径：「审批中」聚合四类审批中，「已拒绝」聚合全部拒绝子类
+PENDING_STATUS = ("pending", "offline_pending")
+
 ACTION_NAME = {
     "create": "创建",
     "update": "编辑更新",
     "share_submit": "提交共享",
-    "share_approve": "审批通过",
-    "share_reject": "审批拒绝",
+    "share_approve": "共享审批通过",
+    "share_reject": "共享审批被拒绝",
+    "change_submit": "提交变更审批",
+    "change_approve": "变更审批通过（内容变更）",
+    "change_reject": "变更审批被拒绝",
     "scope_change": "授权范围变更",
-    "offline_submit": "提交下架",
+    "scope_reject": "授权范围变更被拒绝",
+    "offline_submit": "提交下架申请",
     "offline_approve": "下架生效",
-    "offline_reject": "下架被拒",
+    "offline_reject": "下架申请被拒绝",
     "delete": "删除",
 }
 
@@ -94,9 +104,6 @@ class AssistantService:
     ) -> AssistantPage:
         if scope not in VALID_SCOPES:
             raise ParamInvalidError("scope 取值不合法", "scope")
-        # 授权管理仅供公司管理员查看
-        if scope == "auth" and not user.is_admin:
-            raise NoPermissionError("仅公司管理员可查看授权管理")
         if status_filter and status_filter not in VALID_STATUS:
             raise ParamInvalidError("statusFilter 取值不合法", "statusFilter")
         if subscribe_filter and subscribe_filter not in VALID_SUBSCRIBE:
@@ -124,39 +131,11 @@ class AssistantService:
         grants = self.repo.find_grants(
             master_data.employee_id_for_login(user.user_id), ids
         )
-        scope_map: dict[int, ShareScopeSummary] = {}
-        if scope == "auth":
-            scope_map = self._load_scope_summaries(ids)
-        cards = [
-            self._to_card(
-                row, grants.get(row.id), user, scope, scope_map.get(row.id)
-            )
-            for row in rows
-        ]
+        cards = [self._to_card(row, grants.get(row.id), user, scope) for row in rows]
 
         return AssistantPage(
             list=cards, total=total, page=page, page_size=page_size
         )
-
-    def _load_scope_summaries(self, assistant_ids: list[int]) -> dict[int, ShareScopeSummary]:
-        """授权管理页签：批量取最新 effective 快照并转成卡片摘要。"""
-        from app.services.scope_service import ScopeService
-
-        scope_ids = self.repo.find_effective_scope_ids(assistant_ids)
-        if not scope_ids:
-            return {}
-        service = ScopeService(self.db)
-        result: dict[int, ShareScopeSummary] = {}
-        for assistant_id, scope_id in scope_ids.items():
-            scope = service.load_snapshot(scope_id)
-            if scope is None:
-                continue
-            result[assistant_id] = ShareScopeSummary(
-                scope_mode=scope.scope_mode,
-                summary=scope.summary or "",
-                grant_total=scope.grant_total,
-            )
-        return result
 
     def _to_card(
         self,
@@ -164,11 +143,14 @@ class AssistantService:
         grant: AssistantGrant | None,
         user: CurrentUser,
         scope: str = "all",
-        scope_summary: ShareScopeSummary | None = None,
     ) -> AssistantCard:
-        """卡片字段按「共享视角优先」派生：被授权方看到的 source 为 shared。"""
+        """卡片字段按「共享视角优先」派生：被授权方看到的 source 为 shared。
+
+        「全部」页签只按三种状态展示：平台内置 / 已共享 / 已订阅，
+        审批中与已拒绝的自建助理在该页签一律按「已共享」展示，不带子类角标。
+        """
         is_shared = grant is not None and row.owner_user_id != user.user_id
-        actions = self._derive_actions(row, grant, user, scope)
+        actions = self._derive_actions(row, grant, user)
 
         if is_shared:
             return AssistantCard(
@@ -186,6 +168,7 @@ class AssistantService:
                 share_status=None,
                 subscribe_status=grant.subscribe_status,
                 version=row.version,
+                has_shared=True,
                 owner_name=row.owner_name,
                 owner_title=row.owner_dept_name,
                 shared_from=SharedFrom(
@@ -198,6 +181,11 @@ class AssistantService:
                 actions=actions,
             )
 
+        # 「全部」页签：本质已共享的自建 / 第三方助理统一折叠为「已共享」，不展开审批 / 拒绝子类
+        collapse = scope == "all"
+        collapsed_status = row.share_status
+        if collapse and collapsed_status in ("pending", "rejected", "offline_pending"):
+            collapsed_status = "approved"
         return AssistantCard(
             assistant_id=row.id,
             name=row.name,
@@ -210,19 +198,22 @@ class AssistantService:
             tags=[tag.name for tag in row.tags],
             description=row.description,
             source=row.source,
-            share_status=row.share_status,
+            share_status=collapsed_status,
+            pending_type=None if collapse else row.pending_type,
+            reject_type=None if collapse else row.reject_type,
             subscribe_status=None,
             version=row.version,
+            has_shared=bool(row.has_shared),
             owner_name=row.owner_name,
             owner_title=row.owner_dept_name,
             shared_from=None,
-            reject_reason=row.last_reject_reason,
+            reject_reason=None if collapse else row.last_reject_reason,
+            offline_reason=None if collapse else row.offline_reason,
             last_approver_name=row.last_approver_name,
             last_approve_time=_fmt(row.last_approve_time),
             authorized_count=row.authorized_count,
             created_at=_fmt_required(row.created_at),
             updated_at=_fmt_required(row.updated_at),
-            share_scope=scope_summary,
             actions=actions,
         )
 
@@ -231,14 +222,9 @@ class AssistantService:
         row: Assistant,
         grant: AssistantGrant | None,
         user: CurrentUser,
-        scope: str = "all",
     ) -> list[str]:
-        """按 docs/03 §3.1 的 actions 派生规则表生成按钮。"""
+        """按需求 4.0「可执行操作」派生按钮（卡片与详情同源）。"""
         is_owner = row.owner_user_id == user.user_id
-
-        # 授权管理页签：只保留管理员可用的范围调整入口
-        if scope == "auth":
-            return ["shareScope"] if user.is_admin else []
 
         # 被授权方视角
         if grant is not None and not is_owner:
@@ -252,25 +238,31 @@ class AssistantService:
             return ["summon", "shareScope"] if user.is_admin else ["summon"]
 
         if not is_owner:
+            # 已下架 / 下架审批中 / 已拒绝仅创建人可召唤
+            if row.share_status in ("offline", "offline_pending", "rejected"):
+                return []
             return ["summon"]
 
         match row.share_status:
             case "unshared":
                 return ["summon", "edit", "delete", "share"]
             case "pending":
-                return ["summon", "edit", "delete"]
+                # 授权范围变更审批中：原授权范围继续生效，可查看范围
+                if user.is_admin or row.pending_type == "scope":
+                    return ["summon", "shareScope"]
+                return ["summon"]
             case "approved":
-                return ["summon", "edit", "delete", "shareScope", "offline"]
+                return ["summon", "edit", "shareScope", "offline"]
             case "rejected":
-                return ["summon", "edit", "delete", "resubmit"]
+                # 已拒绝四类均展示「重新提交 / 删除 / 关闭 / 召唤」；
+                # 仅「共享审批被拒」真正可删，其余三类点击删除由前端提示不可删除
+                return ["summon", "resubmit", "shareScope", "delete"]
             case "offline_pending":
-                # 下架审批中：共享仍生效，可继续编辑/召唤；删除会终止下架审批
-                return ["summon", "edit", "delete"]
+                return ["summon", "shareScope"]
             case "offline":
-                # 已下架：授权已全部失效，可重新提交共享申请（等同重新上架）
                 return ["summon", "edit", "delete", "resubmit"]
             case _:
-                return ["summon", "edit", "delete"]
+                return ["summon"]
 
     # ============================ 详情 ============================
 
@@ -299,9 +291,17 @@ class AssistantService:
             category_name=row.category.name if row.category else "",
             source=row.source,
             share_status=row.share_status,
+            pending_type=row.pending_type,
+            reject_type=row.reject_type,
+            subscribe_status=grant.subscribe_status if grant else None,
             version=row.version,
+            has_shared=bool(row.has_shared),
             owner_name=row.owner_name,
             owner_dept_name=row.owner_dept_name,
+            reject_reason=row.last_reject_reason,
+            offline_reason=row.offline_reason,
+            last_approver_name=row.last_approver_name,
+            last_approve_time=_fmt(row.last_approve_time),
             created_at=_fmt_required(row.created_at),
             updated_at=_fmt_required(row.updated_at),
             prompt=None if readonly else row.prompt,
@@ -393,7 +393,9 @@ class AssistantService:
             owner_dept_name=user.dept_name,
             prompt=payload.prompt,
             share_status="unshared",
-            version="v1.0",
+            # 未共享不产生版本号，页面展示「未发布」
+            version="",
+            has_shared=0,
             authorized_count=0,
             created_by=user.user_id,
             created_at=now,
@@ -409,7 +411,7 @@ class AssistantService:
         )
         self.repo.add_version_history(
             row,
-            version="v1.0",
+            version="未发布",
             action="create",
             operator_id=user.user_id,
             operator_name=user.name,
@@ -424,12 +426,24 @@ class AssistantService:
     def update_assistant(
         self, assistant_id: int, payload: AssistantUpsertPayload, user: CurrentUser
     ) -> tuple[AssistantDetail, int]:
-        """返回详情与受影响授权人数（用于响应头 X-Affected-Grant-Count）。"""
+        """返回详情与受影响授权人数（用于响应头 X-Affected-Grant-Count）。
+
+        需求 4.1.4 编辑规则：
+        - 未共享 / 已下架：直接保存生效，不产生版本号、不改变共享状态
+        - 已共享过（已共享 / 已拒绝 / 下架审批中）：保存即提交审批，
+          审批子类按「是否曾共享过」判别共享审批或调整审批，版本号在审批通过时才推进
+        - 审批中（共享 / 调整 / 授权 / 下架审批）：禁止编辑
+        """
         row = self.repo.find_by_id(assistant_id, user.company_id)
         if row is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
         if row.owner_user_id != user.user_id:
             raise NoPermissionError("非创建人不可编辑该助理")
+        if row.share_status in PENDING_STATUS:
+            raise ConflictError(
+                ErrorCode.SHARE_SCOPE_IMMUTABLE,
+                "审批中的助理不可编辑，请等待审批完成",
+            )
 
         self._validate_category(payload.category_id, user)
         if (
@@ -446,7 +460,8 @@ class AssistantService:
         skills, mcps, knowledge_bases = self._resolve_resources(payload)
 
         now = now_second()
-        next_version = self._next_minor_version(row.version)
+        # 已共享过（含已拒绝、下架审批中）的编辑需重新审批；未共享与已下架直接生效
+        need_approval = row.share_status in ("approved", "rejected")
         row.name = payload.name
         row.avatar_type = payload.avatar_type
         row.avatar_char = payload.avatar_char
@@ -455,7 +470,6 @@ class AssistantService:
         row.description = payload.description
         row.category_id = payload.category_id
         row.prompt = payload.prompt
-        row.version = next_version
         row.updated_at = now
 
         self.repo.replace_relations(
@@ -466,27 +480,68 @@ class AssistantService:
             mcps=mcps,
             knowledge_bases=knowledge_bases,
         )
+
+        if not need_approval:
+            self.repo.add_version_history(
+                row,
+                version=display_version(row.version),
+                action="update",
+                operator_id=user.user_id,
+                operator_name=user.name,
+                remark="已下架状态下编辑（直接生效）"
+                if row.share_status == "offline"
+                else "未共享状态下编辑",
+                created_at=now,
+            )
+            affected = self.repo.count_valid_grants(row.id)
+            self.db.commit()
+            return self.get_detail(row.id, user), affected
+
+        # 已共享过：提交变更审批，审批通过时才生效并推进版本号
+        pending_type = "change" if row.has_shared else "share"
+        approval = Approval(
+            approval_no=approval_no(1),
+            batch_no=None,
+            company_id=user.company_id,
+            approval_type=pending_type,
+            assistant_id=row.id,
+            assistant_version=row.version,
+            status="pending",
+            submitter_id=user.user_id,
+            submitter_name=user.name,
+            submitter_dept=user.dept_name,
+            submit_time=now,
+            change_note=payload.change_note,
+            created_at=now,
+            updated_at=now,
+        )
+        self.db.add(approval)
+        self.db.flush()
+
+        row.share_status = "pending"
+        row.pending_type = pending_type
+        row.reject_type = None
+        row.last_reject_reason = None
         self.repo.add_version_history(
             row,
-            version=next_version,
-            action="update",
+            version=display_version(row.version),
+            action="change_submit",
             operator_id=user.user_id,
             operator_name=user.name,
-            remark="编辑更新",
+            remark=payload.change_note or "提交变更审批",
             created_at=now,
         )
-        affected = self.repo.count_valid_grants(row.id)
+        audit.record(
+            self.db,
+            user=user,
+            action="assistant_update",
+            object_type="assistant",
+            object_id=row.id,
+            before={"shareStatus": "approved" if row.has_shared else "rejected"},
+            after={"shareStatus": "pending", "pendingType": pending_type, "approvalId": approval.id},
+        )
         self.db.commit()
-        return self.get_detail(row.id, user), affected
-
-    @staticmethod
-    def _next_minor_version(version: str) -> str:
-        """v1.2 -> v1.3，保留 major；解析失败时回退到 v1.0。"""
-        try:
-            major_text, minor_text = version.lstrip("v").split(".")
-            return f"v{major_text}.{int(minor_text) + 1}"
-        except (ValueError, AttributeError):
-            return "v1.1"
+        return self.get_detail(row.id, user), 0
 
     # ============================ 删除 ============================
 
@@ -502,11 +557,28 @@ class AssistantService:
         )
 
     def delete_assistant(self, assistant_id: int, user: CurrentUser) -> DeleteResult:
+        """删除规则（需求 4.1.5）：
+
+        - 未共享 / 已下架：允许删除
+        - 已拒绝 · 共享审批（从未共享过）：允许删除，配置、版本记录与审批记录一并清除
+        - 已拒绝 · 调整 / 授权 / 下架审批（曾共享过）：不允许删除，须走下架处理
+        - 已共享 / 审批中：不提供删除入口（接口同样拒绝）
+        """
         row = self.repo.find_by_id(assistant_id, user.company_id)
         if row is None:
             raise NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除")
         if row.owner_user_id != user.user_id:
             raise NoPermissionError("非创建人不可删除该助理")
+        if row.share_status == "rejected" and (row.reject_type != "share" or row.has_shared):
+            raise ConflictError(
+                ErrorCode.ASSISTANT_ALREADY_SHARED,
+                "该助理已共享过，无法删除，请进行下架处理",
+            )
+        if row.share_status in ("approved", "pending", "offline_pending"):
+            raise ConflictError(
+                ErrorCode.ASSISTANT_ALREADY_SHARED,
+                "该助理已共享或审批中，无法删除，请进行下架处理",
+            )
 
         now = now_second()
         # 单事务：逻辑删除 → 授权失效 → 待审批终止 → 版本记录 + 审计
@@ -518,7 +590,7 @@ class AssistantService:
 
         self.repo.add_version_history(
             row,
-            version=row.version,
+            version=display_version(row.version),
             action="delete",
             operator_id=user.user_id,
             operator_name=user.name,

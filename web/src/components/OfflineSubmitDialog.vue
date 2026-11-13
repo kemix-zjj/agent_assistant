@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { submitOfflineApi } from '@/api'
+import { displayVersion } from '@/api/mock'
 import type { AssistantCard } from '@/types/assistant'
 import { ApiError } from '@/types/api'
 
@@ -66,7 +67,7 @@ async function submit(): Promise<void> {
         />
       </div>
       <div class="form-hint">
-        当前版本：{{ card?.version ?? 'v1.0' }} · 授权对象 {{ card?.authorizedCount ?? 0 }} 个
+        当前版本：{{ displayVersion(card?.version ?? '') }} · 授权对象 {{ card?.authorizedCount ?? 0 }} 个
       </div>
     </div>
     <template #footer>
