@@ -15,7 +15,8 @@ build/
 # 本地上传的头像等静态资源（运行时生成）
 server/static/
 
-# 本地备份与临时产物
+# 测试与本地临时产物
+.pytest_cache/
 .backup/
 .screenshots/
 .trae-html-share-packages/
