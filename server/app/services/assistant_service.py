@@ -36,6 +36,7 @@ from app.schemas.assistant import (
 )
 from app.services import resource_catalog
 from app.services import master_data
+from app.services import common_service
 from app.services import audit_service as audit
 from app.services.numbering import approval_no
 from app.services.versioning import display_version
@@ -157,7 +158,7 @@ class AssistantService:
                 name=row.name,
                 avatar_type=row.avatar_type,
                 avatar_char=row.avatar_char,
-                avatar_url=row.avatar_url,
+                avatar_url=common_service.avatar_url_for(row.avatar_url),
                 avatar_color=row.avatar_color,
                 category_id=row.category_id,
                 category_name=row.category.name if row.category else "",
@@ -190,7 +191,7 @@ class AssistantService:
             name=row.name,
             avatar_type=row.avatar_type,
             avatar_char=row.avatar_char,
-            avatar_url=row.avatar_url,
+            avatar_url=common_service.avatar_url_for(row.avatar_url),
             avatar_color=row.avatar_color,
             category_id=row.category_id,
             category_name=row.category.name if row.category else "",
@@ -286,7 +287,7 @@ class AssistantService:
             name=row.name,
             avatar_type=row.avatar_type,
             avatar_char=row.avatar_char,
-            avatar_url=row.avatar_url,
+            avatar_url=common_service.avatar_url_for(row.avatar_url),
             avatar_color=row.avatar_color,
             description=row.description,
             tags=[tag.name for tag in row.tags],
@@ -380,7 +381,7 @@ class AssistantService:
             name=payload.name,
             avatar_type=payload.avatar_type,
             avatar_char=payload.avatar_char,
-            avatar_url=payload.avatar_url,
+            avatar_url=common_service.normalize_avatar_value(payload.avatar_url),
             avatar_color=payload.avatar_color,
             description=payload.description,
             category_id=payload.category_id,
@@ -457,12 +458,13 @@ class AssistantService:
         skills, mcps, knowledge_bases = self._resolve_resources(payload)
 
         now = now_second()
+        old_avatar_url = row.avatar_url
         # 已共享过（含已拒绝、下架审批中）的编辑需重新审批；未共享与已下架直接生效
         need_approval = row.share_status in ("approved", "rejected")
         row.name = payload.name
         row.avatar_type = payload.avatar_type
         row.avatar_char = payload.avatar_char
-        row.avatar_url = payload.avatar_url
+        row.avatar_url = common_service.normalize_avatar_value(payload.avatar_url)
         row.avatar_color = payload.avatar_color
         row.description = payload.description
         row.category_id = payload.category_id
@@ -492,6 +494,7 @@ class AssistantService:
             )
             affected = self.repo.count_valid_grants(row.id)
             self.db.commit()
+            _cleanup_replaced_avatar(old_avatar_url, row.avatar_url)
             return self.get_detail(row.id, user), affected
 
         # 已共享过：提交变更审批，审批通过时才生效并推进版本号
@@ -538,6 +541,7 @@ class AssistantService:
             after={"shareStatus": "pending", "pendingType": pending_type, "approvalId": approval.id},
         )
         self.db.commit()
+        _cleanup_replaced_avatar(old_avatar_url, row.avatar_url)
         return self.get_detail(row.id, user), 0
 
     # ============================ 删除 ============================
@@ -595,6 +599,7 @@ class AssistantService:
             created_at=now,
         )
         self.db.commit()
+        common_service.delete_avatar(row.avatar_url)
         logger.info(
             "助理已删除 assistant_id=%s invalidated=%s terminated=%s",
             row.id,
@@ -657,3 +662,9 @@ def ensure_assistant_exists(row: Assistant | None) -> Assistant:
     if row is None:
         raise BizError(ErrorCode.ASSISTANT_NOT_FOUND, "助理不存在或已删除", None, 404)
     return row
+
+
+def _cleanup_replaced_avatar(old_url: str | None, new_url: str | None) -> None:
+    """头像被替换后删除旧对象，避免 OBS 残留；删除失败不影响主流程。"""
+    if old_url and old_url != new_url:
+        common_service.delete_avatar(old_url)

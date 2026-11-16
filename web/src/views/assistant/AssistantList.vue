@@ -570,7 +570,7 @@ const emptyText = computed(() => {
   <div class="page-card at-page">
     <div class="page-head">
       <div class="page-title title-accent">
-        助理<span class="beta-badge">BETA</span>
+        助理团
       </div>
       <div class="page-head-actions">
         <el-button v-if="userStore.isAdmin" @click="router.push('/approvals')">
@@ -824,18 +824,6 @@ const emptyText = computed(() => {
   height: 3px;
   background: var(--at-text);
   border-radius: 2px;
-}
-
-.beta-badge {
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: 3px;
-  background: #eef4ff;
-  color: var(--at-brand);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 16px;
-  vertical-align: middle;
 }
 
 .scope-bar {

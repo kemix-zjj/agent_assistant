@@ -24,6 +24,7 @@ from app.schemas.common import (
     SummonResult,
 )
 from app.services import audit_service as audit
+from app.services import common_service
 from app.services import master_data
 
 logger = logging.getLogger("app.summon")
@@ -82,7 +83,7 @@ class SummonService:
                 type=row.avatar_type,
                 char=row.avatar_char or row.name[:1],
                 color=row.avatar_color,
-                url=row.avatar_url,
+                url=common_service.avatar_url_for(row.avatar_url),
             ),
             quick_questions=[q.content for q in row.quick_questions],
             created_at=now.strftime("%Y-%m-%d %H:%M:%S"),

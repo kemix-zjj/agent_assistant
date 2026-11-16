@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     # 头像对外访问域名；留空则返回后端本地 /static 相对路径
     avatar_base_url: str = ""
 
+    # ---- 对象存储（天翼云 OBS，S3 兼容） ----
+    # 未配置 obs_ak / obs_sk 时头像回退本地 static 目录，方便本地开发与测试
+    obs_endpoint: str = "https://nistone-ai-assistant.fjoss.xstore.ctyun.cn"
+    obs_bucket: str = "nistone-ai-assistant"
+    obs_region: str = "us-east-1"
+    obs_ak: str = ""
+    obs_sk: str = ""
+    # 该域名使用私有 CA，需指定根证书；留空则使用 certifi 默认证书库
+    obs_ca_bundle: str = str(SERVER_ROOT / "certs" / "endpoint-root-ca.pem")
+    # 对外访问域名（CDN/自定义域名），留空则用 obs_endpoint
+    obs_public_base: str = ""
+    # 头像对象 key 前缀
+    obs_avatar_prefix: str = "test/assistant/avatar"
+
     # ---- 大模型（OpenAI 兼容 /chat/completions） ----
     # 未配置 llm_api_key 时自动回退到确定性模板，接线不影响本地开发
     llm_enabled: bool = True
@@ -65,6 +79,16 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @property
+    def obs_enabled(self) -> bool:
+        """AK/SK 齐备才走对象存储，否则回退本地磁盘。"""
+        return bool(self.obs_ak and self.obs_sk)
+
+    @property
+    def obs_base_url(self) -> str:
+        """头像对象的对外访问前缀。"""
+        return (self.obs_public_base or self.obs_endpoint).rstrip("/")
 
 
 @lru_cache

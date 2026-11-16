@@ -19,7 +19,7 @@ def avatar_presign(
     return ok(result.model_dump(by_alias=True))
 
 
-@router.post("/avatar-upload", summary="头像上传（本地存储）", status_code=201)
+@router.post("/avatar-upload", summary="头像上传（OBS）", status_code=201)
 def avatar_upload(
     file: UploadFile = File(...),
     user: CurrentUser = Depends(get_current_user),

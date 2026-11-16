@@ -39,6 +39,7 @@ from app.schemas.approval import (
 )
 from app.schemas.scope import ScopePayload
 from app.services import audit_service as audit
+from app.services import common_service
 from app.services.scope_service import ScopeService
 from app.services.versioning import display_version, next_version
 
@@ -114,7 +115,7 @@ class ApprovalService:
                 type=assistant.avatar_type,
                 char=assistant.avatar_char or assistant.name[:1],
                 color=assistant.avatar_color,
-                url=assistant.avatar_url,
+                url=common_service.avatar_url_for(assistant.avatar_url),
             ),
             assistant_version=row.assistant_version,
             category_name=assistant.category.name if assistant.category else "",
@@ -188,7 +189,7 @@ class ApprovalService:
                     type=assistant.avatar_type,
                     char=assistant.avatar_char or assistant.name[:1],
                     color=assistant.avatar_color,
-                    url=assistant.avatar_url,
+                    url=common_service.avatar_url_for(assistant.avatar_url),
                 ),
                 description=assistant.description,
                 tags=[tag.name for tag in assistant.tags],

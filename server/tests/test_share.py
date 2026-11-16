@@ -655,7 +655,9 @@ def test_offline_can_resubmit_share() -> None:
         _take_offline(aid)
 
         cards = client.get(
-            "/api/v1/assistants", headers=OWNER, params={"scope": "mine", "pageSize": 50}
+            "/api/v1/assistants",
+            headers=OWNER,
+            params={"scope": "mine", "keyword": "共享提交助理下架己", "pageSize": 50},
         ).json()["data"]["list"]
         card = next(c for c in cards if c["assistantId"] == aid)
         assert card["shareStatus"] == "offline"
@@ -665,7 +667,12 @@ def test_offline_can_resubmit_share() -> None:
         filtered = client.get(
             "/api/v1/assistants",
             headers=OWNER,
-            params={"scope": "mine", "statusFilter": "offline", "pageSize": 50},
+            params={
+                "scope": "mine",
+                "statusFilter": "offline",
+                "keyword": "共享提交助理下架己",
+                "pageSize": 50,
+            },
         ).json()["data"]["list"]
         assert aid in [c["assistantId"] for c in filtered]
 

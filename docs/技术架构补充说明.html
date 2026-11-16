@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数智助理 · 助理团 技术架构补充说明 · 图片存储（OBS）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2329; --ink-2:#4e5969; --ink-3:#86909c;
+    --line:#e5e6eb; --brand:#3370ff; --brand-soft:#eef3ff;
+    --green:#00b42a; --green-soft:#e8ffea; --orange:#ff7d00; --orange-soft:#fff7e8;
+    --purple:#722ed1; --purple-soft:#f5e8ff; --cyan:#0fc6c2; --cyan-soft:#e8fffb;
+    --red:#f53f3f; --red-soft:#ffece8; --code:#f2f3f5;
+    --shadow:0 2px 8px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.65; font-size:14px;
+  }
+  .wrap{display:flex; align-items:flex-start; max-width:1360px; margin:0 auto; gap:24px; padding:0 24px;}
+  .toc{position:sticky; top:0; flex:0 0 220px; align-self:flex-start; height:100vh; overflow:auto; padding:28px 0;}
+  .toc h2{font-size:12px; letter-spacing:.12em; color:var(--ink-3); text-transform:uppercase; margin:0 0 12px 12px;}
+  .toc a{display:block; padding:7px 12px; color:var(--ink-2); text-decoration:none; border-radius:8px; font-size:13px; border-left:2px solid transparent;}
+  .toc a:hover{background:var(--brand-soft); color:var(--brand);}
+  .toc a .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink-3);margin-right:8px;vertical-align:middle;}
+  .toc a:hover .dot{background:var(--brand);}
+  main{flex:1 1 auto; min-width:0; padding:28px 0 80px;}
+  header.hero{
+    background:linear-gradient(135deg,#3370ff 0%,#5b8cff 55%,#7aa2ff 100%);
+    color:#fff; border-radius:16px; padding:32px 34px; box-shadow:var(--shadow); margin-bottom:28px;
+  }
+  header.hero h1{margin:0 0 8px; font-size:26px; letter-spacing:.5px;}
+  header.hero p{margin:0; color:rgba(255,255,255,.9); font-size:14px; max-width:880px;}
+  .badges{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
+  .badge{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); color:#fff; padding:4px 12px; border-radius:999px; font-size:12px;}
+  section{background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:24px 26px; margin-bottom:22px;}
+  section > h2{margin:0 0 16px; font-size:18px; display:flex; align-items:center; gap:10px;}
+  section > h2 .num{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; background:var(--brand); color:#fff; border-radius:8px; font-size:13px; font-weight:600;}
+  .lead{color:var(--ink-2); margin:0 0 16px;}
+  pre.code{
+    margin:12px 0 0; background:var(--code); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; overflow:auto; font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.5px; line-height:1.75; color:var(--ink); white-space:pre;
+  }
+  pre.code .c{color:var(--ink-3);}
+  pre.code .k{color:var(--brand);}
+  pre.code .s{color:#0b9d99;}
+  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13px;}
+  thead th{text-align:left; background:#f7f8fa; color:var(--ink-2); font-weight:600; padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfc;}
+  code{background:var(--code); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-family:Consolas,"SFMono-Regular",monospace; font-size:12.5px; color:var(--ink);}
+  .path{font-family:Consolas,"SFMono-Regular",monospace; color:var(--brand); font-size:12.5px; white-space:nowrap;}
+  .subsection{margin-top:22px;}
+  .subsection h3{font-size:15px; margin:0 0 10px; color:var(--ink); display:flex; align-items:center; gap:8px;}
+  .subsection h3::before{content:""; width:4px; height:15px; background:var(--brand); border-radius:2px;}
+  .arch-flow{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0 6px; font-size:13px;}
+  .arch-flow .node{background:var(--brand-soft); color:var(--brand); border:1px solid #c8d8ff; padding:6px 14px; border-radius:8px; font-weight:600;}
+  .arch-flow .node.store{background:var(--green-soft); color:#008a20; border-color:#b7f0c0;}
+  .arch-flow .node.db{background:var(--purple-soft); color:var(--purple); border-color:#e3ccff;}
+  .arch-flow .arrow{color:var(--ink-3); font-weight:700;}
+  .callout{border-left:3px solid var(--orange); background:var(--orange-soft); color:#8a5a00; padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; margin:14px 0 0;}
+  .callout.ok{border-left-color:var(--green); background:var(--green-soft); color:#00661a;}
+  .callout.info{border-left-color:var(--brand); background:var(--brand-soft); color:#1b4dd1;}
+  .tag{display:inline-block; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:4px;}
+  .t-py{background:var(--green-soft); color:var(--green);}
+  .t-cfg{background:var(--orange-soft); color:var(--orange);}
+  .t-api{background:var(--brand-soft); color:var(--brand);}
+  footer{text-align:center; color:var(--ink-3); font-size:12px; padding:8px 0 0;}
+  @media (max-width:900px){
+    .wrap{flex-direction:column; padding:0 14px;}
+    .toc{position:static; height:auto; flex:none; width:100%; display:flex; flex-wrap:wrap; gap:4px; padding:14px 0;}
+    .toc h2{width:100%; margin-left:4px;}
+    .toc a{border-left:none; padding:6px 10px; background:#fff; border:1px solid var(--line);}
+    main{padding-top:8px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc">
+    <h2>目录导航</h2>
+    <a href="#scope"><span class="dot"></span>一、文档定位</a>
+    <a href="#arch"><span class="dot"></span>二、总体架构</a>
+    <a href="#model"><span class="dot"></span>三、存储模型</a>
+    <a href="#upload"><span class="dot"></span>四、上传链路</a>
+    <a href="#access"><span class="dot"></span>五、访问与桶策略</a>
+    <a href="#echo"><span class="dot"></span>六、回显与兼容</a>
+    <a href="#lifecycle"><span class="dot"></span>七、生命周期与清理</a>
+    <a href="#config"><span class="dot"></span>八、配置与脚本</a>
+    <a href="#limits"><span class="dot"></span>九、限制与演进</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>技术架构补充说明 · 图片存储（OBS）</h1>
+      <p>记录助理头像从天翼云 OBS 上传、落库、回显到清理的完整链路。本文档是《总体架构设计》的补充，聚焦对象存储相关实现与运维约定；后续附件、知识库文件等场景可复用同一套客户端与配置。</p>
+      <div class="badges">
+        <span class="badge">后端中转上传</span>
+        <span class="badge">S3 兼容 · 天翼云 OBS</span>
+        <span class="badge">数据库存对象 key</span>
+        <span class="badge">接口返回完整 URL</span>
+        <span class="badge">匿名只读 + 私有 CA</span>
+      </div>
+    </header>
+
+    <!-- 一、文档定位 -->
+    <section id="scope">
+      <h2><span class="num">1</span>文档定位与结论速览</h2>
+      <p class="lead">当前项目中唯一的图片场景是助理头像（预置头像 + 本地图片上传）。本方案把这部分从“后端本地磁盘”切换为“对象存储”，数据库与接口的行为约定如下。</p>
+      <table>
+        <thead><tr><th>维度</th><th>约定</th></tr></thead>
+        <tbody>
+          <tr><td>上传方式</td><td>后端中转：前端 <code>multipart/form-data</code> 提交到上传接口，服务端校验后写入 OBS</td></tr>
+          <tr><td>存储服务</td><td>天翼云 OBS，S3 兼容协议，桶 <code>nistone-ai-assistant</code></td></tr>
+          <tr><td>对象 key 前缀</td><td><code>test/assistant/avatar/YYYY/MM/DD/{digest}.{ext}</code></td></tr>
+          <tr><td>数据库字段</td><td><code>assistant.avatar_url</code> 只存对象 key（不含域名）</td></tr>
+          <tr><td>接口返回</td><td>列表 / 详情 / 审批卡片 / 召唤记录统一返回完整可访问 URL</td></tr>
+          <tr><td>访问控制</td><td>桶策略对 <code>test/assistant/*</code> 开放匿名只读，仅允许 <code>s3:GetObject</code></td></tr>
+          <tr><td>本地回退</td><td>未配置 <code>OBS_AK/OBS_SK</code> 时写 <code>server/static</code>，接口返回 <code>/static/...</code>，便于开发测试</td></tr>
+        </tbody>
+      </table>
+      <div class="callout info">预置头像（<code>avatar-01~06.png</code>）属于前端静态资源，随构建产物发布，<strong>不入 OBS</strong>；数据库只存 <code>avatar_type='char'</code> + <code>avatar_char='P1'~'P6'</code>。</div>
+    </section>
+
+    <!-- 二、总体架构 -->
+    <section id="arch">
+      <h2><span class="num">2</span>总体架构</h2>
+      <p class="lead">图片只在“上传”时经过后端，读取时浏览器直接访问 OBS 域名，不占后端带宽。</p>
+
+      <div class="subsection">
+        <h3>写入链路</h3>
+        <div class="arch-flow">
+          <span class="node">浏览器选图</span><span class="arrow">→</span>
+          <span class="node">FastAPI 上传接口</span><span class="arrow">→</span>
+          <span class="node">校验 + 生成 key</span><span class="arrow">→</span>
+          <span class="node store">OBS 对象存储</span>
+        </div>
+        <div class="arch-flow">
+          <span class="node">浏览器提交表单</span><span class="arrow">→</span>
+          <span class="node">助理创建 / 编辑接口</span><span class="arrow">→</span>
+          <span class="node">剥离域名</span><span class="arrow">→</span>
+          <span class="node db">MySQL assistant.avatar_url（key）</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>读取链路</h3>
+        <div class="arch-flow">
+          <span class="node db">MySQL（key）</span><span class="arrow">→</span>
+          <span class="node">接口拼域名</span><span class="arrow">→</span>
+          <span class="node">浏览器拿到完整 URL</span><span class="arrow">→</span>
+          <span class="node store">OBS（匿名 GET）</span>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>组件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">common_service.py</span></td><td>校验类型与大小、生成对象 key、调用 OBS、拼接对外 URL、清理旧对象</td></tr>
+          <tr><td><span class="path">obs_service.py</span></td><td>OBS 客户端封装：懒加载、私有 CA、上传、删除、公网 URL 生成</td></tr>
+          <tr><td><span class="path">assistant_service.py</span></td><td>创建 / 编辑时把提交的完整 URL 归一化为 key；换头像与删助理时触发清理</td></tr>
+          <tr><td><span class="path">approval_service.py / summon_service.py</span></td><td>输出头像时统一拼接完整 URL</td></tr>
+          <tr><td><span class="path">config.py</span></td><td>OBS 连接参数、访问域名、对象前缀、本地回退开关</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 三、存储模型 -->
+    <section id="model">
+      <h2><span class="num">3</span>存储模型：库里存 key，接口给 URL</h2>
+      <p class="lead">这样做的好处是换域名、接 CDN 时数据库零迁移；前端拿到的始终是可直接渲染的完整地址。</p>
+
+      <div class="subsection">
+        <h3>数据库</h3>
+<pre class="code"><span class="c">-- assistant 表</span>
+avatar_type  <span class="s">'image'</span>
+avatar_url   <span class="s">'test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png'</span></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>接口响应</h3>
+<pre class="code">{
+  <span class="k">"avatarType"</span>: <span class="s">"image"</span>,
+  <span class="k">"avatarUrl"</span>: <span class="s">"https://nistone-ai-assistant.fjoss.xstore.ctyun.cn/test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png"</span>
+}</pre>
+      </div>
+
+      <div class="subsection">
+        <h3>上传接口响应</h3>
+<pre class="code">{
+  <span class="k">"objectKey"</span>: <span class="s">"test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png"</span>,
+  <span class="k">"avatarUrl"</span>: <span class="s">"https://nistone-ai-assistant.fjoss.xstore.ctyun.cn/test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png"</span>
+}</pre>
+        <div class="callout">前端必须使用返回的 <code>avatarUrl</code> 原样回填表单，不要自行拼接或改写；提交后由服务端负责转成 key。</div>
+      </div>
+    </section>
+
+    <!-- 四、上传链路 -->
+    <section id="upload">
+      <h2><span class="num">4</span>上传链路（后端中转）</h2>
+      <p class="lead">接口：<code>POST /api/v1/common/avatar-upload</code>，<code>multipart/form-data</code>，字段名 <code>file</code>。</p>
+      <table>
+        <thead><tr><th>步骤</th><th>动作</th><th>失败处理</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>前端校验：<code>image/*</code>、单文件 ≤ 2MB</td><td>本地提示，不发请求</td></tr>
+          <tr><td>2</td><td>后端校验 MIME 与字节长度</td><td><code>AVATAR_TYPE_INVALID</code> / <code>AVATAR_TOO_LARGE</code></td></tr>
+          <tr><td>3</td><td>扩展名白名单：<code>png / jpg / jpeg / gif / webp</code>，非法时按 MIME 兜底</td><td>兜底为 <code>png</code></td></tr>
+          <tr><td>4</td><td>生成 key：<code>{前缀}/{YYYY/MM/DD}/{sha256 前 16 位}.{ext}</code></td><td>—</td></tr>
+          <tr><td>5</td><td>写 OBS（未配置 AK/SK 时写本地 static）</td><td>抛业务异常，前端提示重试</td></tr>
+          <tr><td>6</td><td>返回 <code>objectKey</code> + 完整 <code>avatarUrl</code></td><td>—</td></tr>
+        </tbody>
+      </table>
+<pre class="code"><span class="c"># 对象 key 规则（common_service._object_key）</span>
+{obs_avatar_prefix}/{YYYY}/{MM}/{DD}/{digest16}.{ext}
+
+<span class="c"># 当前取值</span>
+test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png</pre>
+      <div class="callout info">上传接口与“保存助理”是两个独立动作：上传只写 OBS，不写数据库；点击保存 / 提交审批后，<code>avatarUrl</code> 才随助理数据落库。</div>
+    </section>
+
+    <!-- 五、访问与桶策略 -->
+    <section id="access">
+      <h2><span class="num">5</span>访问控制与桶策略</h2>
+      <p class="lead">桶默认私有。为让 <code>&lt;img&gt;</code> 直接加载，对业务前缀开放匿名只读，且只授予读取权限。</p>
+<pre class="code">{
+  <span class="k">"Version"</span>: <span class="s">"2012-10-17"</span>,
+  <span class="k">"Statement"</span>: [{
+    <span class="k">"Sid"</span>: <span class="s">"PublicReadAssistantAssets"</span>,
+    <span class="k">"Effect"</span>: <span class="s">"Allow"</span>,
+    <span class="k">"Principal"</span>: <span class="s">"*"</span>,
+    <span class="k">"Action"</span>: [<span class="s">"s3:GetObject"</span>],
+    <span class="k">"Resource"</span>: [<span class="s">"arn:aws:s3:::nistone-ai-assistant/test/assistant/*"</span>]
+  }]
+}</pre>
+      <table>
+        <thead><tr><th>项目</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>匿名权限</td><td>仅 <code>s3:GetObject</code>；不含列举、上传、删除</td></tr>
+          <tr><td>私有 CA</td><td>该域名使用私有根证书，需随服务部署 <code>server/certs/endpoint-root-ca.pem</code>，否则报 <code>CERTIFICATE_VERIFY_FAILED</code></td></tr>
+          <tr><td>校验和兼容</td><td>网关不支持 aws-chunked，客户端需设 <code>request_checksum_calculation="when_required"</code>，否则报 <code>XAmzContentSHA256Mismatch</code></td></tr>
+          <tr><td>换域名 / CDN</td><td>只改 <code>OBS_PUBLIC_BASE</code>，数据库 key 不变；桶策略的 Resource 按新前缀同步调整</td></tr>
+          <tr><td>预签名 URL</td><td>会过期，禁止写入数据库；本期预签名接口仅作为直传演进预留</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 六、回显与兼容 -->
+    <section id="echo">
+      <h2><span class="num">6</span>回显与历史兼容</h2>
+      <p class="lead">读取时统一经过一个转换函数，保证三种历史取值都能正常显示。</p>
+
+      <div class="subsection">
+        <h3>转换规则</h3>
+        <table>
+          <thead><tr><th><code>avatar_url</code> 存储值</th><th>返回给前端</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>test/assistant/avatar/...</code></td><td><code>{OBS_PUBLIC_BASE}/test/assistant/avatar/...</code></td><td>当前标准形态</td></tr>
+            <tr><td><code>https://...</code></td><td>原样返回</td><td>迁移前的历史数据或外部图片</td></tr>
+            <tr><td><code>/static/...</code></td><td>原样返回</td><td>本地回退模式产生的数据</td></tr>
+            <tr><td><code>null / 空</code></td><td><code>null</code></td><td>使用前端默认头像</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>入口函数</h3>
+        <table>
+          <thead><tr><th>函数</th><th>触发时机</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">normalize_avatar_value()</span></td><td>创建 / 编辑提交时：完整 URL → 对象 key</td></tr>
+            <tr><td><span class="path">avatar_url_for()</span></td><td>列表、详情、审批卡片、召唤记录：key → 完整 URL</td></tr>
+            <tr><td><span class="path">delete_avatar()</span></td><td>换头像 / 删助理：key、OBS URL、<code>/static</code> 路径均可识别</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">历史数据已完成迁移：原 <code>/static/avatar/...</code> 与早期完整 URL 均已转成 key，当前有效记录中不含本地路径与完整 URL。</div>
+    </section>
+
+    <!-- 七、生命周期 -->
+    <section id="lifecycle">
+      <h2><span class="num">7</span>生命周期与清理</h2>
+      <table>
+        <thead><tr><th>场景</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>首次上传并保存</td><td>对象写入，key 落库</td></tr>
+          <tr><td>编辑时更换头像</td><td>新对象写入；提交成功后删除旧 key 对应对象</td></tr>
+          <tr><td>删除助理</td><td>软删除助理记录，同时删除其头像对象</td></tr>
+          <tr><td>删除失败</td><td>只记录 warning 日志，不回滚业务主流程</td></tr>
+          <tr><td>预置头像 / 外部 URL</td><td>不产生 OBS 对象，清理时直接忽略</td></tr>
+          <tr><td>上传多次只保存一次</td><td>中间上传的图片会残留为无引用对象（已知限制）</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">当前未实现“临时对象自动回收”。如需彻底避免残留，可在上传接口增加“待替换的旧 key”，或增加按日期扫描的无引用对象清理任务。</div>
+    </section>
+
+    <!-- 八、配置与脚本 -->
+    <section id="config">
+      <h2><span class="num">8</span>配置项与运维脚本</h2>
+
+      <div class="subsection">
+        <h3>后端配置（server/.env）</h3>
+        <table>
+          <thead><tr><th>变量</th><th>示例 / 默认</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>OBS_ENDPOINT</code></td><td><code>https://nistone-ai-assistant.fjoss.xstore.ctyun.cn</code></td><td>桶访问域名（可含桶名）</td></tr>
+            <tr><td><code>OBS_BUCKET</code></td><td><code>nistone-ai-assistant</code></td><td>桶名</td></tr>
+            <tr><td><code>OBS_REGION</code></td><td><code>us-east-1</code></td><td>网关不校验，占位即可</td></tr>
+            <tr><td><code>OBS_AK / OBS_SK</code></td><td>—</td><td>访问密钥；留空则回退本地 static</td></tr>
+            <tr><td><code>OBS_CA_BUNDLE</code></td><td><code>certs/endpoint-root-ca.pem</code></td><td>私有根证书路径</td></tr>
+            <tr><td><code>OBS_PUBLIC_BASE</code></td><td>空（默认同 OBS_ENDPOINT）</td><td>对外访问域名 / CDN</td></tr>
+            <tr><td><code>OBS_AVATAR_PREFIX</code></td><td><code>test/assistant/avatar</code></td><td>头像对象 key 前缀</td></tr>
+            <tr><td><code>AVATAR_BASE_URL</code></td><td>空</td><td>本地回退时给 <code>/static</code> 补全域名</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>运维脚本（server/scripts/）</h3>
+        <table>
+          <thead><tr><th>脚本</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">obs_probe.py</span></td><td>探测连通性，列出桶根目录与前缀下的对象</td></tr>
+            <tr><td><span class="path">obs_upload.py</span></td><td>把本地目录按相对路径批量镜像上传；支持 <code>--dry-run</code></td></tr>
+            <tr><td><span class="path">obs_set_policy.py</span></td><td>设置匿名只读桶策略，支持多个 <code>--prefix</code></td></tr>
+            <tr><td><span class="path">migrate_avatars_to_obs.py</span></td><td>把库里 <code>/static/...</code> 历史头像迁到 OBS 并回写 key，可重复执行</td></tr>
+          </tbody>
+        </table>
+        <div class="callout info">脚本均从环境变量或 <code>server/.env</code> 读取密钥，不硬编码；生产环境需同时拷贝 <code>server/certs/endpoint-root-ca.pem</code>。</div>
+      </div>
+    </section>
+
+    <!-- 九、限制与演进 -->
+    <section id="limits">
+      <h2><span class="num">9</span>已知限制与后续演进</h2>
+      <table>
+        <thead><tr><th>方向</th><th>现状</th><th>演进</th></tr></thead>
+        <tbody>
+          <tr><td>上传通道</td><td>后端中转，图片经过一次服务端</td><td>预签名直传：前端 PUT 到 OBS，需为桶配置 PUT CORS；接口契约已预留</td></tr>
+          <tr><td>访问方式</td><td>匿名只读 + 桶域名</td><td>绑定 CDN / 自定义域名，仅改 <code>OBS_PUBLIC_BASE</code></td></tr>
+          <tr><td>残留对象</td><td>多次上传只保存一次会产生无引用对象</td><td>上传时携带待替换旧 key，或增加定期回收任务</td></tr>
+          <tr><td>其他图片场景</td><td>当前仅头像</td><td>附件 / 知识库文件复用同一客户端，按业务划分前缀（如 <code>uploads/</code>）</td></tr>
+          <tr><td>多环境</td><td>共用 test 前缀</td><td>上线后切正式前缀，并用 <code>obs_set_policy.py</code> 补充只读策略</td></tr>
+        </tbody>
+      </table>
+      <div class="callout ok">已完成的验证：上传返回 201、对象可匿名访问（200 image/png）、库中仅存 key、详情返回完整 URL、换头像与删助理均能删除旧对象、后端测试 128 项全部通过。</div>
+    </section>
+
+    <footer>数智助理 · 助理团 —— 技术架构补充说明（图片存储 / OBS）</footer>
+  </main>
+</div>
+</body>
+</html>

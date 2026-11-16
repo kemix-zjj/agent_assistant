@@ -17,6 +17,8 @@ def _h(user_id: str, name: str) -> dict[str, str]:
     return {"X-User-Id": user_id, "X-User-Name": quote(name)}
 
 
+from uuid import uuid4
+
 OWNER = _h("1001", "王晓明")
 ADMIN = _h("9001", "王建国")
 GRANTEE = _h("2001", "李静")
@@ -687,7 +689,7 @@ def test_avatar_presign_success() -> None:
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
-    assert data["objectKey"].startswith("avatar/")
+    assert data["objectKey"].startswith("test/assistant/avatar/")
     assert data["objectKey"].endswith(".png")
     assert data["expiresIn"] == 600
     assert data["uploadUrl"]
@@ -718,7 +720,7 @@ def test_avatar_presign_rejects_oversize() -> None:
     assert resp.json()["code"] == "AVATAR_TOO_LARGE"
 
 
-# ============================ 头像上传（本地存储） ============================
+# ============================ 头像上传（OBS / 本地回退） ============================
 
 PNG_BYTES = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
@@ -730,6 +732,9 @@ PNG_BYTES = bytes.fromhex(
 def test_avatar_upload_returns_short_url(monkeypatch, tmp_path) -> None:
     from app.core.config import settings
 
+    # 强制走本地回退，避免测试依赖真实 OBS
+    monkeypatch.setattr(settings, "obs_ak", "")
+    monkeypatch.setattr(settings, "obs_sk", "")
     monkeypatch.setattr(type(settings), "static_dir", property(lambda self: tmp_path))
 
     resp = client.post(
@@ -739,12 +744,93 @@ def test_avatar_upload_returns_short_url(monkeypatch, tmp_path) -> None:
     )
     assert resp.status_code == 201, resp.text
     data = resp.json()["data"]
-    assert data["objectKey"].startswith("avatar/")
+    assert data["objectKey"].startswith("test/assistant/avatar/")
     assert data["objectKey"].endswith(".png")
     # 落盘路径可直接拼在 /static 后面，且远小于 avatarUrl 的 512 字符上限
     assert data["avatarUrl"] == f"/static/{data['objectKey']}"
     assert len(data["avatarUrl"]) < 512
     assert (tmp_path / data["objectKey"]).is_file()
+
+
+def test_avatar_upload_uses_obs(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import obs_service
+
+    calls: dict[str, object] = {}
+
+    def fake_upload(object_key: str, content: bytes, content_type: str) -> None:
+        calls.update(object_key=object_key, content=content, content_type=content_type)
+
+    monkeypatch.setattr(settings, "obs_ak", "test-ak")
+    monkeypatch.setattr(settings, "obs_sk", "test-sk")
+    monkeypatch.setattr(obs_service, "upload_bytes", fake_upload)
+
+    resp = client.post(
+        "/api/v1/common/avatar-upload",
+        headers=OWNER,
+        files={"file": ("avatar.png", PNG_BYTES, "image/png")},
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert calls["object_key"] == data["objectKey"]
+    assert calls["content"] == PNG_BYTES
+    assert data["objectKey"].startswith("test/assistant/avatar/")
+    assert data["avatarUrl"] == f"{settings.obs_base_url}/{data['objectKey']}"
+
+
+def test_replace_avatar_deletes_old_object(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import obs_service
+
+    deleted: list[str] = []
+    monkeypatch.setattr(settings, "obs_ak", "test-ak")
+    monkeypatch.setattr(settings, "obs_sk", "test-sk")
+    monkeypatch.setattr(obs_service, "delete_object", lambda key: deleted.append(key))
+
+    old_key = "test/assistant/avatar/2026/01/01/old.png"
+    new_key = "test/assistant/avatar/2026/01/02/new.png"
+    old_url = f"{settings.obs_base_url}/{old_key}"
+    new_url = f"{settings.obs_base_url}/{new_key}"
+
+    payload = _payload(f"头像替换清理测试{uuid4().hex[:6]}")
+    payload.update(avatarType="image", avatarUrl=old_url)
+    created = client.post("/api/v1/assistants", headers=OWNER, json=payload)
+    assert created.status_code == 201, created.text
+    assistant_id = created.json()["data"]["assistantId"]
+
+    detail = client.get(f"/api/v1/assistants/{assistant_id}", headers=OWNER).json()["data"]
+    assert detail["avatarUrl"] == old_url
+
+    payload.update(avatarUrl=new_url, changeNote="更换头像")
+    updated = client.put(f"/api/v1/assistants/{assistant_id}", headers=OWNER, json=payload)
+    assert updated.status_code == 200, updated.text
+    assert deleted == [old_key]
+
+    detail = client.get(f"/api/v1/assistants/{assistant_id}", headers=OWNER).json()["data"]
+    assert detail["avatarUrl"] == new_url
+
+    client.delete(f"/api/v1/assistants/{assistant_id}", headers=OWNER)
+
+
+def test_delete_assistant_deletes_avatar_object(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import obs_service
+
+    deleted: list[str] = []
+    monkeypatch.setattr(settings, "obs_ak", "test-ak")
+    monkeypatch.setattr(settings, "obs_sk", "test-sk")
+    monkeypatch.setattr(obs_service, "delete_object", lambda key: deleted.append(key))
+
+    key = "test/assistant/avatar/2026/01/03/to-delete.png"
+    payload = _payload(f"头像删除清理测试{uuid4().hex[:6]}")
+    payload.update(avatarType="image", avatarUrl=f"{settings.obs_base_url}/{key}")
+    created = client.post("/api/v1/assistants", headers=OWNER, json=payload)
+    assert created.status_code == 201, created.text
+    assistant_id = created.json()["data"]["assistantId"]
+
+    removed = client.delete(f"/api/v1/assistants/{assistant_id}", headers=OWNER)
+    assert removed.status_code == 200, removed.text
+    assert deleted == [key]
 
 
 def test_avatar_upload_rejects_non_image() -> None:

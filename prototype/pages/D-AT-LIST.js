@@ -222,7 +222,7 @@ window.__pages['D-AT-LIST'] = function (container) {
     '<div class="page-card at-page">' +
       '<div class="page-head">' +
         '<div>' +
-          '<div class="page-title title-accent">助理<span class="beta-badge">BETA</span></div>' +
+          '<div class="page-title title-accent">助理团</div>' +
         '</div>' +
         '<div class="page-head-actions">' + headActions + '</div>' +
       '</div>' +

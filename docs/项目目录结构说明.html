@@ -201,7 +201,7 @@
 ├── <span class="file">vite.config.ts</span>           <span class="note"># Vite 构建配置（含 /api 代理、自动导入插件）</span>
 ├── <span class="file">.env.development</span>         <span class="note"># 开发环境变量（VITE_USE_MOCK、VITE_PROXY_TARGET）</span>
 ├── <span class="file">.env.production</span>          <span class="note"># 生产环境变量</span>
-├── <span class="dir">public/avatars/</span>          <span class="note"># 静态头像资源（avatar-01~06.png，随构建原样拷贝）</span>
+├── <span class="dir">public/avatars/</span>          <span class="note"># 预置头像资源（avatar-01~06.png，随构建原样拷贝，不走 OBS）</span>
 └── <span class="dir">src/</span>
     ├── <span class="file">main.ts</span>               <span class="note"># 应用入口：创建 Vue 实例、挂载 Router/Pinia/Element Plus</span>
     ├── <span class="file">App.vue</span>               <span class="note"># 根组件</span>
@@ -307,7 +307,8 @@
 │       ├── ai_service.py         <span class="note"># AI 生成服务（模板实现，可替换大模型）</span>
 │       ├── llm_client.py         <span class="note"># 大模型调用封装（OpenAI 兼容）</span>
 │       ├── audit_service.py      <span class="note"># 审计日志写入</span>
-│       ├── common_service.py     <span class="note"># 通用服务：头像上传</span>
+│       ├── common_service.py     <span class="note"># 通用服务：头像上传（后端中转写 OBS，未配置回退本地）</span>
+│       ├── obs_service.py        <span class="note"># OBS 客户端封装（S3 协议、私有 CA、去重 key、删除）</span>
 │       ├── health_service.py     <span class="note"># 健康检查服务</span>
 │       ├── master_data.py        <span class="note"># 主数据：组织/角色/岗位/人员（四维范围来源）</span>
 │       ├── numbering.py          <span class="note"># 业务单号生成（审批单号、批次号）</span>
@@ -319,12 +320,14 @@
 │   ├── check_schema.py / migrate_v100_schema.py    <span class="note"># 结构校验、存量库升级</span>
 │   ├── seed_dev_data.py / reset_dev_data.py / purge_test_data.py
 │   ├── clean_orphan_audit.py / fix_missing_effective_scope.py
-│   └── e2e_assistant_crud.py / e2e_share_flow.py / e2e_approval_flow.py / e2e_remaining.py
-├── <span class="dir">static/avatar/</span>          <span class="note"># 本地头像存储（按 年月日 分目录）</span>
+│   ├── e2e_assistant_crud.py / e2e_share_flow.py / e2e_approval_flow.py / e2e_remaining.py
+│   └── obs_probe.py / obs_upload.py / obs_set_policy.py / migrate_avatars_to_obs.py   <span class="note"># OBS 连通性探测、批量上传、桶只读策略、历史头像迁移</span>
+├── <span class="dir">certs/</span>                  <span class="note"># OBS 私有 CA 证书（endpoint-root-ca.pem，生产部署需一并拷贝）</span>
+├── <span class="dir">static/</span>                 <span class="note"># 本地头像回退目录（运行时自动创建，默认不随仓库提交）</span>
 ├── <span class="dir">tests/</span>                 <span class="note"># 接口测试（pytest）</span>
 │   ├── conftest.py             <span class="note"># 测试公共配置（清理测试数据）</span>
 │   ├── test_skeleton.py / test_assistants.py / test_share.py / test_approval.py / test_remaining.py
-├── <span class="file">.env</span>                    <span class="note"># 本地环境变量（含数据库连接信息，勿提交）</span>
+├── <span class="file">.env</span>                    <span class="note"># 本地环境变量（含数据库连接与 OBS AK/SK，勿提交）</span>
 ├── <span class="file">.env.example</span>            <span class="note"># 环境变量样例</span>
 ├── <span class="file">alembic.ini</span>             <span class="note"># Alembic 配置</span>
 └── <span class="file">requirements.txt</span>        <span class="note"># Python 依赖清单</span></pre>
@@ -340,6 +343,7 @@
             <tr><td><span class="path">scope_service.py</span></td><td class="desc">四维范围展开、人数上限校验、范围快照读写</td></tr>
             <tr><td><span class="path">summon_service.py</span></td><td class="desc">助理召唤与订阅 / 移除 / 重新订阅</td></tr>
             <tr><td><span class="path">master_data.py</span></td><td class="desc">组织 / 角色 / 岗位 / 人员主数据（当前内置演示数据）</td></tr>
+            <tr><td><span class="path">common_service.py / obs_service.py</span></td><td class="desc">头像上传：校验类型与大小后写入 OBS（后端中转），数据库只存对象 key；未配置 AK/SK 时回退本地 static</td></tr>
             <tr><td><span class="path">ai_service.py / llm_client.py</span></td><td class="desc">AI 生成（描述/标签/提示词/快速问题），当前模板实现，可切换大模型</td></tr>
             <tr><td><span class="path">versioning.py / numbering.py</span></td><td class="desc">版本号规则（V1.0.0 三段式）、审批单号 / 批次号生成</td></tr>
           </tbody>

@@ -360,7 +360,7 @@ export function aiGenerate(params: AiGenerateParams): Promise<{ field: AiField; 
 /* ---------------- 头像上传 ---------------- */
 
 /**
- * 上传头像：真实环境走后端本地存储，返回可直接写入 avatarUrl 的短路径。
+ * 上传头像：后端中转写入 OBS，返回可直接写入 avatarUrl 的完整地址。
  * Mock 下用 objectURL 预览，退出页面即失效。
  */
 export function uploadAvatar(file: File): Promise<{ objectKey: string; avatarUrl: string }> {
