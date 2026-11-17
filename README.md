@@ -11,13 +11,16 @@
 | 数据库设计 | [docs/02-数据库设计.md](docs/02-数据库设计.md) |
 | 接口设计 | [docs/03-接口设计.md](docs/03-接口设计.md) |
 | 全链路数据流向图 | [docs/data_flow.html](docs/data_flow.html) |
+| 项目目录结构说明 | [docs/项目目录结构说明.html](docs/项目目录结构说明.html) |
+| 技术架构补充说明（OBS 图片存储） | [docs/技术架构补充说明.html](docs/技术架构补充说明.html) |
+| FastAPI 实践教程（结合本项目） | [docs/FastAPI实践教程.html](docs/FastAPI实践教程.html) |
 | UI 原型（可直接运行） | [prototype/index.html](prototype/index.html) |
 
 ## 目录结构
 
 ```
 agent_assistant/
-├── docs/           设计与需求文档（4 份 Markdown + 1 份数据流向图）
+├── docs/           设计与需求文档（4 份 Markdown + 3 份说明/教程 HTML + 1 份数据流向图）
 ├── prototype/      UI 原型，纯静态，双击 index.html 即可运行
 ├── web/            前端工程（Vue 3 + Vite，已接入真实接口）
 ├── server/         后端工程（Python + FastAPI + MySQL 8.0）
@@ -28,11 +31,14 @@ agent_assistant/
 
 | 文档 | 内容 |
 |------|------|
-| `需求说明书.md` | 13 个功能点、EARS 需求列表、验收标准（当前 V1.17） |
+| `需求说明书.md` | 13 个功能点、EARS 需求列表、验收标准（当前 V1.20） |
 | `01-总体架构设计.md` | 分层架构、模块划分、关键设计决策、权限模型、状态机、核心链路时序 |
 | `02-数据库设计.md` | ER 图、14 张表 DDL、索引与性能、数据一致性规则 |
 | `03-接口设计.md` | 33 个接口清单、出入参、错误码、页面映射 |
 | `data_flow.html` | 全链路数据流向可视化（原型 → 接口 → 落库） |
+| `项目目录结构说明.html` | 前后端目录逐层说明、各文件职责与分层约束 |
+| `技术架构补充说明.html` | 头像存储链路：OBS 接入、上传中转、对象回收与演进方向 |
+| `FastAPI实践教程.html` | 结合本项目的 FastAPI 用法讲解（路由、依赖、校验、异常、测试） |
 
 ### prototype/
 
@@ -99,7 +105,8 @@ web/src/
 | 数据库 | MySQL 8.0（主备 + 每日全量备份） |
 | 幂等 | 审批决策与订阅操作以条件更新 + 状态回放保证，重复请求返回首次结果（无独立幂等表） |
 | 前端 | Vue 3.5 · TypeScript · Vite 6 · Element Plus · Pinia · Vue Router |
-| 存储 | 对象存储（头像，预签名直传；当前返回占位地址，待接入 OSS/S3） |
+| 存储 | 天翼云 OBS（S3 兼容）；头像由后端中转上传，库内只存对象 key，响应时拼公开地址 |
+| 大模型 | OpenAI 兼容 `/chat/completions`（AI 生成）；未配置 Key 时回退本地确定性模板 |
 
 ## 本期范围
 
@@ -153,7 +160,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-di
 
 主数据（组织 / 角色 / 岗位 / 人员）当前由 [master_data.py](server/app/services/master_data.py) 内置演示数据提供，通过 `Employee.login_id` 把登录账号映射到人员（如 `2001` → `u1 李静`），用于「共享助理」列表与授权匹配。接入真实主数据服务时，替换该模块的查询函数即可，路由层无需改动。
 
-AI 生成（`POST /ai/generate`）当前为确定性模板实现，未接大模型中台；输出符合各字段校验规则（描述 10-200 字、标签 ≤5 个且单个 ≤8 字、提示词 ≤4000 字、快速问题 ≤6 条）。接入时替换 [ai_service.py](server/app/services/ai_service.py) 的 `_generate` / `_polish` 即可，接口签名不变。
+AI 生成（`POST /ai/generate`）优先调用大模型（[llm_client.py](server/app/services/llm_client.py)，OpenAI 兼容 `/chat/completions`），`LLM_ENABLED=false`、`LLM_API_KEY` 为空或大模型返回不合规时回退本地确定性模板；两条路径输出均符合各字段校验规则（描述 10-200 字、标签 ≤5 个且单个 ≤8 字、提示词 ≤4000 字、快速问题 ≤6 条）。切换模型只需改 `.env` 的 `LLM_BASE_URL` / `LLM_MODEL`，接口签名不变。
 
 ### 4. 前端（Vue 3 + TS，端口 5173，`/api` 代理到 8000）
 
@@ -171,7 +178,7 @@ npm run dev
 |------|------|----------|
 | 启动后端 | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app` | `server/` |
 | 启动前端 | `npm run dev` | `web/` |
-| 后端接口测试（124 项） | `python -m pytest -q` | `server/` |
+| 后端接口测试（128 项） | `python -m pytest -q` | `server/` |
 | 前端类型检查 | `npm run type-check` | `web/` |
 | 前端构建 | `npm run build` | `web/` |
 
