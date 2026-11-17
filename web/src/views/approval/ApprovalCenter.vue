@@ -169,26 +169,37 @@ async function saveAdjust(): Promise<void> {
   }
 }
 
-/** 通过前的确认弹窗文案：按申请类型区分 */
+/** 通过前的确认弹窗文案：按申请类型区分（对齐原型 confirmDialog 的 text + impact） */
 function askApprove(): void {
   const d = detail.value
   if (!d) return
+  const curVer = d.assistant.version || '未发布'
+  /* 版本号口径：下架通过不变更；其余通过时尾号 +1（从未发布记 V1.0.0） */
+  const verLine =
+    d.approvalType === 'offline'
+      ? `版本号保持 ${curVer} 不变`
+      : `版本号：${curVer} → ${d.assistant.version ? nextVersion(d.assistant.version) : 'V1.0.0'}`
+
   confirmAction.value = 'approve'
   confirmTitle.value = '确认审批通过？'
   if (d.approvalType === 'offline') {
     confirmText.value = '通过后该助理将立即下架，并从所有授权对象的助理库中移除。'
-    confirmImpact.value = `助理：${d.assistant.name} · 版本号保持 ${d.assistant.version || '未发布'} 不变`
-  } else if (d.approvalType === 'scope') {
-    confirmText.value = '通过后新的授权范围立即生效。'
-    confirmImpact.value = `最终授权对象：${d.scope?.grantTotal ?? 0} 人 · ${d.scope?.summary ?? ''}`
+    confirmImpact.value = `助理：${d.assistant.name} · ${verLine}`
   } else if (d.approvalType === 'change') {
     confirmText.value = '通过后本次内容变更立即生效，已授权用户刷新后使用新版本。'
-    confirmImpact.value = `变更内容：${d.changeNote || '内容变更'}`
+    confirmImpact.value = `变更内容：${d.changeNote || '内容变更'} · ${verLine}`
+  } else if (d.approvalType === 'scope') {
+    confirmText.value = '通过后新的授权范围立即生效。'
+    confirmImpact.value =
+      `最终授权对象：${d.scope?.grantTotal ?? 0} 人 · ${scopePeopleLine(d.scope)}` +
+      (d.scopeAdjusted ? '（已按管理员调整结果生效）' : '') +
+      ` · ${verLine}`
   } else {
     confirmText.value = '通过后该助理将出现在授权对象的助理库中，并标识「共享」。'
     confirmImpact.value =
-      `最终授权对象：${d.scope?.grantTotal ?? 0} 人 · ${d.scope?.summary ?? ''}` +
-      (d.scopeAdjusted ? '（已按管理员调整结果生效）' : '')
+      `最终授权对象：${d.scope?.grantTotal ?? 0} 人 · ${scopePeopleLine(d.scope)}` +
+      (d.scopeAdjusted ? '（已按管理员调整结果生效）' : '') +
+      ` · ${verLine}`
   }
   confirmOpen.value = true
 }
@@ -245,6 +256,19 @@ async function afterDecision(): Promise<void> {
   await approvalStore.refreshPendingCount()
 }
 
+/** 版本号推进：与后端 versioning.next_version 口径一致，空版本号记 V1.0.0 */
+function nextVersion(version: string | null | undefined): string {
+  const matched = /^V(\d+)\.(\d+)\.(\d+)$/.exec(version ?? '')
+  if (!matched) return 'V1.0.0'
+  let [major, minor, patch] = matched.slice(1).map(Number)
+  patch += 1
+  if (patch > 99) {
+    patch = 0
+    minor += 1
+  }
+  return `V${major}.${minor}.${patch}`
+}
+
 /** 授权对象统计：人员 N（组织 X · 单独添加 Y） */
 function scopePeopleLine(scope: Scope | null): string {
   if (!scope) return ''
@@ -259,15 +283,15 @@ function scopePeopleLine(scope: Scope | null): string {
   return `人员 ${scope.grantTotal}${parts.length ? `（${parts.join(' · ')}）` : ''}`
 }
 
-function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> {
+function scopeChips(scope: Scope | null): Array<{ key: string; label: string; meta?: string }> {
   if (!scope) return []
   if (scope.scopeMode === 'PUBLIC') return [{ key: 'public', label: '公开 · 全公司可用' }]
-  const chips: Array<{ key: string; label: string }> = []
+  const chips: Array<{ key: string; label: string; meta?: string }> = []
   scope.orgs.forEach((o) => chips.push({ key: `o-${o.id}`, label: `组织 · ${o.name}` }))
   scope.positions.forEach((p) => chips.push({ key: `p-${p.id}`, label: `岗位 · ${p.name}` }))
   scope.roles.forEach((r) => chips.push({ key: `r-${r.id}`, label: `角色 · ${r.name}` }))
   scope.users.forEach((u) =>
-    chips.push({ key: `u-${u.id}`, label: u.deptName ? `${u.name}（${u.deptName}）` : u.name })
+    chips.push({ key: `u-${u.id}`, label: u.name, meta: u.deptName || undefined })
   )
   return chips
 }
@@ -430,7 +454,7 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
             <div class="notice-bar">{{ detail.changeNote || '未填写' }}</div>
             <div class="section-title">当前授权范围</div>
             <div class="chip-list">
-              <span v-for="c in scopeChips(detail.previousScope ?? detail.scope ?? null)" :key="c.key" class="chip">{{ c.label }}</span>
+              <span v-for="c in scopeChips(detail.previousScope ?? detail.scope ?? null)" :key="c.key" class="chip">{{ c.label }}<span v-if="c.meta" class="chip-meta">{{ c.meta }}</span></span>
               <span v-if="!scopeChips(detail.previousScope ?? detail.scope ?? null).length" class="scope-empty">未设置</span>
             </div>
           </template>
@@ -441,14 +465,14 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
             <div class="scope-block">
               <div class="scope-block-title">变更前</div>
               <div class="chip-list">
-                <span v-for="c in scopeChips(detail.previousScope ?? null)" :key="c.key" class="chip">{{ c.label }}</span>
+                <span v-for="c in scopeChips(detail.previousScope ?? null)" :key="c.key" class="chip">{{ c.label }}<span v-if="c.meta" class="chip-meta">{{ c.meta }}</span></span>
                 <span v-if="!scopeChips(detail.previousScope ?? null).length" class="scope-empty">无</span>
               </div>
             </div>
             <div class="scope-block">
               <div class="scope-block-title">变更后</div>
               <div class="chip-list">
-                <span v-for="c in scopeChips(detail.scope)" :key="c.key" class="chip">{{ c.label }}</span>
+                <span v-for="c in scopeChips(detail.scope)" :key="c.key" class="chip">{{ c.label }}<span v-if="c.meta" class="chip-meta">{{ c.meta }}</span></span>
                 <span v-if="!scopeChips(detail.scope).length" class="scope-empty">无</span>
               </div>
             </div>
@@ -490,7 +514,7 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
 
             <template v-if="!adjusting">
               <div class="chip-list">
-                <span v-for="c in scopeChips(detail.scope)" :key="c.key" class="chip">{{ c.label }}</span>
+                <span v-for="c in scopeChips(detail.scope)" :key="c.key" class="chip">{{ c.label }}<span v-if="c.meta" class="chip-meta">{{ c.meta }}</span></span>
                 <span v-if="!scopeChips(detail.scope).length" class="scope-empty">未设置</span>
               </div>
               <div v-if="detail.scopeDiff" class="diff-bar">
@@ -745,7 +769,7 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
   margin: 16px 0 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--at-text);
+  color: var(--at-brand);
 }
 
 .detail-body > .section-title:first-of-type {
@@ -851,12 +875,21 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
   padding: 2px 8px;
-  background: #f2f3f5;
-  border-radius: 4px;
+  background: #f3f8fe;
+  border: 1px solid #afcefa;
+  border-radius: 2px;
   font-size: 12px;
   line-height: 20px;
-  color: var(--at-text-sub);
+  color: var(--at-brand);
+}
+
+.chip-meta {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--at-text-weak);
 }
 
 .scope-empty {
@@ -865,13 +898,16 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
 }
 
 .scope-block {
+  padding: 12px;
   margin-bottom: 12px;
+  background: #f4f7f9;
+  border-radius: 4px;
 }
 
 .scope-block-title {
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--at-text-weak);
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--at-text);
 }
 
 .adjusted-tag {
@@ -917,17 +953,17 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string }> 
 .confirm-text {
   font-size: 13px;
   line-height: 1.7;
-  color: var(--at-text);
+  color: var(--at-text-sub);
 }
 
 .confirm-impact {
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 8px 12px;
-  background: #f7f8fa;
+  background: #fff7e8;
   border-radius: 4px;
   font-size: 12px;
   line-height: 1.7;
-  color: var(--at-text-sub);
+  color: var(--at-text);
 }
 
 .pager {

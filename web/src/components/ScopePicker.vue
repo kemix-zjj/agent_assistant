@@ -340,11 +340,6 @@ function clearRight(): void {
   removeIds(rightItems.value.map((it) => it.id))
 }
 
-/** 预览区移除：来源 chip 移除对应维度项 */
-function removePreviewSrc(kind: 'org' | 'role' | 'position', id: string): void {
-  srcSel.value[kind] = srcSel.value[kind].filter((x) => x !== id)
-}
-
 /* ---------------- 同步 ---------------- */
 
 function samePayload(a: ScopePayload, b: ScopePayload): boolean {
@@ -499,9 +494,8 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
       <div class="scope-block">
         <div class="scope-block-title">授权范围预览</div>
         <div class="scope-chips">
-          <span v-for="c in previewChips.srcChips" :key="`${c.dim}-${c.id}`" class="scope-chip scope-chip-src">
+          <span v-for="c in previewChips.srcChips" :key="`${c.dim}-${c.id}`" class="scope-chip">
             {{ c.label }}
-            <span class="x" @click="removePreviewSrc(c.dim, c.id)">×</span>
           </span>
           <span v-for="c in previewChips.userChips" :key="`u-${c.id}`" class="scope-chip">
             {{ c.label }}<span v-if="c.meta" class="scope-chip-meta">{{ c.meta }}</span>
@@ -824,7 +818,7 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
 /* ---------- 预览 ---------- */
 .scope-block {
   padding: 12px;
-  background: #f9fafb;
+  background: #f4f7f9;
   border-radius: 4px;
 }
 
@@ -843,31 +837,18 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
 .scope-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 2px 8px;
   font-size: 12px;
-  color: #2563c9;
-  background: #eef4ff;
-  border: 1px solid #d6e4ff;
-  border-radius: 3px;
-}
-
-.scope-chip-src {
-  color: var(--at-text-sub);
-  background: #f4f7f9;
-  border: 1px dashed var(--at-border);
-}
-
-.scope-chip .x {
-  cursor: pointer;
-  color: var(--at-text-sub);
-  line-height: 1;
+  color: var(--at-brand);
+  background: #f3f8fe;
+  border: 1px solid #afcefa;
+  border-radius: 2px;
 }
 
 .scope-chip-meta {
   margin-left: 4px;
   font-size: 11px;
-  color: var(--at-text-weak);
+  color: #b9bfcb;
 }
 
 .scope-empty {
