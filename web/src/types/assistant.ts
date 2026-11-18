@@ -134,6 +134,8 @@ export interface AssistantDetail {
   /** 被授权方视角下为 null（需求 5.2） */
   prompt: string | null
   skills: SkillItem[] | null
+  /** 本地创建的技能，后端支持后返回 */
+  localSkills?: LocalSkillPayload[] | null
   mcps: McpItem[] | null
   knowledgeBases: KnowledgeBaseItem[] | null
   quickQuestions: string[]
@@ -141,6 +143,22 @@ export interface AssistantDetail {
   versionHistory: VersionHistoryItem[]
   /** 后端派生的操作按钮，与列表卡片同源 */
   actions: AssistantAction[]
+}
+
+/** 本地创建技能：上传文件（保留相对路径） */
+export interface LocalSkillFilePayload {
+  path: string
+  size: number
+  ext: string
+  content: string
+}
+
+/** 本地创建技能：手动配置的完整内容 */
+export interface LocalSkillPayload {
+  name: string
+  desc: string
+  note: string
+  files: LocalSkillFilePayload[]
 }
 
 /** 创建 / 编辑助理请求体（PUT 为全量覆盖） */
@@ -158,6 +176,8 @@ export interface AssistantUpsertPayload {
   mcpIds: string[]
   knowledgeBaseIds: string[]
   quickQuestions: string[]
+  /** 本地创建的技能：随助理保存提交，后端落库后回填 */
+  localSkills?: LocalSkillPayload[]
   /** 已共享过的助理编辑保存会转为变更审批，需带变更说明 */
   changeNote?: string
 }

@@ -12,7 +12,12 @@ import {
   updateAssistantApi,
   uploadAvatar
 } from '@/api'
-import type { CategoryItem, AssistantUpsertPayload, SkillItem } from '@/types/assistant'
+import type {
+  CategoryItem,
+  AssistantUpsertPayload,
+  LocalSkillPayload,
+  SkillItem
+} from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
@@ -71,7 +76,7 @@ const skillSource = ref<'internal' | 'external' | 'local'>('internal')
 const resKw = ref('')
 
 /** 本地创建：方式与手动配置表单 */
-const localMode = ref<'zip' | 'manual'>('manual')
+const localMode = ref<'zip' | 'manual'>('zip')
 const localSkill = reactive({ name: '', desc: '', note: '' })
 const zipFileName = ref('')
 const zipInputRef = ref<HTMLInputElement | null>(null)
@@ -405,7 +410,7 @@ function resetDraft(): void {
   qqInput.value = ''
   skillSource.value = 'internal'
   resKw.value = ''
-  localMode.value = 'manual'
+  localMode.value = 'zip'
   resetLocalSkill()
   shareMode.value = 'no'
   shareScope.value = emptyScopePayload()
@@ -428,6 +433,9 @@ async function loadDetail(): Promise<void> {
   loading.value = true
   try {
     const d = await getAssistantDetail(props.assistantId)
+    skillSource.value = 'internal'
+    localMode.value = 'zip'
+    resetLocalSkill()
     Object.assign(draft, {
       name: d.name,
       avatarType: d.avatarType,
@@ -444,6 +452,24 @@ async function loadDetail(): Promise<void> {
       quickQuestions: [...d.quickQuestions],
       changeNote: ''
     })
+    // 后端返回本地技能时回填到「本地创建 · 手动配置」
+    const local = d.localSkills?.[0]
+    if (local) {
+      skillSource.value = 'local'
+      localMode.value = 'manual'
+      localSkill.name = local.name
+      localSkill.desc = local.desc
+      localSkill.note = local.note
+      localFiles.value = (local.files ?? []).map((f) => ({
+        path: f.path,
+        name: f.path.split('/').pop() ?? f.path,
+        size: f.size,
+        ext: f.ext,
+        content: f.content,
+        original: f.content
+      }))
+      if (localFiles.value.length) selectLocalFile(localFiles.value[0].path)
+    }
     editStatus.value = d.shareStatus
     editVersion.value = d.version
     editHasShared.value = d.hasShared
@@ -705,6 +731,22 @@ function next(): void {
     return
   }
   if (step.value === 2) {
+    if (skillSource.value === 'local') {
+      if (localMode.value === 'manual') {
+        const name = localSkill.name.trim()
+        if (name.length < 2 || name.length > 40) {
+          ElMessage.error('技能名称需为 2-40 个字符')
+          return
+        }
+        if (!localSkill.desc.trim()) {
+          ElMessage.error('请填写技能描述')
+          return
+        }
+      } else if (!zipFileName.value) {
+        ElMessage.error('请选择要上传的技能 zip 文件')
+        return
+      }
+    }
     if (!draft.prompt.trim()) {
       ElMessage.error('请填写提示词')
       return
@@ -731,6 +773,22 @@ async function submit(): Promise<void> {
 
   saving.value = true
   try {
+    // 本地创建的技能随助理一起提交（zip 模式待后端提供文件上传接口后再补）
+    const localSkills: LocalSkillPayload[] = []
+    if (skillSource.value === 'local' && localMode.value === 'manual' && localSkill.name.trim()) {
+      localSkills.push({
+        name: localSkill.name.trim(),
+        desc: localSkill.desc.trim(),
+        note: localSkill.note.trim(),
+        files: localFiles.value.map((f) => ({
+          path: f.path,
+          size: f.size,
+          ext: f.ext,
+          content: f.content
+        }))
+      })
+    }
+
     const payload: AssistantUpsertPayload = {
       name: draft.name.trim(),
       avatarType: draft.avatarType,
@@ -745,7 +803,8 @@ async function submit(): Promise<void> {
       mcpIds: [...draft.mcpIds],
       knowledgeBaseIds: [...draft.knowledgeBaseIds],
       quickQuestions: [...draft.quickQuestions],
-      changeNote: draft.changeNote.trim() || undefined
+      changeNote: draft.changeNote.trim() || undefined,
+      ...(localSkills.length ? { localSkills } : {})
     }
 
     if (isEdit.value && props.assistantId) {
