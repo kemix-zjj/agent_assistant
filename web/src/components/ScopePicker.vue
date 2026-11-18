@@ -33,7 +33,7 @@ const LIMITS: Record<ScopeDim, number> = { org: 50, role: 50, position: 50, user
 const DIMS: Array<{ key: ScopeDim; label: string }> = [
   { key: 'org', label: '按组织' },
   { key: 'role', label: '按角色' },
-  { key: 'position', label: '按岗位' },
+  // 按岗位暂未开放，先隐藏页签
   { key: 'user', label: '按人员' }
 ]
 
@@ -241,7 +241,7 @@ const dimLabel = computed(() => DIMS.find((d) => d.key === activeDim.value)?.lab
 
 const hintText = computed(() =>
   activeDim.value === 'user'
-    ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织 / 角色 / 岗位仍在授权范围内，也不再对其生效。'
+    ? '右侧为最终生效的授权人员；在此移出的人员，即使所属组织 / 角色仍在授权范围内，也不再对其生效。'
     : `在左侧勾选后点击 › 移入右侧；所选${dimLabel.value}下的人员会自动带入「按人员」，可在人员页签继续增删。`
 )
 
@@ -393,12 +393,12 @@ defineExpose({ rangeEmpty, totalCount: computed(() => effectiveIds.value.length)
       <el-radio value="PUBLIC">公开</el-radio>
     </el-radio-group>
 
-    <div class="scope-mode-hint">「范围授权」需指定可用的组织、角色、岗位或人员；「公开」全公司可用，无需选择范围。</div>
+    <div class="scope-mode-hint">「范围授权」需指定可用的组织、角色或人员；「公开」全公司可用，无需选择范围。</div>
 
     <div v-if="scopeMode === 'PUBLIC'" class="public-tip">公开 · 全公司可用，无需选择范围</div>
 
     <template v-else>
-      <div class="tf-tip">{{ tip || '按页签先做批量选择：组织、角色、岗位会把人展开带进「按人员」，最终生效颗粒是人员，可在人员页签继续增删。' }}</div>
+      <div class="tf-tip">{{ tip || '按页签先做批量选择：组织、角色会把人展开带进「按人员」，最终生效颗粒是人员，可在人员页签继续增删。' }}</div>
 
       <div v-loading="loading" class="tf">
         <!-- 页签 -->
