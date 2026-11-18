@@ -7,21 +7,12 @@ import {
   createCategory,
   createAssistantApi,
   getAssistantDetail,
-  getKnowledgeBases,
-  getMcps,
   getSkills,
   submitShareApi,
   updateAssistantApi,
   uploadAvatar
 } from '@/api'
-import type {
-  CategoryItem,
-  AssistantUpsertPayload,
-  KnowledgeBaseItem,
-  McpItem,
-  ResourceMarket,
-  SkillItem
-} from '@/types/assistant'
+import type { CategoryItem, AssistantUpsertPayload, SkillItem } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
 import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
@@ -75,10 +66,22 @@ const presetKey = computed(() => resolvePresetKey(draft.avatarChar, props.assist
 const tagInput = ref('')
 const qqInput = ref('')
 
-/** 能力配置：资源页签与市场 */
-const resTab = ref<'skill' | 'mcp' | 'kb'>('skill')
-const resMarket = ref<ResourceMarket>('internal')
+/** 能力配置：技能来源（内部市场 / 外部市场 / 本地创建） */
+const skillSource = ref<'internal' | 'external' | 'local'>('internal')
 const resKw = ref('')
+
+/** 本地创建：方式与手动配置表单 */
+const localMode = ref<'zip' | 'manual'>('manual')
+const localSkill = reactive({ name: '', desc: '', note: '' })
+const zipFileName = ref('')
+const zipInputRef = ref<HTMLInputElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const dirInputRef = ref<HTMLInputElement | null>(null)
+const gutterRef = ref<HTMLElement | null>(null)
+const editorRef = ref<HTMLTextAreaElement | null>(null)
+const editorText = ref('')
+const activeFilePath = ref('')
+const collapsedFolders = ref<string[]>([])
 
 /** 步骤 3：是否立即申请共享（仅新建） */
 const shareMode = ref<'no' | 'yes'>('no')
@@ -86,9 +89,24 @@ const shareScope = ref<ScopePayload>(emptyScopePayload())
 
 
 const skills = ref<SkillItem[]>([])
-const mcps = ref<McpItem[]>([])
-const kbs = ref<KnowledgeBaseItem[]>([])
 const resLoading = ref(false)
+
+/** 本地创建：上传的文件清单（保留相对路径用于文件树） */
+interface LocalFile {
+  path: string
+  name: string
+  size: number
+  ext: string
+  content: string
+  original: string
+}
+const localFiles = ref<LocalFile[]>([])
+
+/** 单文件 5MB、合计 20MB */
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_TOTAL_SIZE = 20 * 1024 * 1024
+/** 递归上传时忽略的目录 */
+const IGNORED_SEGMENTS = ['__pycache__', '.git', 'node_modules', '.idea', '.vscode']
 
 const aiLoading = ref<Record<string, boolean>>({})
 const categoryDialog = ref(false)
@@ -110,68 +128,254 @@ const needReapprove = computed(
   () => isEdit.value && editHasShared.value && editStatus.value !== 'offline'
 )
 
-/* ---------------- 资源过滤（市场 + 搜索） ---------------- */
+/* ---------------- 技能列表（市场 + 搜索） ---------------- */
 
-const currentCatalog = computed<Array<{ id: string; name: string; sub: string }>>(() => {
+const catalogSkills = computed<Array<{ id: string; name: string; sub: string }>>(() => {
   const kw = resKw.value.trim().toLowerCase()
-  if (resTab.value === 'skill') {
-    return skills.value
-      .filter((s) => (s.market ?? 'internal') === resMarket.value)
-      .filter((s) => !kw || `${s.name} ${s.desc ?? ''}`.toLowerCase().includes(kw))
-      .map((s) => ({ id: s.id, name: s.name, sub: s.desc ?? '' }))
-  }
-  if (resTab.value === 'mcp') {
-    return mcps.value
-      .filter((m) => (m.market ?? 'internal') === resMarket.value)
-      .filter((m) => !kw || `${m.name} ${m.type ?? ''}`.toLowerCase().includes(kw))
-      .map((m) => ({ id: m.id, name: m.name, sub: m.type ?? '' }))
-  }
-  return kbs.value
-    .filter((k) => {
-      if (!kw) return true
-      if (k.name.toLowerCase().includes(kw)) return true
-      return (k.files ?? []).some((f) => f.toLowerCase().includes(kw))
-    })
-    .map((k) => {
-      const hits = kw ? (k.files ?? []).filter((f) => f.toLowerCase().includes(kw)) : []
-      const sub = hits.length
-        ? `匹配文件：${hits.join('、')}`
-        : `${k.documentCount ?? 0} 篇文档 · ${(k.files ?? []).slice(0, 2).join('、')}`
-      return { id: k.id, name: k.name, sub }
-    })
+  return skills.value
+    .filter((s) => (s.market ?? 'internal') === skillSource.value)
+    .filter((s) => !kw || `${s.name} ${s.desc ?? ''}`.toLowerCase().includes(kw))
+    .map((s) => ({ id: s.id, name: s.name, sub: s.desc ?? '' }))
 })
 
-const searchPlaceholder = computed(() => {
-  if (resTab.value === 'kb') return '搜索知识库或文件名'
-  if (resTab.value === 'mcp') return '搜索连接器名称'
-  return '搜索技能名称'
-})
-
-function selectedOf(tab: 'skill' | 'mcp' | 'kb'): string[] {
-  if (tab === 'skill') return draft.skillIds
-  if (tab === 'mcp') return draft.mcpIds
-  return draft.knowledgeBaseIds
-}
-
-function toggleRes(id: string): void {
-  const arr = selectedOf(resTab.value)
-  const i = arr.indexOf(id)
+function toggleSkill(id: string): void {
+  const i = draft.skillIds.indexOf(id)
   if (i >= 0) {
-    arr.splice(i, 1)
+    draft.skillIds.splice(i, 1)
     return
   }
-  const max = resTab.value === 'kb' ? 20 : 20
-  if (arr.length >= max) {
-    ElMessage.warning(`每项最多 ${max} 个`)
+  if (draft.skillIds.length >= 20) {
+    ElMessage.warning('每项最多 20 个')
     return
   }
-  arr.push(id)
+  draft.skillIds.push(id)
 }
 
-function switchResTab(tab: 'skill' | 'mcp' | 'kb'): void {
-  resTab.value = tab
+function switchSkillSource(src: 'internal' | 'external' | 'local'): void {
+  skillSource.value = src
   resKw.value = ''
-  resMarket.value = 'internal'
+}
+
+/* ---------------- 本地创建：文件上传与预览 ---------------- */
+
+function extOf(name: string): string {
+  const i = name.lastIndexOf('.')
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : ''
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+const localTotalSize = computed(() => localFiles.value.reduce((sum, f) => sum + f.size, 0))
+
+function isIgnoredPath(path: string): boolean {
+  return path.split('/').some((seg) => IGNORED_SEGMENTS.includes(seg))
+}
+
+/** 追加式上传：同路径覆盖；超出体积限制的文件整体跳过并提示 */
+async function addFiles(files: Array<{ path: string; raw: File }>): Promise<void> {
+  const accepted: LocalFile[] = []
+  let skippedSize = 0
+  let skippedIgnored = 0
+  for (const { path, raw } of files) {
+    if (isIgnoredPath(path)) {
+      skippedIgnored += 1
+      continue
+    }
+    if (raw.size > MAX_FILE_SIZE) {
+      skippedSize += 1
+      continue
+    }
+    const content = await raw.text()
+    accepted.push({
+      path,
+      name: path.split('/').pop() ?? path,
+      size: raw.size,
+      ext: extOf(path),
+      content,
+      original: content
+    })
+  }
+
+  const merged = new Map(localFiles.value.map((f) => [f.path, f]))
+  for (const f of accepted) merged.set(f.path, f)
+  const total = [...merged.values()].reduce((sum, f) => sum + f.size, 0)
+  if (total > MAX_TOTAL_SIZE) {
+    ElMessage.error('文件合计不能超过 20MB')
+    return
+  }
+  localFiles.value = [...merged.values()]
+  if (skippedSize) ElMessage.warning(`${skippedSize} 个文件超过单文件 5MB，已跳过`)
+  if (skippedIgnored) ElMessage.warning(`${skippedIgnored} 个文件位于忽略目录，已跳过`)
+  if (accepted.length) {
+    const first = accepted[0].path
+    if (!activeFilePath.value) selectLocalFile(first)
+  }
+}
+
+/** 上传文件夹：webkitRelativePath 保留层级，去掉顶层目录名 */
+async function onPickFolder(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const list = Array.from(input.files ?? [])
+  await addFiles(
+    list.map((raw) => {
+      const rel = raw.webkitRelativePath || raw.name
+      const segs = rel.split('/')
+      return { path: segs.length > 1 ? segs.slice(1).join('/') : rel, raw }
+    })
+  )
+  input.value = ''
+}
+
+async function onPickFiles(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const list = Array.from(input.files ?? [])
+  await addFiles(list.map((raw) => ({ path: raw.name, raw })))
+  input.value = ''
+}
+
+function triggerPickFiles(): void {
+  fileInputRef.value?.click()
+}
+
+function triggerPickFolder(): void {
+  dirInputRef.value?.click()
+}
+
+function onPickZip(e: Event): void {
+  const input = e.target as HTMLInputElement
+  const raw = input.files?.[0]
+  if (raw) zipFileName.value = raw.name
+  input.value = ''
+}
+
+function triggerPickZip(): void {
+  zipInputRef.value?.click()
+}
+
+function removeLocalFile(path: string): void {
+  localFiles.value = localFiles.value.filter((f) => f.path !== path)
+  if (activeFilePath.value === path) {
+    const next = localFiles.value[0]
+    if (next) selectLocalFile(next.path)
+    else {
+      activeFilePath.value = ''
+      editorText.value = ''
+    }
+  }
+}
+
+/* ---------- 文件树 ---------- */
+
+interface TreeDirNode {
+  key: string
+  name: string
+  dir: true
+  children: TreeNode[]
+}
+interface TreeFileNode {
+  key: string
+  name: string
+  dir: false
+  file: LocalFile
+}
+type TreeNode = TreeDirNode | TreeFileNode
+
+const localTree = computed<TreeNode[]>(() => {
+  const root: TreeDirNode = { key: '', name: '', dir: true, children: [] }
+  for (const file of localFiles.value) {
+    const segs = file.path.split('/')
+    let cursor = root
+    for (let i = 0; i < segs.length - 1; i += 1) {
+      const key = segs.slice(0, i + 1).join('/')
+      let next = cursor.children.find((n): n is TreeDirNode => n.dir && n.key === key)
+      if (!next) {
+        next = { key, name: segs[i], dir: true, children: [] }
+        cursor.children.push(next)
+      }
+      cursor = next
+    }
+    cursor.children.push({ key: file.path, name: file.name, dir: false, file })
+  }
+  const sortNodes = (nodes: TreeNode[]): TreeNode[] => {
+    nodes.sort((a, b) => {
+      if (a.dir !== b.dir) return a.dir ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    nodes.forEach((n) => {
+      if (n.dir) sortNodes(n.children)
+    })
+    return nodes
+  }
+  return sortNodes(root.children)
+})
+
+/** 折叠态展开成扁平行，支持任意层级 */
+const localTreeRows = computed<Array<{ node: TreeNode; depth: number }>>(() => {
+  const rows: Array<{ node: TreeNode; depth: number }> = []
+  const walk = (nodes: TreeNode[], depth: number): void => {
+    for (const node of nodes) {
+      rows.push({ node, depth })
+      if (node.dir && !collapsedFolders.value.includes(node.key)) {
+        walk(node.children, depth + 1)
+      }
+    }
+  }
+  walk(localTree.value, 0)
+  return rows
+})
+
+function toggleFolder(key: string): void {
+  const i = collapsedFolders.value.indexOf(key)
+  if (i >= 0) collapsedFolders.value.splice(i, 1)
+  else collapsedFolders.value.push(key)
+}
+
+/* ---------- 文件编辑 ---------- */
+
+const activeFile = computed(() => localFiles.value.find((f) => f.path === activeFilePath.value) ?? null)
+const isDirty = computed(() => !!activeFile.value && activeFile.value.content !== activeFile.value.original)
+
+/** 行号随内容行数变化，与编辑区滚动同步 */
+const editorLineCount = computed(() => editorText.value.split('\n').length)
+
+function selectLocalFile(path: string): void {
+  activeFilePath.value = path
+  const file = localFiles.value.find((f) => f.path === path)
+  editorText.value = file?.content ?? ''
+}
+
+function onEditorInput(): void {
+  const file = activeFile.value
+  if (!file) return
+  file.content = editorText.value
+}
+
+function onEditorScroll(): void {
+  if (gutterRef.value && editorRef.value) {
+    gutterRef.value.scrollTop = editorRef.value.scrollTop
+  }
+}
+
+function resetActiveFile(): void {
+  const file = activeFile.value
+  if (!file) return
+  file.content = file.original
+  editorText.value = file.original
+}
+
+function resetLocalSkill(): void {
+  localSkill.name = ''
+  localSkill.desc = ''
+  localSkill.note = ''
+  zipFileName.value = ''
+  localFiles.value = []
+  activeFilePath.value = ''
+  editorText.value = ''
+  collapsedFolders.value = []
 }
 
 /* ---------------- 数据加载 ---------------- */
@@ -199,9 +403,10 @@ function resetDraft(): void {
   step.value = 1
   tagInput.value = ''
   qqInput.value = ''
-  resTab.value = 'skill'
-  resMarket.value = 'internal'
+  skillSource.value = 'internal'
   resKw.value = ''
+  localMode.value = 'manual'
+  resetLocalSkill()
   shareMode.value = 'no'
   shareScope.value = emptyScopePayload()
 }
@@ -209,12 +414,10 @@ function resetDraft(): void {
 async function loadResources(): Promise<void> {
   resLoading.value = true
   try {
-    const [s, m, k] = await Promise.all([getSkills(), getMcps(), getKnowledgeBases()])
+    const s = await getSkills()
     skills.value = s.list
-    mcps.value = m.list
-    kbs.value = k.list
   } catch {
-    ElMessage.error('资源列表加载失败，点击重试')
+    ElMessage.error('技能列表加载失败，点击重试')
   } finally {
     resLoading.value = false
   }
@@ -794,45 +997,216 @@ function close(): void {
 
         <div class="flex-between">
           <div class="seg-group">
-            <div class="seg" :class="{ active: resTab === 'skill' }" @click="switchResTab('skill')">
-              技能<span class="seg-count">{{ draft.skillIds.length }}</span>
+            <div class="seg active">技能<span class="seg-count">{{ draft.skillIds.length }}</span></div>
+            <div class="seg seg-disabled" title="暂未开放">
+              连接器<span class="seg-badge">待补充</span>
             </div>
-            <div class="seg" :class="{ active: resTab === 'mcp' }" @click="switchResTab('mcp')">
-              连接器<span class="seg-count">{{ draft.mcpIds.length }}</span>
-            </div>
-            <div class="seg" :class="{ active: resTab === 'kb' }" @click="switchResTab('kb')">
-              知识库<span class="seg-count">{{ draft.knowledgeBaseIds.length }}</span>
+            <div class="seg seg-disabled" title="暂未开放">
+              知识库<span class="seg-badge">待补充</span>
             </div>
           </div>
           <span class="form-hint">均为选填，每项最多 20 个</span>
         </div>
 
-        <div class="res-toolbar">
-          <div v-if="resTab !== 'kb'" class="seg-group">
-            <div class="seg" :class="{ active: resMarket === 'internal' }" @click="resMarket = 'internal'">内部市场</div>
-            <div class="seg" :class="{ active: resMarket === 'external' }" @click="resMarket = 'external'">外部市场</div>
+        <div class="seg-group sub-tabs">
+          <div
+            class="seg"
+            :class="{ active: skillSource === 'internal' }"
+            @click="switchSkillSource('internal')"
+          >
+            内部市场
           </div>
-          <el-input v-model="resKw" size="small" :placeholder="searchPlaceholder" clearable class="res-search" />
+          <div
+            class="seg"
+            :class="{ active: skillSource === 'external' }"
+            @click="switchSkillSource('external')"
+          >
+            外部市场
+          </div>
+          <div
+            class="seg"
+            :class="{ active: skillSource === 'local' }"
+            @click="switchSkillSource('local')"
+          >
+            本地创建
+          </div>
         </div>
 
-        <div v-loading="resLoading" class="res-list">
-          <label
-            v-for="item in currentCatalog"
-            :key="item.id"
-            class="res-item"
-            :class="{ checked: selectedOf(resTab).includes(item.id) }"
-            @click.prevent="toggleRes(item.id)"
-          >
-            <el-checkbox :model-value="selectedOf(resTab).includes(item.id)" class="res-cb" />
-            <span class="res-main">
-              <span class="res-name">{{ item.name }}</span>
-              <span class="res-desc" :class="{ 'is-hit': item.sub.startsWith('匹配文件') }">{{ item.sub }}</span>
-            </span>
-          </label>
-          <div v-if="!resLoading && !currentCatalog.length" class="res-empty">
-            没有匹配的{{ resTab === 'kb' ? '知识库或文件' : resTab === 'skill' ? '技能' : '连接器' }}
+        <template v-if="skillSource !== 'local'">
+          <div class="res-toolbar">
+            <span class="form-hint">从市场中选择已有技能</span>
+            <el-input v-model="resKw" size="small" placeholder="搜索技能名称" clearable class="res-search" />
           </div>
-        </div>
+
+          <div v-loading="resLoading" class="res-list">
+            <label
+              v-for="item in catalogSkills"
+              :key="item.id"
+              class="res-item"
+              :class="{ checked: draft.skillIds.includes(item.id) }"
+              @click.prevent="toggleSkill(item.id)"
+            >
+              <el-checkbox :model-value="draft.skillIds.includes(item.id)" class="res-cb" />
+              <span class="res-main">
+                <span class="res-name">{{ item.name }}</span>
+                <span class="res-desc">{{ item.sub }}</span>
+              </span>
+            </label>
+            <div v-if="!resLoading && !catalogSkills.length" class="res-empty">没有匹配的技能</div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="mode-cards">
+            <button
+              type="button"
+              class="mode-card"
+              :class="{ active: localMode === 'zip' }"
+              @click="localMode = 'zip'"
+            >
+              <span class="mode-title">本地上传 zip</span>
+              <span class="mode-sub">上传技能压缩包，无需逐个填写</span>
+              <span class="mode-meta">单个 zip ≤ 20MB</span>
+            </button>
+            <button
+              type="button"
+              class="mode-card"
+              :class="{ active: localMode === 'manual' }"
+              @click="localMode = 'manual'"
+            >
+              <span class="mode-title">手动配置</span>
+              <span class="mode-sub">手动填写名称、描述与技能说明</span>
+              <span class="mode-meta">适合少量脚本 / 快速验证</span>
+            </button>
+          </div>
+
+          <div v-if="localMode === 'zip'" class="zip-drop" @click="triggerPickZip">
+            <span class="zip-title">{{ zipFileName || '将 zip 拖到此处，或点击选择文件' }}</span>
+            <span class="form-hint">包内需包含 SKILL.md</span>
+            <span class="btn-ghost">选择 zip 文件</span>
+            <input
+              ref="zipInputRef"
+              type="file"
+              accept=".zip"
+              class="hidden-input"
+              @change="onPickZip"
+            />
+          </div>
+
+          <div v-else class="local-form">
+            <div class="form-row two-col">
+              <div class="form-item">
+                <label class="form-label required">技能名称</label>
+                <el-input v-model="localSkill.name" maxlength="40" placeholder="2-40 个字符，同一公司内唯一" />
+              </div>
+              <div class="form-item">
+                <label class="form-label required">技能描述</label>
+                <el-input v-model="localSkill.desc" maxlength="100" placeholder="一句话说明技能用途" />
+              </div>
+            </div>
+
+            <div class="form-item">
+              <div class="prompt-tools">
+                <label class="form-label">技能说明</label>
+                <span class="tools-right">
+                  <span class="form-hint">已上传文件作为该技能的执行逻辑，可在下方直接修改</span>
+                </span>
+              </div>
+              <el-input
+                v-model="localSkill.note"
+                type="textarea"
+                :rows="3"
+                maxlength="2000"
+                placeholder="描述该技能的适用场景、调用方式与执行步骤"
+              />
+            </div>
+
+            <div class="form-item">
+              <div class="flex-between">
+                <div class="btn-group">
+                  <span class="btn-ghost" @click="triggerPickFiles">＋ 上传文件</span>
+                  <span class="btn-ghost" @click="triggerPickFolder">＋ 上传文件夹</span>
+                  <span v-if="activeFile" class="btn-plain" @click="resetActiveFile">撤销当前文件修改</span>
+                </div>
+                <span class="form-hint">
+                  {{ localFiles.length }} 个文件 · 共 {{ formatSize(localTotalSize) }}（追加式上传）
+                </span>
+              </div>
+              <input
+                ref="fileInputRef"
+                type="file"
+                multiple
+                class="hidden-input"
+                @change="onPickFiles"
+              />
+              <input
+                ref="dirInputRef"
+                type="file"
+                webkitdirectory
+                multiple
+                class="hidden-input"
+                @change="onPickFolder"
+              />
+
+              <div v-if="localFiles.length" class="file-preview">
+                <div class="file-tree">
+                  <div
+                    v-for="row in localTreeRows"
+                    :key="row.node.key"
+                    class="tree-node"
+                    :class="{ 'is-folder': row.node.dir, active: !row.node.dir && activeFilePath === row.node.key }"
+                    :style="{ paddingLeft: `${8 + row.depth * 16}px` }"
+                    @click="row.node.dir ? toggleFolder(row.node.key) : selectLocalFile(row.node.key)"
+                  >
+                    <svg
+                      v-if="row.node.dir"
+                      class="tree-chev"
+                      :class="{ collapsed: collapsedFolders.includes(row.node.key) }"
+                      viewBox="0 0 12 12"
+                    >
+                      <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span v-else class="tree-dot" :class="{ on: row.node.file.content !== row.node.file.original }" />
+                    <span class="tree-name">{{ row.node.name }}</span>
+                    <span
+                      v-if="!row.node.dir"
+                      class="tree-remove"
+                      title="移除该文件"
+                      @click.stop="removeLocalFile(row.node.key)"
+                    >
+                      ×
+                    </span>
+                  </div>
+                </div>
+
+                <div class="file-editor-pane">
+                  <div class="pane-head">
+                    <span class="pane-name">{{ activeFilePath }}</span>
+                    <span v-if="activeFile" class="tag">{{ activeFile.ext || 'file' }}</span>
+                    <span v-if="activeFile" class="form-hint">{{ formatSize(activeFile.size) }}</span>
+                    <span class="dirty-tag" :class="{ on: isDirty }">已修改</span>
+                  </div>
+                  <div class="edit-area">
+                    <div ref="gutterRef" class="gutter">
+                      <span v-for="n in editorLineCount" :key="n">{{ n }}</span>
+                    </div>
+                    <textarea
+                      ref="editorRef"
+                      v-model="editorText"
+                      class="editor"
+                      spellcheck="false"
+                      @input="onEditorInput"
+                      @scroll="onEditorScroll"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="form-hint mt-base">
+                支持 .py / .md / .txt / .json 等纯文本文件；单文件 ≤ 5MB、合计 ≤ 20MB；文件夹递归上传并自动忽略 __pycache__、.git
+              </div>
+            </div>
+          </div>
+        </template>
 
         <div class="divider" />
 
@@ -1364,6 +1738,27 @@ function close(): void {
   font-weight: 500;
 }
 
+.seg.seg-disabled {
+  color: var(--at-text-weak);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.seg-badge {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 7px;
+  border: 1px solid var(--at-border);
+  background: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--at-text-weak);
+}
+
+.sub-tabs {
+  align-self: flex-start;
+}
+
 .seg-count {
   display: inline-block;
   min-width: 14px;
@@ -1378,6 +1773,317 @@ function close(): void {
 
 .seg.active .seg-count {
   background: rgba(255, 255, 255, 0.28);
+}
+
+/* ---------- 本地创建 ---------- */
+.mode-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--at-text);
+  background: var(--at-bg-card);
+  border: 1px solid var(--at-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.mode-card:hover {
+  border-color: var(--at-brand);
+}
+
+.mode-card.active {
+  border-color: var(--at-brand);
+  background: #eef4ff;
+}
+
+.mode-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.mode-card.active .mode-title {
+  color: var(--at-brand);
+}
+
+.mode-sub {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--at-text-sub);
+}
+
+.mode-meta {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--at-text-weak);
+}
+
+.zip-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: #fafbfc;
+  border: 1px dashed var(--at-border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.zip-drop:hover {
+  border-color: var(--at-brand);
+}
+
+.zip-title {
+  font-size: 13px;
+  color: var(--at-text);
+}
+
+.local-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px dashed var(--at-border);
+  border-radius: 4px;
+  background: var(--at-bg-card);
+  color: var(--at-brand);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.btn-ghost:hover {
+  border-color: var(--at-brand);
+}
+
+.btn-plain {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--at-text-sub);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-plain:hover {
+  color: var(--at-brand);
+  background: #f5f7fa;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.file-preview {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 300px;
+  margin-top: 8px;
+  border: 1px solid var(--at-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.file-tree {
+  padding: 8px 0;
+  border-right: 1px solid var(--at-border);
+  background: var(--at-bg-card);
+  overflow-y: auto;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding-right: 8px;
+  font-family: var(--at-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--at-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tree-node:hover {
+  background: #f5f7fa;
+}
+
+.tree-node.active {
+  background: #eef4ff;
+  color: var(--at-brand);
+}
+
+.tree-node.is-folder {
+  font-family: inherit;
+  color: var(--at-text);
+}
+
+.tree-chev {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  color: var(--at-text-weak);
+  transition: transform 0.15s;
+}
+
+.tree-chev.collapsed {
+  transform: rotate(-90deg);
+}
+
+.tree-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.tree-dot.on {
+  background: var(--at-warning);
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-remove {
+  flex: 0 0 auto;
+  width: 16px;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  color: var(--at-text-weak);
+  opacity: 0;
+}
+
+.tree-node:hover .tree-remove {
+  opacity: 1;
+}
+
+.tree-remove:hover {
+  color: var(--at-danger);
+}
+
+.file-editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fafbfc;
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--at-bg-card);
+  border-bottom: 1px solid var(--at-border);
+}
+
+.pane-name {
+  font-family: var(--at-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--at-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-head .tag {
+  padding: 0 4px;
+  border: 1px solid var(--at-border);
+  border-radius: 7px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--at-text-weak);
+}
+
+.dirty-tag {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: #fff6e5;
+  color: #c77700;
+  font-size: 10px;
+  line-height: 16px;
+  opacity: 0;
+}
+
+.dirty-tag.on {
+  opacity: 1;
+}
+
+.edit-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gutter {
+  flex: 0 0 36px;
+  padding: 10px 4px 10px 0;
+  overflow: hidden;
+  text-align: right;
+  color: var(--at-text-weak);
+  font-family: var(--at-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 20px;
+  user-select: none;
+}
+
+.gutter span {
+  display: block;
+}
+
+.editor {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px 10px 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--at-text);
+  font-family: var(--at-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 20px;
+  tab-size: 4;
+  white-space: pre;
 }
 
 /* ---------- 资源列表 ---------- */
