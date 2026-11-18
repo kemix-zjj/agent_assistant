@@ -24,6 +24,7 @@ import type {
   ApprovalType
 } from '@/types/approval'
 import type { Scope, ScopeDim, ScopePayload } from '@/types/scope'
+import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
 /* ============================ 字典 ============================ */
@@ -1265,7 +1266,7 @@ export function updateAssistant(id: number, payload: AssistantUpsertPayload): As
 
   // 已共享过：提交变更审批，版本号在审批通过时才推进
   const pendingType: ApproveSubType = row.hasShared ? 'change' : 'share'
-  const scope = row.shareScope ?? scopeFromPayload({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
+  const scope = row.shareScope ?? scopeFromPayload(emptyScopePayload())
   approvals.push(
     buildApproval({
       approvalId: 9000 + approvals.length + 1,
@@ -1500,12 +1501,17 @@ export function submitOffline(
 
 /** 已选范围 → 后端 scope 结构（含展开人数与摘要） */
 export function scopeFromPayload(payload: ScopePayload): Scope {
+  const excludeUsers = (payload.excludeUsers ?? []).map((id) => {
+    const u = USERS.find((x) => x.id === id)
+    return { id, name: u?.name ?? id, deptName: u?.deptName }
+  })
   if (payload.scopeMode === 'PUBLIC') {
-    return { scopeMode: 'PUBLIC', orgs: [], roles: [], positions: [], users: [], grantTotal: 1860, summary: '公开 · 全公司可用' }
+    return { scopeMode: 'PUBLIC', orgs: [], roles: [], positions: [], users: [], excludeUsers: [], grantTotal: 1860, summary: '公开 · 全公司可用' }
   }
-  // 最终生效颗粒是人：来源维度（组织含下级 / 角色 / 岗位）展开 ∪ 直接添加
+  // 最终生效颗粒是人：来源维度（组织含下级 / 角色 / 岗位）展开 ∪ 直接添加 − 单独移除
   const userIds = new Set<string>(derivedUserIds(payload))
   payload.users.forEach((u) => userIds.add(u))
+  ;(payload.excludeUsers ?? []).forEach((u) => userIds.delete(u))
 
   const orgs = payload.orgs.map((id) => ({ id, name: orgName(id) }))
   const roles = payload.roles.map((id) => ({ id, name: ROLES.find((r) => r.id === id)?.name ?? id }))
@@ -1517,7 +1523,7 @@ export function scopeFromPayload(payload: ScopePayload): Scope {
   const first = [...orgs, ...positions, ...roles, ...users].slice(0, 2).map((x) => x.name)
   const summary = first.length ? `${first.join('、')} 等 ${users.length} 人` : ''
 
-  return { scopeMode: 'RANGE', orgs, roles, positions, users, grantTotal: users.length, summary }
+  return { scopeMode: 'RANGE', orgs, roles, positions, users, excludeUsers, grantTotal: users.length, summary }
 }
 
 function orgName(id: string): string {

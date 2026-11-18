@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 ScopeMode = Literal["RANGE", "PUBLIC"]
+# exclude_user 不是选择维度，而是「来源维度展开后单独移除的人员」，落库时同表不同 dim
 ScopeDim = Literal["org", "role", "position", "user"]
 
 
@@ -34,6 +35,8 @@ class Scope(CamelModel):
     roles: list[ScopeItem] = Field(default_factory=list)
     positions: list[ScopeItem] = Field(default_factory=list)
     users: list[ScopeUserItem] = Field(default_factory=list)
+    # 来源维度展开后被单独移除的人员（生效人员已不含这些）
+    exclude_users: list[ScopeUserItem] = Field(default_factory=list)
     grant_total: int = 0
     summary: str = ""
 
@@ -46,8 +49,10 @@ class ScopePayload(CamelModel):
     roles: list[str] = Field(default_factory=list)
     positions: list[str] = Field(default_factory=list)
     users: list[str] = Field(default_factory=list)
+    # 单独移除的人员：仅在来源维度展开结果内生效，作为减法项参与展开与授权重算
+    exclude_users: list[str] = Field(default_factory=list)
 
-    @field_validator("orgs", "roles", "positions", "users")
+    @field_validator("orgs", "roles", "positions", "users", "exclude_users")
     @classmethod
     def _dedupe(cls, value: list[str]) -> list[str]:
         seen: list[str] = []

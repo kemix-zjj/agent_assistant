@@ -53,7 +53,7 @@ const srcSel = ref<Record<'org' | 'role' | 'position', string[]>>({
 const manual = ref<string[]>([...props.modelValue.users])
 
 /** 从来源带入后被显式移除的人员 */
-const excluded = ref<string[]>([])
+const excluded = ref<string[]>([...(props.modelValue.excludeUsers ?? [])])
 
 /** 左侧勾选态（仅当前页签） */
 const leftChecked = ref<string[]>([])
@@ -119,7 +119,9 @@ function toPayload(): ScopePayload {
     orgs: [...srcSel.value.org],
     roles: [...srcSel.value.role],
     positions: [...srcSel.value.position],
-    users: [...manual.value]
+    users: [...manual.value],
+    // 只提交仍然命中来源维度的人员：来源移除后自动失效，避免提交无意义的排除项
+    excludeUsers: excluded.value.filter((id) => derivedIds.value.includes(id))
   }
 }
 
@@ -349,13 +351,14 @@ function samePayload(a: ScopePayload, b: ScopePayload): boolean {
     eq(a.orgs, b.orgs) &&
     eq(a.roles, b.roles) &&
     eq(a.positions, b.positions) &&
-    eq(a.users, b.users)
+    eq(a.users, b.users) &&
+    eq(a.excludeUsers ?? [], b.excludeUsers ?? [])
   )
 }
 
 // 内部 → 外部：值有变化才 emit，避免与父组件回写形成循环
 watch(
-  [scopeMode, srcSel, manual],
+  [scopeMode, srcSel, manual, excluded],
   () => {
     const next = toPayload()
     if (!samePayload(next, props.modelValue)) emit('update:modelValue', next)
@@ -370,6 +373,7 @@ watch(
     if (samePayload(v, toPayload())) return
     srcSel.value = { org: [...v.orgs], role: [...v.roles], position: [...v.positions] }
     manual.value = [...v.users]
+    excluded.value = [...(v.excludeUsers ?? [])]
     scopeMode.value = v.scopeMode
   },
   { deep: true }

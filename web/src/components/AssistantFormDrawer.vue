@@ -23,6 +23,7 @@ import type {
   SkillItem
 } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
+import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 import { displayVersion } from '@/api/mock'
 import { PRESET_AVATARS, resolvePresetKey, presetColor } from '@/utils/avatar'
@@ -81,7 +82,7 @@ const resKw = ref('')
 
 /** 步骤 3：是否立即申请共享（仅新建） */
 const shareMode = ref<'no' | 'yes'>('no')
-const shareScope = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
+const shareScope = ref<ScopePayload>(emptyScopePayload())
 
 
 const skills = ref<SkillItem[]>([])
@@ -202,7 +203,7 @@ function resetDraft(): void {
   resMarket.value = 'internal'
   resKw.value = ''
   shareMode.value = 'no'
-  shareScope.value = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+  shareScope.value = emptyScopePayload()
 }
 
 async function loadResources(): Promise<void> {

@@ -56,6 +56,16 @@ class ExpandedScope:
         users = [
             ScopeUserItem(id=e.id, name=e.name, dept_name=e.dept_name) for e in self.users
         ]
+        exclude_users = [
+            ScopeUserItem(
+                id=uid,
+                name=(master_data.employee(uid).name if master_data.employee(uid) else uid),
+                dept_name=(
+                    master_data.employee(uid).dept_name if master_data.employee(uid) else None
+                ),
+            )
+            for uid in payload.exclude_users
+        ]
         summary_items = [item.name for item in (*orgs, *positions, *roles)][:2]
         if not summary_items:
             summary_items = [item.name for item in users][:2]
@@ -70,6 +80,7 @@ class ExpandedScope:
             roles=roles,
             positions=positions,
             users=users,
+            exclude_users=exclude_users,
             grant_total=self.grant_total,
             summary=summary,
         )
@@ -136,6 +147,12 @@ class ScopeService:
         for user_id in payload.users:
             if master_data.employee(user_id) is not None:
                 add(user_id, "user")
+
+        # 单独移除：从展开结果中减去，不允许把「直接添加」的人移除（那样应直接不添加）
+        for user_id in payload.exclude_users:
+            if user_id in sources:
+                del sources[user_id]
+                order.remove(user_id)
 
         users = [
             master_data.employee(employee_id)
@@ -233,6 +250,15 @@ class ScopeService:
                 )
                 for uid in payload.users
             ]
+            items += [
+                ShareScopeItem(
+                    scope_id=scope.id,
+                    dim="excluded",
+                    item_id=uid,
+                    item_name=(master_data.employee(uid).name if master_data.employee(uid) else uid),
+                )
+                for uid in payload.exclude_users
+            ]
             for item in items:
                 self.db.add(item)
         self.db.flush()
@@ -260,17 +286,23 @@ class ScopeService:
         ]
         direct_users = [i.item_id for i in items if i.dim == "user"]
 
-        # 快照只存四维原始选择，人员按当前主数据重新展开（文档 Q-04：快照语义，编辑时重算）
+        # 快照只存四维原始选择与单独移除清单，人员按当前主数据重新展开（文档 Q-04：编辑时重算）
         payload = ScopePayload(
             scope_mode="RANGE",
             orgs=[i.item_id for i in items if i.dim == "org"],
             roles=[i.item_id for i in items if i.dim == "role"],
             positions=[i.item_id for i in items if i.dim == "position"],
             users=direct_users,
+            exclude_users=[i.item_id for i in items if i.dim == "excluded"],
         )
         expanded = self.expand(payload)
         users = [
             ScopeUserItem(id=e.id, name=e.name, dept_name=e.dept_name) for e in expanded.users
+        ]
+        exclude_users = [
+            ScopeUserItem(id=i.item_id, name=i.item_name, dept_name=None)
+            for i in items
+            if i.dim == "excluded"
         ]
         # 人员按当前主数据重算，展示人数必须与重算结果保持一致，避免「摘要 N 人、列表 M 人」
         total = len(users)
@@ -284,6 +316,7 @@ class ScopeService:
             roles=roles,
             positions=positions,
             users=users,
+            exclude_users=exclude_users,
             grant_total=total,
             summary=summary,
         )
@@ -304,6 +337,7 @@ class ScopeService:
             roles=[i.item_id for i in items if i.dim == "role"],
             positions=[i.item_id for i in items if i.dim == "position"],
             users=[i.item_id for i in items if i.dim == "user"],
+            exclude_users=[i.item_id for i in items if i.dim == "excluded"],
         )
 
     # ============================ 授权重算 ============================
@@ -387,6 +421,9 @@ class ScopeService:
             for item in payload.users:
                 employee = master_data.employee(item)
                 result[f"user:{item}"] = employee.name if employee else item
+            for item in payload.exclude_users:
+                employee = master_data.employee(item)
+                result[f"excluded:{item}"] = employee.name if employee else item
             return result
 
         before_map = collect(before)

@@ -8,6 +8,7 @@ from contextvars import ContextVar
 from app.core.config import settings
 
 _trace_id: ContextVar[str] = ContextVar("trace_id", default="")
+_client_ip: ContextVar[str | None] = ContextVar("client_ip", default=None)
 
 
 def new_trace_id() -> str:
@@ -20,6 +21,15 @@ def set_trace_id(trace_id: str) -> None:
 
 def get_trace_id() -> str:
     return _trace_id.get()
+
+
+def set_client_ip(client_ip: str | None) -> None:
+    _client_ip.set(client_ip)
+
+
+def get_client_ip() -> str | None:
+    """当前请求的客户端 IP，供审计等旁路逻辑取用。"""
+    return _client_ip.get()
 
 
 class TraceIdFilter(logging.Filter):

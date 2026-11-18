@@ -493,8 +493,8 @@ table.dict td.tname {
           <tr>
             <td class="tname" rowspan="2">share_scope_item</td>
             <td><code>dim</code></td>
-            <td><code>org</code> / <code>role</code> / <code>position</code> / <code>user</code></td>
-            <td>四维原始选择，一行一个选项；<code>item_id</code> / <code>item_name</code> 为对应主数据 ID 与名称</td>
+            <td><code>org</code> / <code>role</code> / <code>position</code> / <code>user</code> / <code>excluded</code></td>
+            <td>四维原始选择 + 单独移除的人员，一行一个选项；<code>excluded</code> 为来源维度展开后被单独移除的人员，展开时做减法；<code>item_id</code> / <code>item_name</code> 为对应主数据 ID 与名称</td>
           </tr>
           <tr>
             <td><code>scope_id</code></td>
@@ -1193,7 +1193,7 @@ reject_reason / offline_reason: → NULL</div>
 <div class="note-box">
   <p><b>核心设计要点：</b></p>
   <p>1. <span class="key">share_scope</span> 是范围申请单，<span class="key">stage</span> 三态（requested / adjusted / effective）记录范围从提交到生效的完整过程，只增不改。</p>
-  <p>2. <span class="key">share_scope_item</span> 是范围明细，1 张申请单对应 N 行，按 dim（org / role / position / user）存储四维选择。</p>
+  <p>2. <span class="key">share_scope_item</span> 是范围明细，1 张申请单对应 N 行，按 dim（org / role / position / user / excluded）存储四维选择与单独移除人员；展开规则为「四维并集 − excluded」，因此被单独移除的人即使仍在组织/角色/岗位范围内也不会获得授权。</p>
   <p>3. <span class="key">approval</span> 是审批单，记录审批状态流转（pending → approved / rejected / terminated），<span class="key">approval_type</span> 区分 share（共享申请）、scope（授权申请）、change（调整申请）与 offline（下架申请），与助理上的 <span class="key">pending_type</span> / <span class="key">reject_type</span> 一一对应。</p>
   <p>4. <span class="key">assistant_grant</span> 是授权名册，只在审批通过或管理员直改时，将 <span class="key">effective</span> 单的维度明细按人展开写入，一人一行，带 <span class="key">grant_status</span>（授权有效性）和 <span class="key">subscribe_status</span>（被授权方订阅状态）两个正交维度。</p>
   <p>5. 创建助理不共享时，不写任何共享表，绑定关系由 <span class="key">assistant.owner_user_id</span> 表达；<span class="key">assistant.version</span> 空串表示「未发布」，仅在审批通过时生成或推进（首次记 V1.0.0，此后尾号 +1，到 99 进位）。</p>

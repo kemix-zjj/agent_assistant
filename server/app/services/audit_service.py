@@ -4,6 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_client_ip
 from app.core.security import CurrentUser
 from app.models.system import SysAuditLog
 
@@ -21,7 +22,10 @@ def record(
     after: dict | None = None,
     client_ip: str | None = None,
 ) -> None:
-    """写一条审计记录。审计失败不阻断主流程，仅记日志。"""
+    """写一条审计记录。审计失败不阻断主流程，仅记日志。
+
+    client_ip 未显式传入时取当前请求上下文（由 TraceMiddleware 注入）。
+    """
     try:
         db.add(
             SysAuditLog(
@@ -33,7 +37,7 @@ def record(
                 object_id=str(object_id) if object_id is not None else None,
                 before_value=before,
                 after_value=after,
-                client_ip=client_ip,
+                client_ip=client_ip or get_client_ip(),
             )
         )
     except Exception as exc:  # noqa: BLE001 - 审计不能影响主流程

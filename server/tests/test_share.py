@@ -50,7 +50,14 @@ def _create(name: str) -> int:
 
 
 def _scope(**overrides) -> dict:
-    data = {"scopeMode": "RANGE", "orgs": [], "roles": [], "positions": [], "users": []}
+    data = {
+        "scopeMode": "RANGE",
+        "orgs": [],
+        "roles": [],
+        "positions": [],
+        "users": [],
+        "excludeUsers": [],
+    }
     data.update(overrides)
     return data
 
@@ -343,10 +350,13 @@ def test_submit_writes_audit_log() -> None:
                 )
             ).all()
             assert len(rows) == 1
-            assert rows[0].before_value == {"shareStatus": "unshared"}
+            # 首次共享没有历史范围，before.scope 为 None；有历史时写入变更前范围快照
+            assert rows[0].before_value == {"shareStatus": "unshared", "scope": None}
             assert rows[0].after_value["shareStatus"] == "pending"
             assert rows[0].after_value["grantTotal"] == 1
             assert rows[0].operator_name == "王晓明"
+            # 客户端 IP 由 TraceMiddleware 注入，不再为空
+            assert rows[0].client_ip
         finally:
             db.close()
     finally:
@@ -401,6 +411,48 @@ def test_admin_scope_update_applies_directly() -> None:
             params={"scope": "shared", "pageSize": 50},
         ).json()["data"]
         assert aid in [c["assistantId"] for c in shared["list"]]
+    finally:
+        client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
+
+
+def test_scope_exclude_users_applies_end_to_end() -> None:
+    """来源维度展开后单独移除的人员：展开、快照回显、授权重算三处一致。"""
+    from sqlalchemy import select
+
+    from app.core.database import SessionLocal
+    from app.models.scope import AssistantGrant
+
+    aid = _create("共享范围助理庚")
+    try:
+        # O11 下有 2 人，单独移除 u1 后应只剩 1 人
+        resp = client.put(
+            f"/api/v1/assistants/{aid}/share-scope",
+            headers=ADMIN,
+            json={"scope": _scope(orgs=["O11"], excludeUsers=["u1"])},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["scope"]["grantTotal"] == 1
+        assert [u["id"] for u in data["scope"]["excludeUsers"]] == ["u1"]
+        assert "u1" not in [u["id"] for u in data["scope"]["users"]]
+
+        # 回显：排除项随快照返回，生效人员不含被移除者
+        echo = client.get(f"/api/v1/assistants/{aid}/share-scope", headers=ADMIN).json()["data"]
+        assert echo["scope"]["grantTotal"] == 1
+        assert [u["id"] for u in echo["scope"]["excludeUsers"]] == ["u1"]
+
+        # 授权重算：u1 不产生有效授权，u2 正常获得
+        db = SessionLocal()
+        try:
+            grants = db.scalars(
+                select(AssistantGrant).where(
+                    AssistantGrant.assistant_id == aid,
+                    AssistantGrant.grant_status == "valid",
+                )
+            ).all()
+            assert {g.user_id for g in grants} == {"u2"}
+        finally:
+            db.close()
     finally:
         client.delete(f"/api/v1/assistants/{aid}", headers=OWNER)
 

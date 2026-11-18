@@ -268,7 +268,7 @@
     │   ├── <span class="file">api.ts</span>            <span class="note"># 通用响应结构、分页参数</span>
     │   ├── <span class="file">assistant.ts</span>      <span class="note"># 助理、能力组成、版本、列表卡片类型</span>
     │   ├── <span class="file">approval.ts</span>       <span class="note"># 审批单、审批类型与状态</span>
-    │   ├── <span class="file">scope.ts</span>          <span class="note"># 四维范围、人数统计、授权人员类型</span>
+    │   ├── <span class="file">scope.ts</span>          <span class="note"># 四维范围、单独移除人员、人数统计、授权人员类型</span>
     │   ├── <span class="file">auto-imports.d.ts</span> <span class="note"># 自动导入生成的声明，勿手改</span>
     │   ├── <span class="file">components.d.ts</span>   <span class="note"># 自动注册组件声明，勿手改</span>
     │   └── <span class="file">env.d.ts</span>          <span class="note"># Vite 环境变量与静态资源类型</span>
@@ -294,7 +294,7 @@
             <tr><td><span class="path">AssistantFormDrawer.vue</span></td><td>创建 / 编辑表单</td><td>多页签录入、必填校验、AI 生成填充、头像上传、保存并提交审批</td></tr>
             <tr><td><span class="path">CreateOptionDialog.vue</span></td><td>创建方式选择</td><td>手动创建；自然语言创建与第三方接入为占位入口</td></tr>
             <tr><td><span class="path">ShareSubmitDialog.vue</span></td><td>共享提交</td><td>选择范围授权或公开模式，展示预计授权人数，提交审批</td></tr>
-            <tr><td><span class="path">ScopePicker.vue</span></td><td>四维范围选择</td><td>组织/角色/岗位/人员 穿梭框、搜索、已选统计、上限提示</td></tr>
+            <tr><td><span class="path">ScopePicker.vue</span></td><td>四维范围选择</td><td>组织/角色/岗位/人员 穿梭框、单独移除人员、搜索、已选统计、上限提示</td></tr>
             <tr><td><span class="path">OfflineSubmitDialog.vue</span></td><td>下架申请</td><td>填写下架原因并提交审批</td></tr>
             <tr><td><span class="path">StatusTag.vue</span></td><td>状态角标</td><td>统一映射未共享/审批中/已通过/已拒绝/已下架的颜色与文案</td></tr>
             <tr><td><span class="path">ThirdPartyDrawer.vue</span></td><td>第三方接入</td><td>预留能力，当前为前端模拟，不调用后端</td></tr>
@@ -368,7 +368,7 @@ npm run build        <span class="note"># 生产构建，产物在 dist/（不�
 │       ├── <span class="file">assistant_service.py</span>  <span class="note"># 助理：列表/详情/创建/编辑/删除、头像字段归一化</span>
 │       ├── <span class="file">approval_service.py</span>   <span class="note"># 审批中心：列表、双视图、通过/拒绝、回写状态</span>
 │       ├── <span class="file">share_service.py</span>      <span class="note"># 共享：提交、回显、调整、下架</span>
-│       ├── <span class="file">scope_service.py</span>      <span class="note"># 范围：四维展开、人数校验、快照读写、授权物化</span>
+│       ├── <span class="file">scope_service.py</span>      <span class="note"># 范围：四维展开（并集 − 单独移除）、人数校验、快照读写、授权物化</span>
 │       ├── <span class="file">summon_service.py</span>     <span class="note"># 召唤、订阅移除、重新订阅</span>
 │       ├── <span class="file">category_service.py</span>   <span class="note"># 分类字典业务规则</span>
 │       ├── <span class="file">resource_service.py</span>   <span class="note"># 资源候选查询与保存校验</span>

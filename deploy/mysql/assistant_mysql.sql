@@ -244,7 +244,7 @@ CREATE TABLE `share_scope` (
 CREATE TABLE `share_scope_item` (
     `id`         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键 ID，自增',
     `scope_id`   BIGINT       NOT NULL COMMENT '范围快照 ID，外键指向 share_scope.id，级联删除',
-    `dim`        VARCHAR(16)  NOT NULL COMMENT '范围维度：org 组织 / role 角色 / position 岗位 / user 人员',
+    `dim`        VARCHAR(16)  NOT NULL COMMENT '范围维度：org 组织 / role 角色 / position 岗位 / user 人员 / excluded 单独移除的人员',
     `item_id`    VARCHAR(64)  NOT NULL COMMENT '外部主数据 ID（组织/角色/岗位/人员），不做外键，来源为主数据平台',
     `item_name`  VARCHAR(128) NOT NULL COMMENT '维度项名称快照（组织/角色/岗位/人员名称），用于审批详情展示',
     `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -252,9 +252,9 @@ CREATE TABLE `share_scope_item` (
     UNIQUE KEY `uk_scope_item` (`scope_id`, `dim`, `item_id`),
     KEY `idx_scope_item_scope` (`scope_id`),
     CONSTRAINT `fk_scope_item_scope` FOREIGN KEY (`scope_id`) REFERENCES `share_scope` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `ck_scope_item_dim` CHECK (`dim` IN ('org', 'role', 'position', 'user'))
+    CONSTRAINT `ck_scope_item_dim` CHECK (`dim` IN ('org', 'role', 'position', 'user', 'excluded'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci
-  COMMENT = '范围快照的四维原始选择；组织/角色/岗位仅用于批量展开人员，最终生效颗粒为 user';
+  COMMENT = '范围快照的四维原始选择与单独移除人员；组织/角色/岗位仅用于批量展开人员，最终生效颗粒为 user';
 
 -- ------------------------------------------------------------
 -- 4.11 assistant_grant · 人员级授权与订阅关系

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数智助理 · 助理团 —— FastAPI 速学笔记</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2329; --ink-2:#4e5969; --ink-3:#86909c;
+    --line:#e5e6eb; --brand:#3370ff; --brand-soft:#eef3ff;
+    --green:#00b42a; --green-soft:#e8ffea; --orange:#ff7d00; --orange-soft:#fff7e8;
+    --purple:#722ed1; --purple-soft:#f5e8ff; --cyan:#0fc6c2; --cyan-soft:#e8fffb;
+    --red:#f53f3f; --red-soft:#ffece8; --code:#f2f3f5;
+    --shadow:0 2px 8px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.7; font-size:14px;
+  }
+  .wrap{display:flex; align-items:flex-start; max-width:1360px; margin:0 auto; gap:24px; padding:0 24px;}
+
+  .toc{
+    position:sticky; top:0; flex:0 0 224px; align-self:flex-start;
+    height:100vh; overflow:auto; padding:28px 0;
+  }
+  .toc h2{font-size:12px; letter-spacing:.12em; color:var(--ink-3); text-transform:uppercase; margin:0 0 12px 12px;}
+  .toc a{
+    display:block; padding:7px 12px; color:var(--ink-2); text-decoration:none;
+    border-radius:8px; font-size:13px; border-left:2px solid transparent;
+  }
+  .toc a:hover{background:var(--brand-soft); color:var(--brand);}
+  .toc a .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink-3);margin-right:8px;vertical-align:middle;}
+  .toc a:hover .dot{background:var(--brand);}
+
+  main{flex:1 1 auto; min-width:0; padding:28px 0 80px;}
+
+  header.hero{
+    background:linear-gradient(135deg,#3370ff 0%,#5b8cff 55%,#7aa2ff 100%);
+    color:#fff; border-radius:16px; padding:32px 34px; box-shadow:var(--shadow); margin-bottom:28px;
+  }
+  header.hero h1{margin:0 0 8px; font-size:26px; letter-spacing:.5px;}
+  header.hero p{margin:0; color:rgba(255,255,255,.9); font-size:14px; max-width:900px;}
+  .badges{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
+  .badge{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); color:#fff;
+    padding:4px 12px; border-radius:999px; font-size:12px;}
+
+  section{background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
+    padding:24px 26px; margin-bottom:22px;}
+  section > h2{
+    margin:0 0 16px; font-size:18px; display:flex; align-items:center; gap:10px;
+  }
+  section > h2 .num{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+    background:var(--brand); color:#fff; border-radius:8px; font-size:13px; font-weight:600; flex:none;
+  }
+  .lead{color:var(--ink-2); margin:0 0 16px;}
+
+  pre.code{
+    margin:14px 0 0; background:var(--code); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; overflow:auto; font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.5px; line-height:1.8; color:var(--ink); white-space:pre;
+  }
+  pre.code .c{color:var(--ink-3);}
+  pre.code .k{color:var(--brand);}
+  pre.code .s{color:#0b9d99;}
+  pre.code .hl{background:#fff3bf; border-radius:3px; padding:0 2px;}
+
+  table{width:100%; border-collapse:collapse; margin:10px 0 4px; font-size:13px;}
+  thead th{
+    text-align:left; background:#f7f8fa; color:var(--ink-2); font-weight:600;
+    padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfc;}
+
+  code{background:var(--code); border:1px solid var(--line); border-radius:4px; padding:1px 6px;
+    font-family:Consolas,"SFMono-Regular",monospace; font-size:12.5px; color:var(--ink);}
+  .path{font-family:Consolas,"SFMono-Regular",monospace; color:var(--brand); font-size:12.5px; white-space:nowrap;}
+
+  .subsection{margin-top:26px;}
+  .subsection h3{font-size:15px; margin:0 0 10px; color:var(--ink); display:flex; align-items:center; gap:8px;}
+  .subsection h3::before{content:""; width:4px; height:15px; background:var(--brand); border-radius:2px;}
+
+  .arch-flow{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0 6px; font-size:13px;}
+  .arch-flow .node{background:var(--brand-soft); color:var(--brand); border:1px solid #c8d8ff;
+    padding:6px 14px; border-radius:8px; font-weight:600;}
+  .arch-flow .node.store{background:var(--green-soft); color:#008a20; border-color:#b7f0c0;}
+  .arch-flow .node.db{background:var(--purple-soft); color:var(--purple); border-color:#e3ccff;}
+  .arch-flow .arrow{color:var(--ink-3); font-weight:700;}
+
+  .callout{border-left:3px solid var(--orange); background:var(--orange-soft); color:#8a5a00;
+    padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; margin:14px 0 0;}
+  .callout.ok{border-left-color:var(--green); background:var(--green-soft); color:#00661a;}
+  .callout.info{border-left-color:var(--brand); background:var(--brand-soft); color:#1b4dd1;}
+  .callout.bad{border-left-color:var(--red); background:var(--red-soft); color:#a8171b;}
+
+  .tag{display:inline-block; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:4px;}
+  .t-bad{background:var(--red-soft); color:var(--red);}
+  .t-good{background:var(--green-soft); color:var(--green);}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;}
+  .panel-box{background:#fafbfc; border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .panel-box h4{margin:0 0 8px; font-size:13px; display:flex; align-items:center; gap:6px;}
+  .panel-box ul{margin:0; padding-left:18px; color:var(--ink-2); font-size:13px;}
+  .panel-box li{margin:4px 0;}
+
+  .step{display:flex; gap:12px; margin:12px 0;}
+  .step .idx{flex:none; width:22px; height:22px; border-radius:50%; background:var(--brand-soft);
+    color:var(--brand); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:2px;}
+  .step .body{flex:1; min-width:0;}
+
+  footer{text-align:center; color:var(--ink-3); font-size:12px; padding:8px 0 0;}
+
+  @media (max-width:900px){
+    .wrap{flex-direction:column; padding:0 14px;}
+    .toc{position:static; height:auto; flex:none; width:100%; display:flex; flex-wrap:wrap; gap:4px; padding:14px 0;}
+    .toc h2{width:100%; margin-left:4px;}
+    .toc a{border-left:none; padding:6px 10px; background:#fff; border:1px solid var(--line);}
+    main{padding-top:8px;}
+    .grid2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc">
+    <h2>目录导航</h2>
+    <a href="#intro"><span class="dot"></span>一、FastAPI 在干什么</a>
+    <a href="#pipeline"><span class="dot"></span>二、一次请求的旅程</a>
+    <a href="#app"><span class="dot"></span>三、应用装配与路由</a>
+    <a href="#params"><span class="dot"></span>四、参数的五种来源</a>
+    <a href="#di"><span class="dot"></span>五、依赖注入（核心）</a>
+    <a href="#schema"><span class="dot"></span>六、Pydantic 入参校验</a>
+    <a href="#response"><span class="dot"></span>七、统一响应与异常</a>
+    <a href="#middleware"><span class="dot"></span>八、中间件与静态资源</a>
+    <a href="#test"><span class="dot"></span>九、测试与调试</a>
+    <a href="#pitfall"><span class="dot"></span>十、常见坑清单</a>
+    <a href="#practice"><span class="dot"></span>十一、动手练习</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>FastAPI 速学笔记</h1>
+      <p>基于本仓库 <code>docs/FastAPI实践教程.html</code> 与 <code>server/</code> 真实代码整理的学习笔记。每个知识点都能对应到具体文件，读完能看懂并修改现有接口，也能按同样分层新增一个接口。</p>
+      <div class="badges">
+        <span class="badge">FastAPI</span>
+        <span class="badge">Pydantic v2</span>
+        <span class="badge">SQLAlchemy 2.0 同步</span>
+        <span class="badge">Depends 依赖注入</span>
+        <span class="badge">TestClient</span>
+      </div>
+    </header>
+
+    <!-- 一 -->
+    <section id="intro">
+      <h2><span class="num">1</span>FastAPI 在干什么</h2>
+      <p class="lead">一句话：把「HTTP 请求」映射成「Python 函数调用」，再把返回值映射回「HTTP 响应」。参数解析、校验、序列化、错误处理它全包了。</p>
+
+      <div class="grid2">
+        <div class="panel-box">
+          <h4><span class="tag t-good">它替你做的</span></h4>
+          <ul>
+            <li>自动生成 OpenAPI / Swagger 文档</li>
+            <li>基于类型注解的入参校验</li>
+            <li>依赖注入（数据库会话、登录态、分页）</li>
+            <li>统一异常到响应的翻译</li>
+            <li>同步 / 异步共存</li>
+          </ul>
+        </div>
+        <div class="panel-box">
+          <h4><span class="tag t-bad">你仍要自己写的</span></h4>
+          <ul>
+            <li>业务规则与状态机</li>
+            <li>数据库事务边界</li>
+            <li>错误码设计</li>
+            <li>日志、鉴权策略、限流</li>
+            <li>部署与进程管理</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>本项目的分层，决定了学习顺序</h3>
+        <div class="arch-flow">
+          <span class="node">api/v1 路由</span><span class="arrow">→</span>
+          <span class="node">services 领域服务</span><span class="arrow">→</span>
+          <span class="node">repositories</span><span class="arrow">→</span>
+          <span class="node db">models → MySQL</span>
+        </div>
+        <p class="lead" style="margin-top:10px">FastAPI 只管第一层（<code>api/v1</code>）和它上面的一圈基础设施（<code>core</code>）。后三层是普通 Python 代码，FastAPI 不参与，因此更容易单独测试。</p>
+        <div class="callout info">这条边界很重要：<strong>服务层不应该 import fastapi</strong>。如果发现某个 service 里出现了 <code>HTTPException</code> 或 <code>Request</code>，说明分层被破坏了。</div>
+      </div>
+    </section>
+
+    <!-- 二 -->
+    <section id="pipeline">
+      <h2><span class="num">2</span>一次请求的旅程</h2>
+      <p class="lead">以 <code>GET /api/v1/assistants?scope=mine&amp;pageSize=12</code> 为例，请求进入后依次经过：</p>
+
+      <div class="step">
+        <div class="idx">1</div>
+        <div class="body"><strong>中间件</strong>：<code>TraceMiddleware</code> 生成 traceId，记录耗时；CORS 中间件补响应头</div>
+      </div>
+      <div class="step">
+        <div class="idx">2</div>
+        <div class="body"><strong>路由匹配</strong>：按注册顺序找到 <code>list_assistants</code>，抽取路径参数</div>
+      </div>
+      <div class="step">
+        <div class="idx">3</div>
+        <div class="body"><strong>参数解析与校验</strong>：查询参数按 <code>Query</code> 约束校验，Body 按 Pydantic 模型校验</div>
+      </div>
+      <div class="step">
+        <div class="idx">4</div>
+        <div class="body"><strong>依赖执行</strong>：先跑 <code>get_db</code> 拿 Session，再跑 <code>get_current_user</code> 解析身份</div>
+      </div>
+      <div class="step">
+        <div class="idx">5</div>
+        <div class="body"><strong>调用路由函数</strong>：函数体里只做「组装服务 + 调用 + 包装响应」</div>
+      </div>
+      <div class="step">
+        <div class="idx">6</div>
+        <div class="body"><strong>序列化</strong>：返回值经 <code>UnifiedJSONResponse</code> 输出 JSON</div>
+      </div>
+      <div class="step">
+        <div class="idx">7</div>
+        <div class="body"><strong>依赖清理</strong>：<code>get_db</code> 的 <code>finally</code> 关闭 Session</div>
+      </div>
+
+      <div class="callout">注意第 4 步和第 7 步：<strong>依赖的清理代码在响应发出后执行</strong>。所以不要在依赖里提前关闭数据库连接，也不要在 <code>yield</code> 之后做耗时的网络请求。</div>
+    </section>
+
+    <!-- 三 -->
+    <section id="app">
+      <h2><span class="num">3</span>应用装配与路由</h2>
+      <p class="lead">对应文件：<span class="path">app/main.py</span>、<span class="path">app/api/v1/__init__.py</span></p>
+
+      <div class="subsection">
+        <h3>创建应用</h3>
+<pre class="code">app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    docs_url=<span class="s">"/docs"</span>,           <span class="c"># Swagger UI，可直接试接口</span>
+    redoc_url=<span class="s">"/redoc"</span>,
+    openapi_url=<span class="s">"/openapi.json"</span>,      <span class="c"># 前端/网关读取接口清单</span>
+    default_response_class=UnifiedJSONResponse,  <span class="c"># 全局默认响应类</span>
+)</pre>
+        <p class="lead">启动后访问 <code>http://127.0.0.1:8000/docs</code> 即可看到所有接口。这也是最省事的联调工具——不需要 Postman。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>三层路由嵌套</h3>
+<pre class="code"><span class="c"># 第 1 层：每个业务模块一个 APIRouter</span>
+router = APIRouter(prefix=<span class="s">"/assistants"</span>, tags=[<span class="s">"assistants"</span>])
+
+<span class="c"># 第 2 层：v1 汇总</span>
+api_router = APIRouter()
+api_router.include_router(shares.router)
+api_router.include_router(assistants.router)
+
+<span class="c"># 第 3 层：挂到 app 上，统一加 /api/v1 前缀</span>
+app.include_router(api_router, prefix=settings.api_prefix)</pre>
+        <p class="lead">最终路径 = <code>/api/v1</code> + <code>/assistants</code> + <code>/{assistantId}</code>。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>路由顺序 = 匹配优先级</h3>
+<pre class="code"><span class="c"># app/api/v1/__init__.py</span>
+<span class="c"># 助理详情为 /assistants/{id}，共享范围子路径需先注册以免被通配匹配</span>
+api_router.include_router(shares.router)      <span class="c"># 先</span>
+api_router.include_router(assistants.router)  <span class="c"># 后</span></pre>
+      </div>
+      <div class="callout bad">FastAPI 按注册顺序匹配，<strong>先匹配到就返回</strong>。如果 <code>/assistants/{id}</code> 先注册，那么 <code>/assistants/xxx/scope</code> 这类路径可能被它吃掉，导致 422 或 404。规律：<span class="tag t-good">具体路径在前</span><span class="tag t-bad">通配路径在后</span></div>
+    </section>
+
+    <!-- 四 -->
+    <section id="params">
+      <h2><span class="num">4</span>参数的五种来源</h2>
+      <p class="lead">FastAPI 通过「参数的类型 + 声明方式」判断参数从哪里读。对应文件：<span class="path">app/api/v1/assistants.py</span>、<span class="path">app/api/v1/common.py</span></p>
+
+      <table>
+        <thead><tr><th>来源</th><th>声明方式</th><th>本项目示例</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>路径参数</td>
+            <td>路径里写 <code>{name}</code>，函数同名参数</td>
+            <td><code>@router.get("/{assistantId}")</code> + <code>assistantId: int</code></td>
+          </tr>
+          <tr>
+            <td>查询参数</td>
+            <td>标量参数带默认值，或 <code>Query()</code></td>
+            <td><code>scope: str = Query(default="all")</code></td>
+          </tr>
+          <tr>
+            <td>请求体</td>
+            <td>参数类型是 Pydantic 模型</td>
+            <td><code>payload: AssistantUpsertPayload</code></td>
+          </tr>
+          <tr>
+            <td>请求头</td>
+            <td><code>Header(alias="X-User-Id")</code></td>
+            <td><code>get_current_user</code> 中的四个 Header</td>
+          </tr>
+          <tr>
+            <td>文件</td>
+            <td><code>UploadFile = File(...)</code></td>
+            <td><code>/common/avatar-upload</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="subsection">
+        <h3>一个函数里同时出现四种</h3>
+<pre class="code"><span class="hl">@router.get("", summary=<span class="s">"助理团助理列表"</span>)</span>
+<span class="k">def</span> list_assistants(
+    response: Response,                              <span class="c"># 直接注入 Response</span>
+    scope: str = Query(default=<span class="s">"all"</span>),              <span class="c"># 查询参数</span>
+    categoryId: int | None = Query(default=None),    <span class="c"># 保持前端驼峰命名</span>
+    paging: PageParams = Depends(),                  <span class="c"># 参数聚合依赖</span>
+    db: Session = Depends(get_db),                   <span class="c"># 资源依赖</span>
+    user: CurrentUser = Depends(get_current_user),    <span class="c"># 身份依赖</span>
+) -&gt; dict:</pre>
+        <p class="lead">不需要手写 <code>request.query_params.get(...)</code>。类型标注就是契约，同时也喂给了 OpenAPI 文档。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>约束写在声明处</h3>
+<pre class="code"><span class="c"># 路径参数也可以加校验</span>
+assistantId: int = Path(ge=1, description=<span class="s">"助理主键"</span>)
+
+<span class="c"># 查询参数：范围约束 + 驼峰别名</span>
+page_size: int = Query(default=12, ge=1, le=50, alias=<span class="s">"pageSize"</span>)</pre>
+      </div>
+
+      <div class="subsection">
+        <h3>响应头也能改</h3>
+<pre class="code"><span class="c"># 前端据此展示「变更将立即对 N 个授权对象生效」</span>
+detail, affected = service.update_assistant(assistantId, payload, user)
+<span class="k">if</span> affected:
+    response.headers[<span class="s">"X-Affected-Grant-Count"</span>] = str(affected)</pre>
+        <p class="lead">注入 <code>Response</code> 对象后，返回值仍然照常走序列化，两者不冲突。</p>
+      </div>
+    </section>
+
+    <!-- 五 -->
+    <section id="di">
+      <h2><span class="num">5</span>依赖注入（核心）</h2>
+      <p class="lead">一句话概括：<strong>函数声明「我需要什么」，FastAPI 负责准备、校验、缓存和清理</strong>。本项目有三类典型依赖。</p>
+
+      <div class="subsection">
+        <h3>类型一：带清理的资源依赖</h3>
+        <p class="lead">文件：<span class="path">app/core/database.py</span></p>
+<pre class="code"><span class="k">def</span> get_db() -&gt; Generator[Session, None, None]:
+    db = SessionLocal()
+    <span class="k">try</span>:
+        <span class="hl">yield db</span>              <span class="c"># yield 之前是准备</span>
+    <span class="k">except</span> Exception:
+        db.rollback()        <span class="c"># 异常自动回滚</span>
+        <span class="k">raise</span>
+    <span class="k">finally</span>:
+        db.close()           <span class="c"># yield 之后是清理</span></pre>
+        <div class="grid2">
+          <div class="panel-box">
+            <h4>为什么用 yield</h4>
+            <ul>
+              <li><code>yield</code> 之前是准备</li>
+              <li><code>yield</code> 之后是清理</li>
+              <li>异常时自动回滚，业务代码不写 try</li>
+            </ul>
+          </div>
+          <div class="panel-box">
+            <h4>带来的约定</h4>
+            <ul>
+              <li>每个请求独立 Session，天然隔离</li>
+              <li>不要在 service 里 <code>commit</code> 后继续用对象</li>
+              <li>提交时机由服务层控制，依赖只负责收尾</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>类型二：依赖可以依赖依赖</h3>
+        <p class="lead">文件：<span class="path">app/core/security.py</span></p>
+<pre class="code"><span class="k">def</span> get_current_user(
+    x_user_id: str | None = Header(default=None, alias=<span class="s">"X-User-Id"</span>),
+    x_company_id: str | None = Header(default=None, alias=<span class="s">"X-Company-Id"</span>),
+) -&gt; CurrentUser:
+    <span class="k">if not</span> x_user_id:
+        <span class="hl">raise UnauthenticatedError()</span>          <span class="c"># 依赖里可以直接抛异常</span>
+    <span class="k">return</span> CurrentUser(user_id=..., is_admin=...)</pre>
+        <p class="lead">任何接口只要写 <code>user: CurrentUser = Depends(get_current_user)</code>，就自动获得登录态；没带 Header 时在进入函数体之前就返回 401。</p>
+        <div class="callout info">这正是「鉴权前置」的实现方式：<strong>把校验放在依赖里，而不是每个函数开头写 if</strong>。同理还有 <code>user.require_admin()</code>，在服务层做管理员校验。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>类型三：类作为依赖，聚合一组参数</h3>
+        <p class="lead">文件：<span class="path">app/core/pagination.py</span></p>
+<pre class="code"><span class="k">class</span> PageParams:
+    <span class="k">def</span> __init__(
+        self,
+        page: int = Query(default=1, ge=1, description=<span class="s">"页码，从 1 开始"</span>),
+        page_size: int = Query(default=12, ge=1, le=50, alias=<span class="s">"pageSize"</span>),
+    ) -&gt; None:
+        self.page = page
+        self.page_size = page_size
+
+    <span class="hl">@property</span>
+    <span class="k">def</span> offset(self) -&gt; int:
+        <span class="k">return</span> (self.page - 1) * self.page_size</pre>
+        <p class="lead">用 <code>Depends()</code>（注意是调用，不是 <code>Depends(PageParams)</code>）依赖一个类时，FastAPI 会解析构造函数里的 <code>Query</code> 默认值。好处是分页规则只写一次，offset 计算也集中。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>依赖缓存</h3>
+        <div class="callout ok">同一个请求内，<strong>相同依赖只执行一次</strong>。所以即使三个地方都写了 <code>Depends(get_db)</code>，也只会创建一个 Session。这也是为什么可以放心把 <code>get_current_user</code> 挂在多个依赖上。</div>
+      </div>
+    </section>
+
+    <!-- 六 -->
+    <section id="schema">
+      <h2><span class="num">6</span>Pydantic 入参校验</h2>
+      <p class="lead">文件：<span class="path">app/schemas/assistant.py</span></p>
+
+      <div class="subsection">
+        <h3>一份模型，两个方向</h3>
+<pre class="code"><span class="k">class</span> AssistantUpsertPayload(BaseModel):
+    model_config = ConfigDict(<span class="hl">alias_generator=to_camel</span>, populate_by_name=True)
+
+    name: str = Field(min_length=2, max_length=20)
+    avatar_type: Literal[<span class="s">"char"</span>, <span class="s">"image"</span>] = <span class="s">"char"</span>
+    avatar_color: str = Field(default=<span class="s">"#3685F2"</span>, pattern=<span class="s">r"^#[0-9A-Fa-f]{6}$"</span>)
+    tags: list[str] = Field(default_factory=list, max_length=5)
+
+    <span class="hl">@field_validator("name", "description")</span>
+    <span class="hl">@classmethod</span>
+    <span class="k">def</span> _strip_text(cls, value: str) -&gt; str:
+        <span class="k">return</span> value.strip()</pre>
+        <p class="lead">同一个模型既用于入参（<code>payload: AssistantUpsertPayload</code>），也用于出参（<code>model_dump(by_alias=True)</code> 转回驼峰）。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>四个必须掌握的点</h3>
+        <table>
+          <thead><tr><th>能力</th><th>写法</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>命名映射</td>
+              <td><code>alias_generator=to_camel</code></td>
+              <td>Python 用 <code>snake_case</code>，接口收发 <code>camelCase</code>，两边互不妥协</td>
+            </tr>
+            <tr>
+              <td>字段约束</td>
+              <td><code>Field(min_length=..., pattern=..., max_length=...)</code></td>
+              <td>在声明处表达规则，不合法自动 400，不用写 if</td>
+            </tr>
+            <tr>
+              <td>枚举限定</td>
+              <td><code>Literal["char", "image"]</code></td>
+              <td>取值写错直接拒绝，比运行期判断更早</td>
+            </tr>
+            <tr>
+              <td>字段清洗</td>
+              <td><code>@field_validator</code></td>
+              <td>去空格、空串转 <code>None</code>，只做格式化不做业务</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout">边界要分清：<strong>字段级规则放 Pydantic，跨字段 / 跨表规则放服务层</strong>。比如「共享范围人数超限」依赖主数据，必须放在 <code>scope_service</code> 里，不能塞进 schema。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>列表也能约束</h3>
+<pre class="code">tags: list[str] = Field(default_factory=list, <span class="hl">max_length=5</span>)          <span class="c"># 最多 5 个标签</span>
+skill_ids: list[str] = Field(default_factory=list, <span class="hl">max_length=20</span>)   <span class="c"># 最多 20 个技能</span></pre>
+        <p class="lead">Pydantic v2 中，列表的 <code>max_length</code> 就是元素个数上限。要限制每个元素的长度，用 <code>list[Annotated[str, Field(max_length=8)]]</code>。</p>
+      </div>
+    </section>
+
+    <!-- 七 -->
+    <section id="response">
+      <h2><span class="num">7</span>统一响应与异常</h2>
+      <p class="lead">本项目没有在每个接口里手写 <code>JSONResponse</code>，而是用「包装函数 + 全局异常处理器」两层。</p>
+
+      <div class="subsection">
+        <h3>成功：ok() 包一层</h3>
+<pre class="code"><span class="c"># app/core/response.py</span>
+<span class="k">def</span> ok(data: object = None) -&gt; dict:
+    <span class="k">return</span> {<span class="s">"code"</span>: <span class="s">"OK"</span>, <span class="s">"message"</span>: <span class="s">"success"</span>, <span class="s">"data"</span>: data, <span class="s">"traceId"</span>: <span class="s">""</span>}
+
+<span class="c"># 路由里</span>
+detail = service.get_detail(assistantId, user)
+<span class="hl">return ok(detail.model_dump(by_alias=True))</span></pre>
+        <p class="lead">固定四段式：<code>code / message / data / traceId</code>。前端只需处理一种结构，不需要按接口写分支。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>失败：抛异常，不返回错误码</h3>
+<pre class="code"><span class="c"># app/core/errors.py</span>
+<span class="k">class</span> BizError(Exception):
+    <span class="k">def</span> __init__(self, code, message, data=None, http_status: int = 400):
+        self.code = code
+        self.message = message
+        self.http_status = http_status
+
+<span class="c"># 服务层直接抛</span>
+<span class="k">raise</span> NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, <span class="s">"助理不存在"</span>)</pre>
+<pre class="code"><span class="c"># app/core/exception_handlers.py</span>
+<span class="hl">@app.exception_handler(BizError)</span>
+<span class="k">async def</span> _biz_error(_: Request, exc: BizError) -&gt; JSONResponse:
+    <span class="k">return</span> JSONResponse(
+        status_code=exc.http_status,
+        content=_body(exc.code.value, exc.message, exc.data),
+    )</pre>
+        <div class="grid2">
+          <div class="panel-box">
+            <h4>这样做的好处</h4>
+            <ul>
+              <li>服务层不依赖 HTTP，可脱离框架测试</li>
+              <li>错误码集中定义，不会各写各的</li>
+              <li>回溯清晰：异常栈直接指向出问题的地方</li>
+            </ul>
+          </div>
+          <div class="panel-box">
+            <h4>要注册的四类处理器</h4>
+            <ul>
+              <li><code>BizError</code> → 业务错误</li>
+              <li><code>RequestValidationError</code> → 参数错误</li>
+              <li><code>IntegrityError</code> → 唯一键冲突</li>
+              <li><code>Exception</code> → 兜底 500</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>把技术异常翻译成业务语言</h3>
+<pre class="code"><span class="c"># 数据库唯一键名 → 业务错误码，避免把约束名暴露给前端</span>
+_UNIQUE_CONSTRAINT_MAP = {
+    <span class="s">"uk_assistant_company_name"</span>: (ErrorCode.ASSISTANT_NAME_DUPLICATED, <span class="s">"助理昵称已存在，请修改"</span>),
+    <span class="s">"uk_category_company_name"</span>: (ErrorCode.CATEGORY_DUPLICATED, <span class="s">"分类名称已存在"</span>),
+}</pre>
+        <p class="lead">参数校验失败时，把 Pydantic 的字段定位信息转成 <code>{"field": "name"}</code> 返回，前端可以直接高亮对应输入框。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>状态码怎么定</h3>
+        <table>
+          <thead><tr><th>场景</th><th>状态码</th><th>code</th></tr></thead>
+          <tbody>
+            <tr><td>创建成功</td><td>201</td><td><code>OK</code></td></tr>
+            <tr><td>参数不合法</td><td>400</td><td><code>PARAM_INVALID</code></td></tr>
+            <tr><td>未登录</td><td>401</td><td><code>UNAUTHENTICATED</code></td></tr>
+            <tr><td>无权限</td><td>403</td><td><code>NO_PERMISSION</code></td></tr>
+            <tr><td>资源不存在</td><td>404</td><td><code>XXX_NOT_FOUND</code></td></tr>
+            <tr><td>唯一键冲突 / 状态冲突</td><td>409</td><td><code>XXX_DUPLICATED</code></td></tr>
+            <tr><td>未预期异常</td><td>500</td><td><code>INTERNAL_ERROR</code></td></tr>
+          </tbody>
+        </table>
+        <div class="callout">HTTP 状态码表达「类别」，<code>code</code> 表达「具体原因」。两者都要有，前端才既能用拦截器统一处理，又能针对具体错误给提示。</div>
+      </div>
+    </section>
+
+    <!-- 八 -->
+    <section id="middleware">
+      <h2><span class="num">8</span>中间件与静态资源</h2>
+
+      <div class="subsection">
+        <h3>自定义中间件</h3>
+        <p class="lead">文件：<span class="path">app/core/middleware.py</span></p>
+<pre class="code"><span class="k">class</span> TraceMiddleware(BaseHTTPMiddleware):
+    <span class="k">async def</span> dispatch(self, request: Request, call_next):
+        trace_id = request.headers.get(<span class="s">"X-Trace-Id"</span>) <span class="k">or</span> new_trace_id()
+        set_trace_id(trace_id)
+
+        started = time.perf_counter()
+        response: Response = <span class="hl">await call_next(request)</span>
+        elapsed_ms = (time.perf_counter() - started) * 1000
+
+        response.headers[<span class="s">"X-Trace-Id"</span>] = trace_id
+        logger.info(<span class="s">"%s %s -&gt; %s (%.1fms)"</span>, request.method,
+                    request.url.path, response.status_code, elapsed_ms)
+        <span class="k">return</span> response</pre>
+        <p class="lead"><code>call_next</code> 之前是「请求阶段」，之后是「响应阶段」。中间件适合做横切关注点：链路 ID、访问日志、耗时统计、CORS、鉴权前置。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>洋葱模型</h3>
+        <div class="arch-flow">
+          <span class="node">Trace 外层</span><span class="arrow">→</span>
+          <span class="node">CORS</span><span class="arrow">→</span>
+          <span class="node">路由函数</span><span class="arrow">→</span>
+          <span class="node">CORS</span><span class="arrow">→</span>
+          <span class="node">Trace 外层</span>
+        </div>
+<pre class="code">app.add_middleware(CORSMiddleware, ...)   <span class="c"># 先加 → 内层</span>
+app.add_middleware(TraceMiddleware)       <span class="c"># 后加 → 外层</span></pre>
+        <div class="callout info"><strong>后添加的在外层</strong>。所以 Trace 在最外，CORS 响应头也能被它记录到；如果反过来，CORS 中间件短路返回时就不会留下日志。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>静态资源挂载</h3>
+<pre class="code">static_dir = settings.static_dir
+static_dir.mkdir(parents=True, exist_ok=True)      <span class="c"># 目录不存在时自动建</span>
+app.mount(<span class="s">"/static"</span>, StaticFiles(directory=str(static_dir)), name=<span class="s">"static"</span>)</pre>
+        <p class="lead">本项目只把它当作「未配置 OBS 时的本地回退」。生产环境头像是写入 OBS 并通过公网域名访问，不走这条路径。</p>
+      </div>
+    </section>
+
+    <!-- 九 -->
+    <section id="test">
+      <h2><span class="num">9</span>测试与调试</h2>
+
+      <div class="subsection">
+        <h3>TestClient：不启端口也能测</h3>
+<pre class="code"><span class="k">from</span> fastapi.testclient <span class="k">import</span> TestClient
+
+client = TestClient(app)
+resp = client.get(<span class="s">"/api/v1/assistants"</span>,
+                  headers={<span class="s">"X-User-Id"</span>: <span class="s">"1001"</span>},
+                  params={<span class="s">"scope"</span>: <span class="s">"mine"</span>})
+<span class="k">assert</span> resp.status_code == 200
+<span class="k">assert</span> resp.json()[<span class="s">"code"</span>] == <span class="s">"OK"</span></pre>
+        <p class="lead">它走完整的依赖注入、中间件、异常处理链，只是不经过网络和端口。这就是性价比最高的「集成测试」。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>测试数据清理</h3>
+        <p class="lead">文件：<span class="path">tests/conftest.py</span></p>
+<pre class="code"><span class="c"># 单元测试不访问大模型，AI 生成走确定性模板，结果可断言且可离线执行</span>
+os.environ[<span class="s">"LLM_ENABLED"</span>] = <span class="s">"false"</span>
+
+<span class="hl">@pytest.fixture(scope="session", autouse=True)</span>
+<span class="k">def</span> purge_test_assistants() -&gt; None:
+    _purge_test_rows()                 <span class="c"># 会话开始前先清一次</span>
+    baseline = _summon_baseline(conn)
+    <span class="k">yield</span>
+    _purge_test_rows(baseline)         <span class="c"># 结束后再清一次</span></pre>
+        <div class="grid2">
+          <div class="panel-box">
+            <h4>两个实用技巧</h4>
+            <ul>
+              <li>用固定名称前缀标识测试数据，便于精准清理</li>
+              <li>记录基线 ID，只清理本次新产生的记录</li>
+            </ul>
+          </div>
+          <div class="panel-box">
+            <h4>外部依赖隔离</h4>
+            <ul>
+              <li>环境变量关闭大模型调用</li>
+              <li>测试不依赖网络，保证可重复</li>
+              <li>用真实数据库做集成测试，不 mock Session</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>三种调试手段</h3>
+        <table>
+          <thead><tr><th>手段</th><th>用法</th><th>适合</th></tr></thead>
+          <tbody>
+            <tr><td>Swagger UI</td><td>打开 <code>/docs</code>，填参数点 Execute</td><td>快速验证单个接口</td></tr>
+            <tr><td>traceId 串联</td><td>响应头 <code>X-Trace-Id</code> → 搜日志</td><td>定位线上问题、跟一次完整调用</td></tr>
+            <tr><td>pytest 单条</td><td><code>pytest tests/test_assistants.py -k create -q</code></td><td>改完代码立刻回归</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 十 -->
+    <section id="pitfall">
+      <h2><span class="num">10</span>常见坑清单</h2>
+      <table>
+        <thead><tr><th>#</th><th>坑</th><th>后果 / 正确做法</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>同步路由写成 <code>async def</code></td>
+            <td>本项目用同步 SQLAlchemy，写成 <code>async def</code> 会阻塞事件循环。同步函数用 <code>def</code>，FastAPI 自动丢线程池</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>路由注册顺序颠倒</td>
+            <td>通配路径先注册会吃掉后续具体路径。具体路径在前</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>依赖里提前关闭资源</td>
+            <td><code>yield</code> 之后的清理在响应发出后执行，不要在 <code>yield</code> 前 close</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>在依赖里做耗时操作</td>
+            <td>依赖会阻塞请求；重活放后台任务或服务层异步化</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>查询参数大小写写错</td>
+            <td>HTTP 头不区分大小写，但查询参数区分，<code>pageSize</code> 必须完全一致</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>只返回 dict 不包 <code>ok()</code></td>
+            <td>前端拿到结构不一致，需统一走响应包装</td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td>服务层 import fastapi</td>
+            <td>分层被破坏，服务层无法脱离框架测试</td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td>生产环境用 <code>--reload</code></td>
+            <td>会额外起进程监控文件，必须去掉，并用多 worker</td>
+          </tr>
+          <tr>
+            <td>9</td>
+            <td>改了代码没重启</td>
+            <td>本项目未开 <code>--reload</code>，改后端必须重启进程才生效</td>
+          </tr>
+          <tr>
+            <td>10</td>
+            <td>把所有规则塞进 Pydantic</td>
+            <td>跨字段 / 跨表规则放服务层，schema 只做单字段校验与清洗</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 十一 -->
+    <section id="practice">
+      <h2><span class="num">11</span>动手练习</h2>
+      <p class="lead">按顺序做，每步都能立刻验证，不需要写新业务。</p>
+
+      <div class="subsection">
+        <h3>练习 1：看懂一个接口</h3>
+        <p class="lead">打开 <span class="path">app/api/v1/assistants.py</span> 的 <code>list_assistants</code>，回答：</p>
+<pre class="code">① scope 参数从哪来？不传时默认值是什么？
+② db 和 user 是几个依赖？执行顺序如何确定？
+③ 返回值经过了几次包装？
+④ 如果 user 未带 Header，函数体会被执行吗？</pre>
+      </div>
+
+      <div class="subsection">
+        <h3>练习 2：加一个最简接口</h3>
+<pre class="code"><span class="c"># app/api/v1/assistants.py</span>
+<span class="hl">@router.get("/ping", summary="连通性自检")</span>
+<span class="k">def</span> ping(user: CurrentUser = Depends(get_current_user)) -&gt; dict:
+    <span class="k">return</span> ok({<span class="s">"userId"</span>: user.user_id, <span class="s">"admin"</span>: user.is_admin})</pre>
+        <p class="lead">重启后端后访问 <code>/docs</code>，用不同 <code>X-User-Id</code>（1001 / 9001）试两次，观察 <code>admin</code> 字段。</p>
+        <div class="callout bad">注意：<code>/ping</code> 必须放在 <code>@router.get("/{assistantId}")</code> <strong>之前</strong>，否则会被当成 assistantId 解析成 <code>ping</code> 而报 422。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>练习 3：观察校验与异常</h3>
+        <pre class="code"><span class="c"># 1. 触发参数校验失败（故意传 1 个字符的名字）</span>
+POST /api/v1/assistants  {<span class="s">"name"</span>: <span class="s">"a"</span>, ...}
+
+<span class="c"># 观察：400 + code=PARAM_INVALID + data.field=name</span>
+
+<span class="c"># 2. 触发业务异常（查一个不存在的助理）</span>
+GET /api/v1/assistants/999999
+
+<span class="c"># 观察：404 + code=ASSISTANT_NOT_FOUND，且响应头带 X-Trace-Id</span></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>练习 4：写一个测试</h3>
+<pre class="code"><span class="k">def</span> test_ping(client):
+    resp = client.get(<span class="s">"/api/v1/assistants/ping"</span>, headers={<span class="s">"X-User-Id"</span>: <span class="s">"9001"</span>})
+    <span class="k">assert</span> resp.status_code == 200
+    <span class="k">assert</span> resp.json()[<span class="s">"data"</span>][<span class="s">"admin"</span>] <span class="k">is</span> True</pre>
+        <p class="lead">跑 <code>pytest -q -k ping</code> 验证。</p>
+      </div>
+
+      <div class="subsection">
+        <h3>检验清单</h3>
+        <table>
+          <thead><tr><th>能力</th><th>达标标准</th></tr></thead>
+          <tbody>
+            <tr><td>读代码</td><td>能说出任意一个接口的参数来源、依赖链、返回结构</td></tr>
+            <tr><td>加接口</td><td>不改服务层就能加一个只读接口，并出现在 Swagger 里</td></tr>
+            <tr><td>查问题</td><td>能凭 traceId 定位一次请求的日志，能区分 400 / 403 / 404 / 409</td></tr>
+            <tr><td>守边界</td><td>知道什么该写在 schema、什么该写进 service</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout ok">学习路线一句话：先看懂「请求 → 函数 → 响应」的映射，再掌握 <strong>路由装配（顺序）→ 参数来源 → 依赖注入 → Pydantic 校验 → 统一响应/异常</strong> 这条主线，最后用 TestClient 和 Swagger 验证。本项目已覆盖日常开发约 90% 的 FastAPI 用法。</div>
+    </section>
+
+    <footer>数智助理 · 助理团 ｜ FastAPI 速学笔记 ｜ 单文件静态页面，可直接用浏览器打开</footer>
+  </main>
+</div>
+</body>
+</html>

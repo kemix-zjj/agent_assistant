@@ -30,6 +30,8 @@ export interface Scope {
   roles: ScopeRoleItem[]
   positions: ScopePositionItem[]
   users: ScopeUserItem[]
+  /** 来源维度展开后被单独移除的人员：已从 users 中剔除，仅用于回显与差异展示 */
+  excludeUsers?: ScopeUserItem[]
   grantTotal: number
   summary: string
 }
@@ -49,6 +51,8 @@ export interface ScopePayload {
   roles: string[]
   positions: string[]
   users: string[]
+  /** 来源维度展开后单独移除的人员，作为减法项参与后端展开与授权重算 */
+  excludeUsers: string[]
 }
 
 export interface ScopeExpandResult {
@@ -65,8 +69,14 @@ export const EMPTY_SCOPE: Scope = {
   roles: [],
   positions: [],
   users: [],
+  excludeUsers: [],
   grantTotal: 0,
   summary: ''
+}
+
+/** 空范围请求体：各处新建 / 重置统一使用，避免遗漏 excludeUsers */
+export function emptyScopePayload(): ScopePayload {
+  return { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [], excludeUsers: [] }
 }
 
 export const DEFAULT_SCOPE_LIMITS: ScopeLimits = {

@@ -5,6 +5,7 @@ import ScopePicker from './ScopePicker.vue'
 import { submitShareApi } from '@/api'
 import type { AssistantCard } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
+import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
 /** 共享提交弹窗：首次共享、重新提交与批量勾选提交共用（F-SHR-001 / F-SHR-003） */
@@ -16,7 +17,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; submitted: [] }>()
 
-const EMPTY_PAYLOAD: ScopePayload = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+const EMPTY_PAYLOAD: ScopePayload = emptyScopePayload()
 
 function clonePayload(p: ScopePayload): ScopePayload {
   return {
@@ -24,7 +25,8 @@ function clonePayload(p: ScopePayload): ScopePayload {
     orgs: [...p.orgs],
     roles: [...p.roles],
     positions: [...p.positions],
-    users: [...p.users]
+    users: [...p.users],
+    excludeUsers: [...(p.excludeUsers ?? [])]
   }
 }
 

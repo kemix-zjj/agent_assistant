@@ -32,6 +32,7 @@ import type {
   ListScope
 } from '@/types/assistant'
 import type { ScopePayload } from '@/types/scope'
+import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
 const router = useRouter()
@@ -72,7 +73,7 @@ const activeAssistantId = ref<number | null>(null)
 const shareTargets = ref<AssistantCardType[]>([])
 const shareInitialScope = ref<ScopePayload | null>(null)
 const scopeTarget = ref<AssistantCardType | null>(null)
-const scopePayload = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
+const scopePayload = ref<ScopePayload>(emptyScopePayload())
 const scopeSaving = ref(false)
 
 /** 分类管理弹窗 */
@@ -381,20 +382,22 @@ function toScopePayload(scopeValue: {
   roles: Array<{ id: string }>
   positions: Array<{ id: string }>
   users: Array<{ id: string }>
+  excludeUsers?: Array<{ id: string }>
 }): ScopePayload {
   return {
     scopeMode: scopeValue.scopeMode,
     orgs: scopeValue.orgs.map((o) => o.id),
     roles: scopeValue.roles.map((r) => r.id),
     positions: scopeValue.positions.map((p) => p.id),
-    users: scopeValue.users.map((u) => u.id)
+    users: scopeValue.users.map((u) => u.id),
+    excludeUsers: (scopeValue.excludeUsers ?? []).map((u) => u.id)
   }
 }
 
 /** 已共享助理调整范围：走 PUT /assistants/{id}/share-scope */
 async function openScope(card: AssistantCardType): Promise<void> {
   scopeTarget.value = card
-  scopePayload.value = { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+  scopePayload.value = emptyScopePayload()
   scopeDialog.value = true
   try {
     const { getShareScopeApi } = await import('@/api')

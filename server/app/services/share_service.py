@@ -109,6 +109,8 @@ class ShareService:
         current_batch_no = batch_no()
         approval_ids: list[int] = []
         for index, row in enumerate(assistants, start=1):
+            # 变更前范围须在新建请求快照之前取，否则会读到刚写入的请求值
+            previous_scope = self._current_effective_scope(row.id)
             # 先建审批单，再建请求范围快照（快照需回填 approval_id）
             approval = Approval(
                 approval_no=approval_no(index),
@@ -161,7 +163,10 @@ class ShareService:
                 action="share_submit",
                 object_type="assistant",
                 object_id=row.id,
-                before={"shareStatus": old_status},
+                before={
+                    "shareStatus": old_status,
+                    "scope": previous_scope.model_dump(by_alias=True) if previous_scope else None,
+                },
                 after={
                     "shareStatus": "pending",
                     "approvalId": approval.id,
@@ -277,6 +282,7 @@ class ShareService:
         # 分支 A：管理员直接生效（平台内置 / 已共享走此分支；审批中已被上方拦截）
         if user.is_admin:
             old_grant_total = row.authorized_count
+            previous_scope = self._current_effective_scope(assistant_id)
             scope_row = self.scopes.create_snapshot(
                 company_id=user.company_id,
                 assistant_id=assistant_id,
@@ -303,7 +309,12 @@ class ShareService:
                 action="scope_change",
                 object_type="assistant",
                 object_id=assistant_id,
-                before={"scopeMode": None, "scopeId": None, "grantTotal": old_grant_total},
+                before={
+                    "scopeMode": previous_scope.scope_mode if previous_scope else None,
+                    "scopeId": None,
+                    "grantTotal": old_grant_total,
+                    "scope": previous_scope.model_dump(by_alias=True) if previous_scope else None,
+                },
                 after={
                     "scopeMode": payload.scope.scope_mode,
                     "scopeId": scope_row.id,
@@ -346,6 +357,7 @@ class ShareService:
                 {"approvalId": pending.id},
             )
 
+        previous_scope = self._current_effective_scope(assistant_id)
         approval = Approval(
             approval_no=approval_no(1),
             batch_no=None,
@@ -396,7 +408,10 @@ class ShareService:
             action="scope_change",
             object_type="assistant",
             object_id=assistant_id,
-            before={"shareStatus": old_status},
+            before={
+                "shareStatus": old_status,
+                "scope": previous_scope.model_dump(by_alias=True) if previous_scope else None,
+            },
             after={"shareStatus": "pending", "approvalId": approval.id},
         )
         self.db.commit()

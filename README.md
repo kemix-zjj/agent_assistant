@@ -31,7 +31,7 @@ agent_assistant/
 
 | 文档 | 内容 |
 |------|------|
-| `需求说明书.md` | 13 个功能点、EARS 需求列表、验收标准（当前 V1.20） |
+| `需求说明书.md` | 13 个功能点、EARS 需求列表、验收标准（当前 V1.21） |
 | `01-总体架构设计.md` | 分层架构、模块划分、关键设计决策、权限模型、状态机、核心链路时序 |
 | `02-数据库设计.md` | ER 图、14 张表 DDL、索引与性能、数据一致性规则 |
 | `03-接口设计.md` | 33 个接口清单、出入参、错误码、页面映射 |
@@ -178,7 +178,7 @@ npm run dev
 |------|------|----------|
 | 启动后端 | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app` | `server/` |
 | 启动前端 | `npm run dev` | `web/` |
-| 后端接口测试（128 项） | `python -m pytest -q` | `server/` |
+| 后端接口测试（129 项） | `python -m pytest -q` | `server/` |
 | 前端类型检查 | `npm run type-check` | `web/` |
 | 前端构建 | `npm run build` | `web/` |
 

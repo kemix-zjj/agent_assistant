@@ -15,6 +15,7 @@ import {
 } from '@/api'
 import type { ApprovalCard, ApprovalDetail } from '@/types/approval'
 import type { Scope, ScopePayload, ScopeMode } from '@/types/scope'
+import { emptyScopePayload } from '@/types/scope'
 import { ApiError } from '@/types/api'
 
 /**
@@ -39,7 +40,7 @@ const detailOpen = ref(false)
 const detail = ref<ApprovalDetail | null>(null)
 const detailLoading = ref(false)
 const adjusting = ref(false)
-const scopePayload = ref<ScopePayload>({ scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] })
+const scopePayload = ref<ScopePayload>(emptyScopePayload())
 const deciding = ref(false)
 
 /** 确认弹窗（对齐原型 confirmDialog） */
@@ -133,9 +134,10 @@ async function openDetail(approvalId: number): Promise<void> {
           orgs: d.scope.orgs.map((o) => o.id),
           roles: d.scope.roles.map((r) => r.id),
           positions: d.scope.positions.map((p) => p.id),
-          users: d.scope.users.map((u) => u.id)
+          users: d.scope.users.map((u) => u.id),
+          excludeUsers: (d.scope.excludeUsers ?? []).map((u) => u.id)
         }
-      : { scopeMode: 'RANGE', orgs: [], roles: [], positions: [], users: [] }
+      : emptyScopePayload()
   } catch (e) {
     if (e instanceof ApiError && e.code === 'APPROVAL_ALREADY_HANDLED') {
       ElMessage.warning('该申请已被处理，列表已刷新')
@@ -292,6 +294,9 @@ function scopeChips(scope: Scope | null): Array<{ key: string; label: string; me
   scope.roles.forEach((r) => chips.push({ key: `r-${r.id}`, label: `角色 · ${r.name}` }))
   scope.users.forEach((u) =>
     chips.push({ key: `u-${u.id}`, label: u.name, meta: u.deptName || undefined })
+  )
+  ;(scope.excludeUsers ?? []).forEach((u) =>
+    chips.push({ key: `x-${u.id}`, label: `${u.name}（已移除）`, meta: u.deptName || undefined })
   )
   return chips
 }
