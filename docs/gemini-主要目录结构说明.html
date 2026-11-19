@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数智助理 · 助理团 项目目录结构说明</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2329; --ink-2:#4e5969; --ink-3:#86909c;
+    --line:#e5e6eb; --brand:#3370ff; --brand-soft:#eef3ff;
+    --green:#00b42a; --green-soft:#e8ffea; --orange:#ff7d00; --orange-soft:#fff7e8;
+    --purple:#722ed1; --purple-soft:#f5e8ff; --cyan:#0fc6c2; --cyan-soft:#e8fffb;
+    --red:#f53f3f; --red-soft:#ffece8; --code:#f2f3f5;
+    --shadow:0 2px 8px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.65; font-size:14px;
+  }
+  .wrap{display:flex; align-items:flex-start; max-width:1360px; margin:0 auto; gap:24px; padding:0 24px;}
+
+  /* 侧边导航 */
+  .toc{
+    position:sticky; top:0; flex:0 0 220px; align-self:flex-start;
+    height:100vh; overflow:auto; padding:28px 0;
+  }
+  .toc h2{font-size:12px; letter-spacing:.12em; color:var(--ink-3); text-transform:uppercase; margin:0 0 12px 12px;}
+  .toc a{
+    display:block; padding:7px 12px; color:var(--ink-2); text-decoration:none;
+    border-radius:8px; font-size:13px; border-left:2px solid transparent;
+  }
+  .toc a:hover{background:var(--brand-soft); color:var(--brand);}
+  .toc a .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink-3);margin-right:8px;vertical-align:middle;}
+  .toc a:hover .dot{background:var(--brand);}
+
+  main{flex:1 1 auto; min-width:0; padding:28px 0 80px;}
+
+  /* 头部 */
+  header.hero{
+    background:linear-gradient(135deg,#3370ff 0%,#5b8cff 55%,#7aa2ff 100%);
+    color:#fff; border-radius:16px; padding:32px 34px; box-shadow:var(--shadow); margin-bottom:28px;
+  }
+  header.hero h1{margin:0 0 8px; font-size:26px; letter-spacing:.5px;}
+  header.hero p{margin:0; color:rgba(255,255,255,.9); font-size:14px; max-width:860px;}
+  .badges{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
+  .badge{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); color:#fff;
+    padding:4px 12px; border-radius:999px; font-size:12px;}
+  .badge.time{background:rgba(0,0,0,.15); border-color:rgba(255,255,255,.25);}
+
+  section{background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
+    padding:24px 26px; margin-bottom:22px;}
+  section > h2{
+    margin:0 0 16px; font-size:18px; display:flex; align-items:center; gap:10px;
+  }
+  section > h2 .num{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+    background:var(--brand); color:#fff; border-radius:8px; font-size:13px; font-weight:600;
+  }
+  .lead{color:var(--ink-2); margin:0 0 16px;}
+
+  /* 目录树与代码块复制按钮 */
+  .code-wrap{position:relative; margin:0;}
+  .copy-btn{
+    position:absolute; top:10px; right:12px; z-index:2;
+    background:#fff; border:1px solid var(--line); color:var(--ink-2);
+    border-radius:6px; padding:3px 10px; font-size:12px; cursor:pointer;
+    transition:all .15s; opacity:.85;
+  }
+  .copy-btn:hover{border-color:var(--brand); color:var(--brand); opacity:1;}
+  pre.tree{
+    margin:0; background:var(--code); border:1px solid var(--line); border-radius:12px;
+    padding:18px 20px; overflow:auto; font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.5px; line-height:1.75; color:var(--ink);
+  }
+  .tree .dir{color:var(--brand); font-weight:600;}
+  .tree .file{color:var(--ink);}
+  .tree .note{color:var(--ink-3);}
+  
+  /* 醒目高亮样式体系 */
+  .tree .hl-app-root { color:#0055d4; font-weight:700; background:#eef3ff; padding:2px 6px; border-radius:4px; }
+  .tree .hl-core     { color:#007700; font-weight:700; background:#e8ffea; padding:2px 6px; border-radius:4px; }
+  .tree .hl-data     { color:#b25900; font-weight:700; background:#fff7e8; padding:2px 6px; border-radius:4px; }
+  .tree .hl-api      { color:#0048b2; font-weight:700; background:#e6f4ff; padding:2px 6px; border-radius:4px; }
+  .tree .hl-infra    { color:#722ed1; font-weight:700; background:#f5e8ff; padding:2px 6px; border-radius:4px; }
+  .tree .hl-model    { color:#c41d7f; font-weight:700; background:#fff0f6; padding:2px 6px; border-radius:4px; }
+
+  /* 表格 */
+  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13px;}
+  thead th{
+    text-align:left; background:#f7f8fa; color:var(--ink-2); font-weight:600;
+    padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfc;}
+  td .path{font-family:Consolas,"SFMono-Regular",monospace; color:var(--brand); font-size:12.5px; white-space:nowrap;}
+  td .desc{color:var(--ink-2);}
+
+  .subsection{margin-top:24px;}
+  .subsection h3{font-size:15px; margin:0 0 10px; color:var(--ink); display:flex; align-items:center; gap:8px;}
+  .subsection h3::before{content:""; width:4px; height:15px; background:var(--brand); border-radius:2px;}
+
+  .arch-flow{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0 6px; font-size:13px;}
+  .arch-flow .node{background:var(--brand-soft); color:var(--brand); border:1px solid #c8d8ff; padding:6px 14px; border-radius:8px; font-weight:600;}
+  .arch-flow .node.store{background:var(--green-soft); color:#008a20; border-color:#b7f0c0;}
+  .arch-flow .node.db{background:var(--purple-soft); color:var(--purple); border-color:#e3ccff;}
+  .arch-flow .arrow{color:var(--ink-3); font-weight:700;}
+
+  .callout{border-left:3px solid var(--orange); background:var(--orange-soft); color:#8a5a00;
+    padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; margin:14px 0 0;}
+  .callout.ok{border-left-color:var(--green); background:var(--green-soft); color:#00661a;}
+  .callout.info{border-left-color:var(--brand); background:var(--brand-soft); color:#1b4dd1;}
+  .callout.danger{border-left-color:var(--red); background:var(--red-soft); color:#a8071a;}
+
+  /* FAQ 卡片 */
+  .faq-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:10px;}
+  .faq-item{background:#fafbfc; border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
+  .faq-item h4{margin:0 0 6px; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:6px;}
+  .faq-item p{margin:0; font-size:13px; color:var(--ink-2);}
+  .faq-item code{background:var(--code); padding:1px 5px; border-radius:4px; font-size:12px; color:var(--brand);}
+
+  footer{text-align:center; color:var(--ink-3); font-size:12px; padding:8px 0 0;}
+
+  @media (max-width:900px){
+    .wrap{flex-direction:column; padding:0 14px;}
+    .toc{position:static; height:auto; flex:none; width:100%; display:flex; flex-wrap:wrap; gap:4px; padding:14px 0;}
+    .toc h2{width:100%; margin-left:4px;}
+    .toc a{border-left:none; padding:6px 10px; background:#fff; border:1px solid var(--line);}
+    main{padding-top:8px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc">
+    <h2>目录导航</h2>
+    <a href="#overview"><span class="dot"></span>一、顶层结构</a>
+    <a href="#docs"><span class="dot"></span>二、docs/ 文档</a>
+    <a href="#prototype"><span class="dot"></span>三、prototype/ 原型</a>
+    <a href="#web"><span class="dot"></span>四、web/ 前端</a>
+    <a href="#server"><span class="dot"></span>五、server/ 后端</a>
+    <a href="#deploy"><span class="dot"></span>六、deploy/ 部署</a>
+    <a href="#cheatsheet"><span class="dot"></span>七、改动速查</a>
+    <a href="#standards"><span class="dot"></span>八、规范与排障</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>数智助理 · 助理团</h1>
+      <p>项目目录结构说明 —— 逐个说明仓库中每个目录、每个文件的职责，以及一次请求会经过哪些文件。文档、原型、前端、后端、部署五部分独立演进，通过接口契约与原型约定连接。</p>
+      <div class="badges">
+        <span class="badge">后端 · Python + FastAPI + SQLAlchemy + MySQL 8.0</span>
+        <span class="badge">前端 · Vue 3 + TypeScript + Vite + Element Plus</span>
+        <span class="badge">存储 · 天翼云 OBS（头像）</span>
+        <span class="badge">原型 · 纯静态 HTML</span>
+        <span class="badge time">文档同步更新 · 2026</span>
+      </div>
+    </header>
+
+    <!-- 一、顶层结构 -->
+    <section id="overview">
+      <h2><span class="num">1</span>顶层目录</h2>
+      <p class="lead">根目录只放 5 个主目录 + 2 个说明文件，任何业务代码都不放在根目录。</p>
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">agent_assistant/
+├── <span class="file">README.md</span>        <span class="note"># 项目总说明：定位、技术栈、目录导航、本地启动步骤</span>
+├── <span class="file">.gitignore</span>       <span class="note"># 忽略依赖、构建产物、缓存、.env、运行时静态目录</span>
+├── <span class="dir">docs/</span>            <span class="note"># 需求、架构、数据库、接口、数据流向、目录说明、技术补充</span>
+├── <span class="dir">prototype/</span>       <span class="note"># 静态 UI 原型，交互与文案的基线，双击 index.html 即可看</span>
+├── <span class="dir">web/</span>             <span class="note"># 前端工程，生产代码在 src/，构建产物 dist/ 不提交</span>
+├── <span class="dir">server/</span>          <span class="note"># 后端工程，生产代码在 app/，脚本在 scripts/，测试在 tests/</span>
+└── <span class="dir">deploy/</span>          <span class="note"># 部署物，目前是 MySQL 初始化脚本</span></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>各目录什么时候看</h3>
+        <table>
+          <thead><tr><th>目录</th><th>内容</th><th>典型场景</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">docs/</span></td><td>需求与设计文档、可视化页面</td><td>评审需求、查接口契约、对齐状态机、了解图片存储方案</td></tr>
+            <tr><td><span class="path">prototype/</span></td><td>纯静态原型（HTML + CSS + JS）</td><td>确认交互细节与文案；UI 与逻辑以原型为准</td></tr>
+            <tr><td><span class="path">web/</span></td><td>Vue 3 前端工程</td><td>改页面、改交互、对接接口、调样式</td></tr>
+            <tr><td><span class="path">server/</span></td><td>FastAPI 后端工程</td><td>改业务规则、加接口、调数据库、写测试</td></tr>
+            <tr><td><span class="path">deploy/</span></td><td>建库建表脚本</td><td>新环境初始化数据库</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>一次请求的路径</h3>
+        <div class="arch-flow">
+          <span class="node">浏览器</span><span class="arrow">→</span>
+          <span class="node">views 页面</span><span class="arrow">→</span>
+          <span class="node">api/index.ts</span><span class="arrow">→</span>
+          <span class="node">request.ts（axios）</span><span class="arrow">→</span>
+          <span class="node">api/v1 路由</span><span class="arrow">→</span>
+          <span class="node">services 领域服务</span><span class="arrow">→</span>
+          <span class="node">repositories</span><span class="arrow">→</span>
+          <span class="node db">MySQL</span>
+        </div>
+        <div class="arch-flow">
+          <span class="node">services 头像逻辑</span><span class="arrow">→</span>
+          <span class="node">obs_service</span><span class="arrow">→</span>
+          <span class="node store">OBS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 二、docs -->
+    <section id="docs">
+      <h2><span class="num">2</span>docs/ · 需求与设计文档</h2>
+      <p class="lead">文档是唯一事实来源：需求定义“做什么”，01/02/03 分别约束架构、数据结构、接口契约，两份 HTML 用于评审与查阅。</p>
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">docs/
+├── <span class="file">需求说明书.md</span>            <span class="note"># 功能清单、EARS 需求、页面字段、验收标准（版本号在文首）</span>
+├── <span class="file">01-总体架构设计.md</span>       <span class="note"># 分层架构、模块划分、权限模型、状态机、核心链路时序</span>
+├── <span class="file">02-数据库设计.md</span>          <span class="note"># ER 图、14 张表 DDL、索引与性能、跨列一致性约束</span>
+├── <span class="file">03-接口设计.md</span>            <span class="note"># 接口清单、出入参、错误码、页面与接口映射</span>
+├── <span class="file">data_flow.html</span>            <span class="note"># 全链路数据流向可视化（原型 → 接口 → 落库），用于评审</span>
+├── <span class="file">项目目录结构说明.html</span>      <span class="note"># 仓库目录与文件职责（本文档）</span>
+└── <span class="file">技术架构补充说明.html</span>      <span class="note"># 专项技术方案补充，当前章节：图片存储（OBS）</span></pre>
+      </div>
+
+      <table>
+        <thead><tr><th>文件</th><th>内容重点</th><th>对应代码</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">需求说明书.md</span></td><td>功能边界、不做清单、字段与校验、验收口径</td><td>前端页面与交互、后端校验规则</td></tr>
+          <tr><td><span class="path">01-总体架构设计.md</span></td><td>分层规则、角色权限（创建者/管理员/订阅者）、状态机</td><td><code>core/</code>、<code>services/</code></td></tr>
+          <tr><td><span class="path">02-数据库设计.md</span></td><td>14 张表、字段含义、索引、CHECK 约束</td><td><code>models/</code>、<code>deploy/mysql/</code></td></tr>
+          <tr><td><span class="path">03-接口设计.md</span></td><td>路径、方法、入参、出参、错误码</td><td><code>api/v1/</code>、<code>schemas/</code>、<code>api/index.ts</code></td></tr>
+          <tr><td><span class="path">data_flow.html</span></td><td>页面操作 → 接口 → 表字段的对应关系</td><td>联调排查时按图索骥</td></tr>
+          <tr><td><span class="path">技术架构补充说明.html</span></td><td>OBS 上传/回显/清理、桶策略、配置项、运维脚本</td><td><code>common_service.py</code>、<code>obs_service.py</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout info">建议阅读顺序：需求说明书 → 01 总体架构 → 02 数据库 → 03 接口 → 原型。改代码前先确认文档是否已被新需求覆盖。</div>
+    </section>
+
+    <!-- 三、prototype -->
+    <section id="prototype">
+      <h2><span class="num">3</span>prototype/ · 静态 UI 原型</h2>
+      <p class="lead">纯静态、无构建依赖，双击 <code>index.html</code> 即可评审；不连后端，数据全部来自 <code>js/common.js</code> 的 Mock。</p>
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">prototype/
+├── <span class="file">index.html</span>              <span class="note"># SPA 容器：图标精灵、飞书风格侧栏、地址栏 hash 直达页面</span>
+├── <span class="file">索引.md</span>                  <span class="note"># 原型索引：信息架构、主流程、评审直达链接、数据约定</span>
+├── <span class="dir">css/</span>
+│   ├── <span class="file">common.css</span>           <span class="note"># 设计令牌与基础样式</span>
+│   └── <span class="file">assistant.css</span>        <span class="note"># 助理业务样式</span>
+├── <span class="dir">js/</span>
+│   └── <span class="file">common.js</span>            <span class="note"># 原型运行时：Mock 数据、hash 路由等</span>
+├── <span class="dir">img/avatars/</span>             <span class="note"># 6 款默认卡通头像</span>
+└── <span class="dir">pages/</span>
+    ├── <span class="file">D-AT-LIST.js</span>         <span class="note"># 助理列表页</span>
+    └── <span class="file">D-AT-NEWTASK.js</span>      <span class="note"># 新建任务页</span></pre>
+      </div>
+      <div class="callout">原型是 UI 与业务逻辑的基线。需求文档与原型冲突时，以原型为准；原型未覆盖的细节再回看需求说明书。</div>
+    </section>
+
+    <!-- 四、web -->
+    <section id="web">
+      <h2><span class="num">4</span>web/ · 前端工程（Vue 3 + TS + Vite）</h2>
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">web/
+├── <span class="file">index.html</span>              <span class="note"># HTML 模板入口</span>
+├── <span class="file">package.json</span>             <span class="note"># 依赖与脚本配置</span>
+├── <span class="file">tsconfig.json</span>            <span class="note"># TypeScript 编译配置</span>
+├── <span class="file">vite.config.ts</span>           <span class="note"># 构建配置：/api 代理、自动导入</span>
+└── <span class="dir">src/</span>                    <span class="note"># 前端源码目录</span>
+    ├── <span class="file">main.ts</span>               <span class="note"># 应用入口</span>
+    ├── <span class="dir">api/</span>                  <span class="note"># 接口请求层</span>
+    ├── <span class="dir">components/</span>           <span class="note"># 业务组件库</span>
+    ├── <span class="dir">router/</span>               <span class="note"># 路由管理</span>
+    ├── <span class="dir">stores/</span>               <span class="note"># Pinia 状态管理</span>
+    └── <span class="dir">views/</span>                <span class="note"># 页面视图层</span></pre>
+      </div>
+      <div class="callout">VITE_USE_MOCK 只在构建/启动时读取：改完 .env 必须重启 dev server 或重新 build，否则不生效。</div>
+    </section>
+
+    <!-- 五、server -->
+    <section id="server">
+      <h2><span class="num">5</span>server/ · 后端工程（FastAPI + SQLAlchemy + MySQL）</h2>
+      <div class="arch-flow">
+        <span class="node">api 路由层</span><span class="arrow">→</span>
+        <span class="node">services 领域服务</span><span class="arrow">→</span>
+        <span class="node">repositories 数据访问</span><span class="arrow">→</span>
+        <span class="node">models ORM 模型</span><span class="arrow">→</span>
+        <span class="node db">MySQL</span>
+      </div>
+      <p class="lead">分层约束：路由层只做参数绑定与调用，不写业务判断；服务层不依赖 HTTP 对象；仓储层只做查询与写入，不写业务规则；模型层只描述表结构。</p>
+
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">server/
+├── <span class="dir">app/</span>                     <span class="note hl-app-root"># 💡【后端核心应用根目录】90% 的业务生产代码都在这里</span>
+│   ├── <span class="file">main.py</span>              <span class="note"># 总开关/应用装配：中间件、异常处理、路由注册、/static 挂载</span>
+│   ├── <span class="dir">api/</span>                 <span class="note hl-api"># 💡【接口路由层】接待请求、接收参数、返回结果，不写具体业务判断</span>
+│   │   ├── <span class="file">health.py</span>         <span class="note"># 健康检查接口（无 /api/v1 前缀，供探针检测）</span>
+│   │   └── <span class="dir">v1/</span>              <span class="note"># 业务模块具体 API 路由集合</span>
+│   │       ├── <span class="file">assistants.py</span> <span class="note"># 助理相关接口</span>
+│   │       ├── <span class="file">shares.py</span>     <span class="note"># 共享相关接口</span>
+│   │       └── <span class="file">approvals.py</span>  <span class="note"># 审批相关接口</span>
+│   ├── <span class="dir">core/</span>                <span class="note hl-infra"># 💡【基础设施层】配置、数据库连接、鉴权、全局异常等通用底层</span>
+│   │   ├── <span class="file">config.py</span>            <span class="note"># 配置中心：读取 .env</span>
+│   │   ├── <span class="file">database.py</span>          <span class="note"># Engine、Session、Base 会话管理</span>
+│   │   └── <span class="file">security.py</span>          <span class="note"># 安全与鉴权：解析当前用户与管理员身份</span>
+│   ├── <span class="dir">models/</span>              <span class="note hl-model"># 💡【模型层】使用 SQLAlchemy ORM 定义数据库表结构</span>
+│   │   ├── <span class="file">base.py</span>              <span class="note"># ORM 基类、抽离公共字段</span>
+│   │   ├── <span class="file">assistant.py</span>         <span class="note"># 助理主表及关联组成表</span>
+│   │   └── <span class="file">approval.py</span>          <span class="note"># 审批单表模型</span>
+│   ├── <span class="dir">schemas/</span>             <span class="note hl-infra"># 💡【契约层】Pydantic 入参出参模型，自动校验请求数据合法性</span>
+│   ├── <span class="dir">repositories/</span>        <span class="note hl-data"># 💡【仓储层/数据访问】专门负责写 SQL 或 ORM 查询写入，不写业务规则</span>
+│   │   ├── <span class="file">assistant_repo.py</span>    <span class="note"># 助理查询（三范围 UNION）、写入、软删除</span>
+│   │   ├── <span class="file">approval_repo.py</span>     <span class="note"># 审批单查询与状态更新</span>
+│   │   └── <span class="file">category_repo.py</span>     <span class="note"># 分类字典读写操作</span>
+│   └── <span class="dir">services/</span>            <span class="note hl-core"># 💡【核心领域服务层/核心大脑】封装所有业务逻辑、状态流转、权限校验等核心规则</span>
+│       ├── <span class="file">assistant_service.py</span>  <span class="note hl-core"># 助理核心业务：列表/详情/创建/编辑/删除、头像归一化</span>
+│       ├── <span class="file">approval_service.py</span>   <span class="note hl-core"># 审批中心业务：列表、双视图、通过/拒绝、回写状态</span>
+│       ├── <span class="file">share_service.py</span>      <span class="note hl-core"># 共享管理业务：提交、回显、调整、下架申请</span>
+│       ├── <span class="file">scope_service.py</span>      <span class="note hl-core"># 权限范围计算：四维展开（并集-单独移除）、人数校验、授权物化</span>
+│       ├── <span class="file">summon_service.py</span>     <span class="note hl-core"># 召唤与订阅业务：召唤、订阅移除、重新订阅</span>
+│       ├── <span class="file">ai_service.py</span>         <span class="note hl-core"># AI 生成业务：大模型调用封装、失败模板兜底逻辑</span>
+│       ├── <span class="file">common_service.py</span>     <span class="note hl-core"># 通用业务服务：头像校验、写 OBS、URL 转换等</span>
+│       └── <span class="file">obs_service.py</span>        <span class="note hl-core"># OBS 客户端封装：上传、删除、公网 URL 获取</span>
+├── <span class="dir">migrations/</span>             <span class="note"># Alembic 数据库迁移配置</span>
+├── <span class="dir">scripts/</span>                <span class="note"># 运维、迁移、联调、OBS 测试脚本集合</span>
+├── <span class="dir">certs/</span>                  <span class="note"># 证书目录：OBS 私有根证书</span>
+├── <span class="dir">static/</span>                 <span class="note"># 本地头像回退目录</span>
+├── <span class="dir">tests/</span>                  <span class="note"># 基于 pytest 的自动化接口回归测试套件</span>
+├── <span class="file">.env</span>                    <span class="note"># 本地真实环境变量（绝对不能提交）</span>
+└── <span class="file">requirements.txt</span>        <span class="note"># Python 第三方依赖清单</span></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>scripts 脚本分类</h3>
+        <table>
+          <thead><tr><th>类别</th><th>脚本</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>数据库</td>
+              <td><span class="path">check_schema.py</span>、<span class="path">migrate_v100_schema.py</span></td>
+              <td>结构校验、存量库升级迁移</td>
+            </tr>
+            <tr>
+              <td>数据</td>
+              <td><span class="path">seed_dev_data.py</span>、<span class="path">reset_dev_data.py</span></td>
+              <td>灌演示数据、重置开发库</td>
+            </tr>
+            <tr>
+              <td>端到端联调</td>
+              <td><span class="path">e2e_assistant_crud.py</span>、<span class="path">e2e_share_flow.py</span></td>
+              <td>对运行中的服务发真实 HTTP 请求验证全链路</td>
+            </tr>
+            <tr>
+              <td>对象存储</td>
+              <td><span class="path">obs_probe.py</span>、<span class="path">obs_upload.py</span></td>
+              <td>连通性探测、批量上传</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>常用环境变量与启动</h3>
+        <table>
+          <thead><tr><th>变量</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>DATABASE_URL</code></td><td>MySQL 连接串（含库名、账号、密码）</td></tr>
+            <tr><td><code>LLM_API_KEY / LLM_BASE_URL</code></td><td>AI 生成使用的大模型配置</td></tr>
+            <tr><td><code>OBS_*</code></td><td>对象存储端点、桶、密钥、访问域名</td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyCode(this)">复制</button>
+          <pre class="tree">cd server
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000     <span class="note"># 开发启动</span>
+pytest -q                                            <span class="note"># 全量接口测试</span></pre>
+        </div>
+        <div class="callout">改完后端代码必须重启进程才会生效；pytest 使用独立测试数据并在用例结束后清理。</div>
+      </div>
+    </section>
+
+    <!-- 六、deploy -->
+    <section id="deploy">
+      <h2><span class="num">6</span>deploy/ · 部署物</h2>
+      <div class="code-wrap">
+        <button class="copy-btn" onclick="copyCode(this)">复制</button>
+        <pre class="tree">deploy/
+└── <span class="dir">mysql/</span>
+    └── <span class="file">assistant_mysql.sql</span>   <span class="note"># 建库建表 + 索引 + CHECK 约束 + 演示数据</span></pre>
+      </div>
+      <div class="callout danger">⚠ 该脚本会<strong>重建表</strong>，禁止在存量库直接执行；存量库升级用 <code>server/scripts/migrate_v100_schema.py</code>。</div>
+    </section>
+
+    <!-- 七、速查 -->
+    <section id="cheatsheet">
+      <h2><span class="num">7</span>改动速查：改什么、动哪些文件</h2>
+      <table>
+        <thead><tr><th>要改的事</th><th>需要动的文件</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>新增一个接口</td>
+            <td><code>api/v1/xxx.py</code> → <code>schemas/</code> → <code>services/</code>（核心业务）→ <code>web/src/api/index.ts</code></td>
+          </tr>
+          <tr>
+            <td>修改核心业务逻辑</td>
+            <td>直接定位到 <span style="background:#e8ffea; color:#007700; padding:2px 6px; border-radius:4px; font-weight:bold;">services/ 领域服务层</span> 对应模块进行修改</td>
+          </tr>
+          <tr>
+            <td>调整数据库查询</td>
+            <td><code>repositories/</code>（数据访问层）</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 八、开发规范与常见排障 -->
+    <section id="standards">
+      <h2><span class="num">8</span>开发联调规范与常见故障排查（FAQ）</h2>
+      <div class="faq-grid">
+        <div class="faq-item">
+          <h4>🖼️ 头像上传失败或裂图</h4>
+          <p>检查 <code>OBS_*</code> 配置及私有根证书。若云端不可用，系统会自动降级写入本地 <code>server/static/</code> 目录。</p>
+        </div>
+        <div class="faq-item">
+          <h4>🤖 AI 自动生成结果为空或固定</h4>
+          <p>当大模型未配置、网络超时或报错时，<code>ai_service.py</code> 会自动平滑降级为内置模板兜底。</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>数智助理 · 助理团 ｜ 项目目录结构说明 ｜ 静态页面，可直接用浏览器打开</footer>
+  </main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.nextElementSibling;
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    const old = btn.innerText;
+    btn.innerText = '已复制 ✓';
+    btn.style.color = '#00b42a';
+    btn.style.borderColor = '#00b42a';
+    setTimeout(() => {
+      btn.innerText = old;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1500);
+  });
+}
+</script>
+</body>
+</html>

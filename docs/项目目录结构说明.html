@@ -48,7 +48,6 @@
   .badges{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
   .badge{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); color:#fff;
     padding:4px 12px; border-radius:999px; font-size:12px;}
-  .badge.time{background:rgba(0,0,0,.15); border-color:rgba(255,255,255,.25);}
 
   section{background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
     padding:24px 26px; margin-bottom:22px;}
@@ -61,15 +60,7 @@
   }
   .lead{color:var(--ink-2); margin:0 0 16px;}
 
-  /* 目录树与代码块复制按钮 */
-  .code-wrap{position:relative; margin:0;}
-  .copy-btn{
-    position:absolute; top:10px; right:12px; z-index:2;
-    background:#fff; border:1px solid var(--line); color:var(--ink-2);
-    border-radius:6px; padding:3px 10px; font-size:12px; cursor:pointer;
-    transition:all .15s; opacity:.85;
-  }
-  .copy-btn:hover{border-color:var(--brand); color:var(--brand); opacity:1;}
+  /* 目录树 */
   pre.tree{
     margin:0; background:var(--code); border:1px solid var(--line); border-radius:12px;
     padding:18px 20px; overflow:auto; font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
@@ -78,14 +69,6 @@
   .tree .dir{color:var(--brand); font-weight:600;}
   .tree .file{color:var(--ink);}
   .tree .note{color:var(--ink-3);}
-  
-  /* 醒目高亮样式体系 */
-  .tree .hl-app-root { color:#0055d4; font-weight:700; background:#eef3ff; padding:2px 6px; border-radius:4px; }
-  .tree .hl-core     { color:#007700; font-weight:700; background:#e8ffea; padding:2px 6px; border-radius:4px; }
-  .tree .hl-data     { color:#b25900; font-weight:700; background:#fff7e8; padding:2px 6px; border-radius:4px; }
-  .tree .hl-api      { color:#0048b2; font-weight:700; background:#e6f4ff; padding:2px 6px; border-radius:4px; }
-  .tree .hl-infra    { color:#722ed1; font-weight:700; background:#f5e8ff; padding:2px 6px; border-radius:4px; }
-  .tree .hl-model    { color:#c41d7f; font-weight:700; background:#fff0f6; padding:2px 6px; border-radius:4px; }
 
   /* 表格 */
   table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:13px;}
@@ -98,6 +81,15 @@
   tbody tr:hover{background:#fafbfc;}
   td .path{font-family:Consolas,"SFMono-Regular",monospace; color:var(--brand); font-size:12.5px; white-space:nowrap;}
   td .desc{color:var(--ink-2);}
+
+  /* 文件类型色标 */
+  .tag{display:inline-block; padding:1px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:4px;}
+  .t-py{background:var(--green-soft); color:var(--green);}
+  .t-ts{background:var(--brand-soft); color:var(--brand);}
+  .t-vue{background:var(--cyan-soft); color:#0b9d99;}
+  .t-md{background:var(--purple-soft); color:var(--purple);}
+  .t-sql{background:var(--orange-soft); color:var(--orange);}
+  .t-js{background:#fff7e8; color:#d48806;}
 
   .subsection{margin-top:24px;}
   .subsection h3{font-size:15px; margin:0 0 10px; color:var(--ink); display:flex; align-items:center; gap:8px;}
@@ -113,14 +105,6 @@
     padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; margin:14px 0 0;}
   .callout.ok{border-left-color:var(--green); background:var(--green-soft); color:#00661a;}
   .callout.info{border-left-color:var(--brand); background:var(--brand-soft); color:#1b4dd1;}
-  .callout.danger{border-left-color:var(--red); background:var(--red-soft); color:#a8071a;}
-
-  /* FAQ 卡片 */
-  .faq-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:10px;}
-  .faq-item{background:#fafbfc; border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
-  .faq-item h4{margin:0 0 6px; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:6px;}
-  .faq-item p{margin:0; font-size:13px; color:var(--ink-2);}
-  .faq-item code{background:var(--code); padding:1px 5px; border-radius:4px; font-size:12px; color:var(--brand);}
 
   footer{text-align:center; color:var(--ink-3); font-size:12px; padding:8px 0 0;}
 
@@ -144,7 +128,6 @@
     <a href="#server"><span class="dot"></span>五、server/ 后端</a>
     <a href="#deploy"><span class="dot"></span>六、deploy/ 部署</a>
     <a href="#cheatsheet"><span class="dot"></span>七、改动速查</a>
-    <a href="#standards"><span class="dot"></span>八、规范与排障</a>
   </nav>
 
   <main>
@@ -156,7 +139,6 @@
         <span class="badge">前端 · Vue 3 + TypeScript + Vite + Element Plus</span>
         <span class="badge">存储 · 天翼云 OBS（头像）</span>
         <span class="badge">原型 · 纯静态 HTML</span>
-        <span class="badge time">文档同步更新 · 2026</span>
       </div>
     </header>
 
@@ -164,9 +146,7 @@
     <section id="overview">
       <h2><span class="num">1</span>顶层目录</h2>
       <p class="lead">根目录只放 5 个主目录 + 2 个说明文件，任何业务代码都不放在根目录。</p>
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">agent_assistant/
+      <pre class="tree">agent_assistant/
 ├── <span class="file">README.md</span>        <span class="note"># 项目总说明：定位、技术栈、目录导航、本地启动步骤</span>
 ├── <span class="file">.gitignore</span>       <span class="note"># 忽略依赖、构建产物、缓存、.env、运行时静态目录</span>
 ├── <span class="dir">docs/</span>            <span class="note"># 需求、架构、数据库、接口、数据流向、目录说明、技术补充</span>
@@ -174,7 +154,6 @@
 ├── <span class="dir">web/</span>             <span class="note"># 前端工程，生产代码在 src/，构建产物 dist/ 不提交</span>
 ├── <span class="dir">server/</span>          <span class="note"># 后端工程，生产代码在 app/，脚本在 scripts/，测试在 tests/</span>
 └── <span class="dir">deploy/</span>          <span class="note"># 部署物，目前是 MySQL 初始化脚本</span></pre>
-      </div>
 
       <div class="subsection">
         <h3>各目录什么时候看</h3>
@@ -214,9 +193,7 @@
     <section id="docs">
       <h2><span class="num">2</span>docs/ · 需求与设计文档</h2>
       <p class="lead">文档是唯一事实来源：需求定义“做什么”，01/02/03 分别约束架构、数据结构、接口契约，两份 HTML 用于评审与查阅。</p>
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">docs/
+      <pre class="tree">docs/
 ├── <span class="file">需求说明书.md</span>            <span class="note"># 功能清单、EARS 需求、页面字段、验收标准（版本号在文首）</span>
 ├── <span class="file">01-总体架构设计.md</span>       <span class="note"># 分层架构、模块划分、权限模型、状态机、核心链路时序</span>
 ├── <span class="file">02-数据库设计.md</span>          <span class="note"># ER 图、14 张表 DDL、索引与性能、跨列一致性约束</span>
@@ -224,7 +201,6 @@
 ├── <span class="file">data_flow.html</span>            <span class="note"># 全链路数据流向可视化（原型 → 接口 → 落库），用于评审</span>
 ├── <span class="file">项目目录结构说明.html</span>      <span class="note"># 仓库目录与文件职责（本文档）</span>
 └── <span class="file">技术架构补充说明.html</span>      <span class="note"># 专项技术方案补充，当前章节：图片存储（OBS）</span></pre>
-      </div>
 
       <table>
         <thead><tr><th>文件</th><th>内容重点</th><th>对应代码</th></tr></thead>
@@ -244,43 +220,97 @@
     <section id="prototype">
       <h2><span class="num">3</span>prototype/ · 静态 UI 原型</h2>
       <p class="lead">纯静态、无构建依赖，双击 <code>index.html</code> 即可评审；不连后端，数据全部来自 <code>js/common.js</code> 的 Mock。</p>
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">prototype/
+      <pre class="tree">prototype/
 ├── <span class="file">index.html</span>              <span class="note"># SPA 容器：图标精灵、飞书风格侧栏、地址栏 hash 直达页面</span>
 ├── <span class="file">索引.md</span>                  <span class="note"># 原型索引：信息架构、主流程、评审直达链接、数据约定</span>
 ├── <span class="dir">css/</span>
-│   ├── <span class="file">common.css</span>           <span class="note"># 设计令牌与基础样式</span>
-│   └── <span class="file">assistant.css</span>        <span class="note"># 助理业务样式</span>
+│   ├── <span class="file">common.css</span>           <span class="note"># 设计令牌与基础样式（颜色、字号、间距、按钮、表格）</span>
+│   └── <span class="file">assistant.css</span>        <span class="note"># 助理业务样式（卡片栅格、状态标签、三步向导、抽屉）</span>
 ├── <span class="dir">js/</span>
-│   └── <span class="file">common.js</span>            <span class="note"># 原型运行时：Mock 数据、hash 路由等</span>
-├── <span class="dir">img/avatars/</span>             <span class="note"># 6 款默认卡通头像</span>
+│   └── <span class="file">common.js</span>            <span class="note"># 原型运行时：Mock 数据、hash 路由、抽屉/弹窗/Toast、四维穿梭框、卡通头像</span>
+├── <span class="dir">img/avatars/</span>             <span class="note"># 6 款默认卡通头像（avatar-01~06.png），与前端 public/avatars 同源</span>
 └── <span class="dir">pages/</span>
-    ├── <span class="file">D-AT-LIST.js</span>         <span class="note"># 助理列表页</span>
-    └── <span class="file">D-AT-NEWTASK.js</span>      <span class="note"># 新建任务页</span></pre>
-      </div>
+    ├── <span class="file">D-AT-LIST.js</span>         <span class="note"># 助理列表页：列表/卡片、创建、详情、共享范围、分类管理、审批中心</span>
+    └── <span class="file">D-AT-NEWTASK.js</span>      <span class="note"># 新建任务页：召唤后的对话界面（含模拟回复）</span></pre>
       <div class="callout">原型是 UI 与业务逻辑的基线。需求文档与原型冲突时，以原型为准；原型未覆盖的细节再回看需求说明书。</div>
     </section>
 
     <!-- 四、web -->
     <section id="web">
       <h2><span class="num">4</span>web/ · 前端工程（Vue 3 + TS + Vite）</h2>
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">web/
-├── <span class="file">index.html</span>              <span class="note"># HTML 模板入口</span>
-├── <span class="file">package.json</span>             <span class="note"># 依赖与脚本配置</span>
-├── <span class="file">tsconfig.json</span>            <span class="note"># TypeScript 编译配置</span>
-├── <span class="file">vite.config.ts</span>           <span class="note"># 构建配置：/api 代理、自动导入</span>
-└── <span class="dir">src/</span>                    <span class="note"># 前端源码目录</span>
-    ├── <span class="file">main.ts</span>               <span class="note"># 应用入口</span>
-    ├── <span class="dir">api/</span>                  <span class="note"># 接口请求层</span>
-    ├── <span class="dir">components/</span>           <span class="note"># 业务组件库</span>
-    ├── <span class="dir">router/</span>               <span class="note"># 路由管理</span>
-    ├── <span class="dir">stores/</span>               <span class="note"># Pinia 状态管理</span>
-    └── <span class="dir">views/</span>                <span class="note"># 页面视图层</span></pre>
+      <pre class="tree">web/
+├── <span class="file">index.html</span>              <span class="note"># HTML 模板入口（挂载 #app）</span>
+├── <span class="file">package.json</span>             <span class="note"># 依赖与脚本：dev / build / type-check / lint</span>
+├── <span class="file">package-lock.json</span>        <span class="note"># 依赖锁定版本，勿手工修改</span>
+├── <span class="file">tsconfig.json</span>            <span class="note"># TypeScript 编译配置与路径别名</span>
+├── <span class="file">vite.config.ts</span>           <span class="note"># 构建配置：/api 代理、Element Plus 自动导入、组件自动注册</span>
+├── <span class="file">.env.development</span>         <span class="note"># 开发变量：VITE_USE_MOCK=false、VITE_PROXY_TARGET=后端地址</span>
+├── <span class="file">.env.production</span>          <span class="note"># 生产变量：VITE_USE_MOCK=false（构建时注入）</span>
+├── <span class="dir">public/avatars/</span>          <span class="note"># 预置头像 avatar-01~06.png，随构建原样拷贝，不走 OBS</span>
+└── <span class="dir">src/</span>
+    ├── <span class="file">main.ts</span>               <span class="note"># 应用入口：创建实例，挂载 Router / Pinia / Element Plus / 全局样式</span>
+    ├── <span class="file">App.vue</span>               <span class="note"># 根组件，仅承载路由出口</span>
+    ├── <span class="dir">api/</span>
+    │   ├── <span class="file">index.ts</span>          <span class="note"># 业务接口函数集合，按模块分组；USE_MOCK 为 true 时转调 mock.ts</span>
+    │   ├── <span class="file">request.ts</span>        <span class="note"># axios 实例：baseURL、超时、Header 注入、统一解包与错误提示</span>
+    │   └── <span class="file">mock.ts</span>           <span class="note"># Mock 数据实现（离线演示、无后端时用）</span>
+    ├── <span class="dir">components/</span>           <span class="note"># 业务组件，见下方明细表</span>
+    ├── <span class="dir">layouts/</span>
+    │   └── <span class="file">BasicLayout.vue</span>   <span class="note"># 基础布局：左侧菜单（助理团 / 技能连接器）+ 顶部栏 + 内容区</span>
+    ├── <span class="dir">router/</span>
+    │   └── <span class="file">index.ts</span>          <span class="note"># 路由表：/assistants、/task/new、/approvals</span>
+    ├── <span class="dir">stores/</span>
+    │   ├── <span class="file">user.ts</span>           <span class="note"># 当前用户与视角切换（员工 / 公司管理员）</span>
+    │   └── <span class="file">approval.ts</span>       <span class="note"># 审批中心状态（列表、待办数、刷新）</span>
+    ├── <span class="dir">styles/</span>
+    │   └── <span class="file">index.css</span>         <span class="note"># 全局样式、Element Plus 覆写、通用工具类</span>
+    ├── <span class="dir">types/</span>               <span class="note"># TypeScript 类型定义</span>
+    │   ├── <span class="file">api.ts</span>            <span class="note"># 通用响应结构、分页参数</span>
+    │   ├── <span class="file">assistant.ts</span>      <span class="note"># 助理、能力组成、版本、列表卡片类型</span>
+    │   ├── <span class="file">approval.ts</span>       <span class="note"># 审批单、审批类型与状态</span>
+    │   ├── <span class="file">scope.ts</span>          <span class="note"># 四维范围、单独移除人员、人数统计、授权人员类型</span>
+    │   ├── <span class="file">auto-imports.d.ts</span> <span class="note"># 自动导入生成的声明，勿手改</span>
+    │   ├── <span class="file">components.d.ts</span>   <span class="note"># 自动注册组件声明，勿手改</span>
+    │   └── <span class="file">env.d.ts</span>          <span class="note"># Vite 环境变量与静态资源类型</span>
+    ├── <span class="dir">utils/</span>
+    │   ├── <span class="file">avatar.ts</span>         <span class="note"># 预置头像 P1~P6 映射、字符头像颜色、默认头像兜底</span>
+    │   └── <span class="file">scopeExpand.ts</span>    <span class="note"># 共享范围的前端本地展开（仅用于展示，最终口径以后端为准）</span>
+    └── <span class="dir">views/</span>
+        ├── <span class="dir">assistant/</span>
+        │   └── <span class="file">AssistantList.vue</span>  <span class="note"># 助理列表页：页签（全部/我的/共享）、搜索、分类、卡片网格、批量选择</span>
+        ├── <span class="dir">task/</span>
+        │   └── <span class="file">NewTask.vue</span>        <span class="note"># 新建任务页：召唤后的对话占位（当前为模拟回复）</span>
+        └── <span class="dir">approval/</span>
+            └── <span class="file">ApprovalCenter.vue</span> <span class="note"># 审批中心：列表/卡片双视图、通过、拒绝、调整范围</span></pre>
+
+      <div class="subsection">
+        <h3>components 明细</h3>
+        <table>
+          <thead><tr><th>组件</th><th>职责</th><th>关键交互</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">AssistantAvatar.vue</span></td><td>统一头像渲染</td><td>支持预置卡通头像、字符头像、上传图片三种来源，多种尺寸</td></tr>
+            <tr><td><span class="path">AssistantCard.vue</span></td><td>助理卡片</td><td>名称/描述/分类/状态/操作按钮；未共享助理显示左上角勾选框</td></tr>
+            <tr><td><span class="path">AssistantDetailDrawer.vue</span></td><td>助理详情抽屉</td><td>按角色显示：创建者/管理员看审批状态与版本，订阅者只看已通过信息；底部操作区</td></tr>
+            <tr><td><span class="path">AssistantFormDrawer.vue</span></td><td>创建 / 编辑表单</td><td>多页签录入、必填校验、AI 生成填充、头像上传、保存并提交审批</td></tr>
+            <tr><td><span class="path">CreateOptionDialog.vue</span></td><td>创建方式选择</td><td>手动创建；自然语言创建与第三方接入为占位入口</td></tr>
+            <tr><td><span class="path">ShareSubmitDialog.vue</span></td><td>共享提交</td><td>选择范围授权或公开模式，展示预计授权人数，提交审批</td></tr>
+            <tr><td><span class="path">ScopePicker.vue</span></td><td>四维范围选择</td><td>组织/角色/岗位/人员 穿梭框、单独移除人员、搜索、已选统计、上限提示</td></tr>
+            <tr><td><span class="path">OfflineSubmitDialog.vue</span></td><td>下架申请</td><td>填写下架原因并提交审批</td></tr>
+            <tr><td><span class="path">StatusTag.vue</span></td><td>状态角标</td><td>统一映射未共享/审批中/已通过/已拒绝/已下架的颜色与文案</td></tr>
+            <tr><td><span class="path">ThirdPartyDrawer.vue</span></td><td>第三方接入</td><td>预留能力，当前为前端模拟，不调用后端</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="callout">VITE_USE_MOCK 只在构建/启动时读取：改完 .env 必须重启 dev server 或重新 build，否则不生效。</div>
+
+      <div class="subsection">
+        <h3>本地运行</h3>
+        <pre class="tree">cd web
+npm install
+npm run dev          <span class="note"># 开发服务器，/api 代理到 VITE_PROXY_TARGET</span>
+npm run type-check   <span class="note"># vue-tsc 类型检查，提交前必跑</span>
+npm run build        <span class="note"># 生产构建，产物在 dist/（不提交）</span></pre>
+        <div class="callout">VITE_USE_MOCK 只在构建/启动时读取：改完 .env 必须重启 dev server 或重新 build，否则不生效。</div>
+      </div>
     </section>
 
     <!-- 五、server -->
@@ -295,47 +325,72 @@
       </div>
       <p class="lead">分层约束：路由层只做参数绑定与调用，不写业务判断；服务层不依赖 HTTP 对象；仓储层只做查询与写入，不写业务规则；模型层只描述表结构。</p>
 
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">server/
-├── <span class="dir">app/</span>                     <span class="note hl-app-root"># 💡【后端核心应用根目录】90% 的业务生产代码都在这里</span>
-│   ├── <span class="file">main.py</span>              <span class="note"># 总开关/应用装配：中间件、异常处理、路由注册、/static 挂载</span>
-│   ├── <span class="dir">api/</span>                 <span class="note hl-api"># 💡【接口路由层】接待请求、接收参数、返回结果，不写具体业务判断</span>
-│   │   ├── <span class="file">health.py</span>         <span class="note"># 健康检查接口（无 /api/v1 前缀，供探针检测）</span>
-│   │   └── <span class="dir">v1/</span>              <span class="note"># 业务模块具体 API 路由集合</span>
-│   │       ├── <span class="file">assistants.py</span> <span class="note"># 助理相关接口</span>
-│   │       ├── <span class="file">shares.py</span>     <span class="note"># 共享相关接口</span>
-│   │       └── <span class="file">approvals.py</span>  <span class="note"># 审批相关接口</span>
-│   ├── <span class="dir">core/</span>                <span class="note hl-infra"># 💡【基础设施层】配置、数据库连接、鉴权、全局异常等通用底层</span>
-│   │   ├── <span class="file">config.py</span>            <span class="note"># 配置中心：读取 .env</span>
-│   │   ├── <span class="file">database.py</span>          <span class="note"># Engine、Session、Base 会话管理</span>
-│   │   └── <span class="file">security.py</span>          <span class="note"># 安全与鉴权：解析当前用户与管理员身份</span>
-│   ├── <span class="dir">models/</span>              <span class="note hl-model"># 💡【模型层】使用 SQLAlchemy ORM 定义数据库表结构</span>
-│   │   ├── <span class="file">base.py</span>              <span class="note"># ORM 基类、抽离公共字段</span>
-│   │   ├── <span class="file">assistant.py</span>         <span class="note"># 助理主表及关联组成表</span>
-│   │   └── <span class="file">approval.py</span>          <span class="note"># 审批单表模型</span>
-│   ├── <span class="dir">schemas/</span>             <span class="note hl-infra"># 💡【契约层】Pydantic 入参出参模型，自动校验请求数据合法性</span>
-│   ├── <span class="dir">repositories/</span>        <span class="note hl-data"># 💡【仓储层/数据访问】专门负责写 SQL 或 ORM 查询写入，不写业务规则</span>
+      <pre class="tree">server/
+├── <span class="dir">app/</span>
+│   ├── <span class="file">main.py</span>              <span class="note"># 应用装配：中间件、异常处理、路由注册、/static 挂载</span>
+│   ├── <span class="dir">api/</span>
+│   │   ├── <span class="file">health.py</span>         <span class="note"># 健康检查（无 /api/v1 前缀，供探针）</span>
+│   │   └── <span class="dir">v1/</span>
+│   │       ├── <span class="file">assistants.py</span> <span class="note"># 助理：列表、详情、创建、编辑、删除、召唤、订阅</span>
+│   │       ├── <span class="file">categories.py</span> <span class="note"># 分类：列表、创建、重命名、删除</span>
+│   │       ├── <span class="file">resources.py</span>  <span class="note"># 资源候选：SKILL、MCP、知识库</span>
+│   │       ├── <span class="file">scopes.py</span>     <span class="note"># 范围：组织树、人员搜索、人数统计、范围展开</span>
+│   │       ├── <span class="file">shares.py</span>     <span class="note"># 共享：提交、范围回显、范围调整、下架申请</span>
+│   │       ├── <span class="file">approvals.py</span>  <span class="note"># 审批：列表、待办数、通过、拒绝</span>
+│   │       ├── <span class="file">ai.py</span>         <span class="note"># AI 生成：描述、标签、提示词、快速问题</span>
+│   │       └── <span class="file">common.py</span>     <span class="note"># 通用：头像上传、预签名、分类/枚举字典</span>
+│   ├── <span class="dir">core/</span>
+│   │   ├── <span class="file">config.py</span>            <span class="note"># 配置中心：读取 .env（数据库 / LLM / OBS / 头像限制）</span>
+│   │   ├── <span class="file">database.py</span>          <span class="note"># Engine、Session、Base、依赖注入的 get_db</span>
+│   │   ├── <span class="file">security.py</span>          <span class="note"># 身份解析：从 Header 取当前用户/公司/部门，判定管理员</span>
+│   │   ├── <span class="file">errors.py</span>            <span class="note"># 业务错误码常量与异常类</span>
+│   │   ├── <span class="file">exception_handlers.py</span><span class="note"># 全局异常 → 统一响应结构</span>
+│   │   ├── <span class="file">response.py</span>          <span class="note"># 成功/失败响应包装</span>
+│   │   ├── <span class="file">json_response.py</span>     <span class="note"># 自定义 JSON 编码（时间、Decimal）</span>
+│   │   ├── <span class="file">middleware.py</span>        <span class="note"># 请求 ID、访问日志、耗时统计</span>
+│   │   ├── <span class="file">logging.py</span>           <span class="note"># 日志格式与输出配置</span>
+│   │   ├── <span class="file">pagination.py</span>        <span class="note"># 分页参数与结果结构</span>
+│   │   └── <span class="file">timeutils.py</span>         <span class="note"># 统一时间获取与时区处理</span>
+│   ├── <span class="dir">models/</span>
+│   │   ├── <span class="file">base.py</span>              <span class="note"># ORM 基类、公共字段（创建/更新时间、软删除）</span>
+│   │   ├── <span class="file">assistant.py</span>         <span class="note"># 助理主表 + 技能/连接器/知识库/快速问题等组成表</span>
+│   │   ├── <span class="file">scope.py</span>             <span class="note"># 共享范围快照、授权人员明细</span>
+│   │   ├── <span class="file">approval.py</span>          <span class="note"># 审批单（类型、状态、原因、变更快照）</span>
+│   │   └── <span class="file">system.py</span>            <span class="note"># 召唤记录、审计日志等支撑表</span>
+│   ├── <span class="dir">schemas/</span>
+│   │   ├── <span class="file">assistant.py</span> / <span class="file">approval.py</span> / <span class="file">category.py</span> / <span class="file">scope.py</span> / <span class="file">common.py</span> / <span class="file">health.py</span>
+│   │   <span class="note"># Pydantic 出入参模型，字段名与 03-接口设计一致</span>
+│   ├── <span class="dir">repositories/</span>
 │   │   ├── <span class="file">assistant_repo.py</span>    <span class="note"># 助理查询（三范围 UNION）、写入、软删除</span>
 │   │   ├── <span class="file">approval_repo.py</span>     <span class="note"># 审批单查询与状态更新</span>
-│   │   └── <span class="file">category_repo.py</span>     <span class="note"># 分类字典读写操作</span>
-│   └── <span class="dir">services/</span>            <span class="note hl-core"># 💡【核心领域服务层/核心大脑】封装所有业务逻辑、状态流转、权限校验等核心规则</span>
-│       ├── <span class="file">assistant_service.py</span>  <span class="note hl-core"># 助理核心业务：列表/详情/创建/编辑/删除、头像归一化</span>
-│       ├── <span class="file">approval_service.py</span>   <span class="note hl-core"># 审批中心业务：列表、双视图、通过/拒绝、回写状态</span>
-│       ├── <span class="file">share_service.py</span>      <span class="note hl-core"># 共享管理业务：提交、回显、调整、下架申请</span>
-│       ├── <span class="file">scope_service.py</span>      <span class="note hl-core"># 权限范围计算：四维展开（并集-单独移除）、人数校验、授权物化</span>
-│       ├── <span class="file">summon_service.py</span>     <span class="note hl-core"># 召唤与订阅业务：召唤、订阅移除、重新订阅</span>
-│       ├── <span class="file">ai_service.py</span>         <span class="note hl-core"># AI 生成业务：大模型调用封装、失败模板兜底逻辑</span>
-│       ├── <span class="file">common_service.py</span>     <span class="note hl-core"># 通用业务服务：头像校验、写 OBS、URL 转换等</span>
-│       └── <span class="file">obs_service.py</span>        <span class="note hl-core"># OBS 客户端封装：上传、删除、公网 URL 获取</span>
-├── <span class="dir">migrations/</span>             <span class="note"># Alembic 数据库迁移配置</span>
-├── <span class="dir">scripts/</span>                <span class="note"># 运维、迁移、联调、OBS 测试脚本集合</span>
-├── <span class="dir">certs/</span>                  <span class="note"># 证书目录：OBS 私有根证书</span>
-├── <span class="dir">static/</span>                 <span class="note"># 本地头像回退目录</span>
-├── <span class="dir">tests/</span>                  <span class="note"># 基于 pytest 的自动化接口回归测试套件</span>
-├── <span class="file">.env</span>                    <span class="note"># 本地真实环境变量（绝对不能提交）</span>
-└── <span class="file">requirements.txt</span>        <span class="note"># Python 第三方依赖清单</span></pre>
-      </div>
+│   │   └── <span class="file">category_repo.py</span>     <span class="note"># 分类字典读写</span>
+│   └── <span class="dir">services/</span>
+│       ├── <span class="file">assistant_service.py</span>  <span class="note"># 助理：列表/详情/创建/编辑/删除、头像字段归一化</span>
+│       ├── <span class="file">approval_service.py</span>   <span class="note"># 审批中心：列表、双视图、通过/拒绝、回写状态</span>
+│       ├── <span class="file">share_service.py</span>      <span class="note"># 共享：提交、回显、调整、下架</span>
+│       ├── <span class="file">scope_service.py</span>      <span class="note"># 范围：四维展开（并集 − 单独移除）、人数校验、快照读写、授权物化</span>
+│       ├── <span class="file">summon_service.py</span>     <span class="note"># 召唤、订阅移除、重新订阅</span>
+│       ├── <span class="file">category_service.py</span>   <span class="note"># 分类字典业务规则</span>
+│       ├── <span class="file">resource_service.py</span>   <span class="note"># 资源候选查询与保存校验</span>
+│       ├── <span class="file">resource_catalog.py</span>   <span class="note"># 平台资源目录静态数据（待换真实资源中心）</span>
+│       ├── <span class="file">master_data.py</span>        <span class="note"># 组织/角色/岗位/人员主数据（当前内置演示数据）</span>
+│       ├── <span class="file">ai_service.py</span>         <span class="note"># AI 生成业务逻辑与模板兜底</span>
+│       ├── <span class="file">llm_client.py</span>         <span class="note"># 大模型调用封装（OpenAI 兼容，超时与降级）</span>
+│       ├── <span class="file">common_service.py</span>     <span class="note"># 头像：校验、写 OBS、URL/key 互转、删除</span>
+│       ├── <span class="file">obs_service.py</span>        <span class="note"># OBS 客户端：上传、删除、公网 URL</span>
+│       ├── <span class="file">audit_service.py</span>      <span class="note"># 审计日志写入</span>
+│       ├── <span class="file">health_service.py</span>     <span class="note"># 健康检查：数据库连通性等</span>
+│       ├── <span class="file">numbering.py</span>          <span class="note"># 审批单号、批次号生成</span>
+│       └── <span class="file">versioning.py</span>         <span class="note"># 助理版本号递增规则</span>
+├── <span class="dir">migrations/</span>             <span class="note"># Alembic 配置；当前建表以 deploy/mysql 脚本为准</span>
+├── <span class="dir">scripts/</span>                <span class="note"># 运维、迁移、联调、OBS 脚本，见下表</span>
+├── <span class="dir">certs/</span>                  <span class="note"># OBS 私有根证书 endpoint-root-ca.pem，部署需带上</span>
+├── <span class="dir">static/</span>                 <span class="note"># 本地头像回退目录，运行时自动创建，内容不提交</span>
+├── <span class="dir">tests/</span>                  <span class="note"># pytest 接口测试，见下表</span>
+├── <span class="file">.env</span>                    <span class="note"># 本地环境变量（数据库、LLM、OBS 密钥），勿提交</span>
+├── <span class="file">.env.example</span>            <span class="note"># 环境变量样例与注释</span>
+├── <span class="file">alembic.ini</span>             <span class="note"># Alembic 配置</span>
+└── <span class="file">requirements.txt</span>        <span class="note"># Python 依赖清单（含 boto3）</span></pre>
 
       <div class="subsection">
         <h3>scripts 脚本分类</h3>
@@ -344,45 +399,63 @@
           <tbody>
             <tr>
               <td>数据库</td>
-              <td><span class="path">check_schema.py</span>、<span class="path">migrate_v100_schema.py</span></td>
-              <td>结构校验、存量库升级迁移</td>
+              <td><span class="path">check_schema.py</span>、<span class="path">migrate_v100_schema.py</span>、<span class="path">migrate_merge_offline_pending.py</span></td>
+              <td>结构校验、存量库升级、历史枚举收敛迁移</td>
             </tr>
             <tr>
               <td>数据</td>
-              <td><span class="path">seed_dev_data.py</span>、<span class="path">reset_dev_data.py</span></td>
-              <td>灌演示数据、重置开发库</td>
+              <td><span class="path">seed_dev_data.py</span>、<span class="path">reset_dev_data.py</span>、<span class="path">purge_test_data.py</span></td>
+              <td>灌演示数据、重置开发库、清理测试数据</td>
+            </tr>
+            <tr>
+              <td>数据修复</td>
+              <td><span class="path">clean_orphan_audit.py</span>、<span class="path">fix_missing_effective_scope.py</span></td>
+              <td>清理孤儿审计记录、补齐缺失的生效范围</td>
             </tr>
             <tr>
               <td>端到端联调</td>
-              <td><span class="path">e2e_assistant_crud.py</span>、<span class="path">e2e_share_flow.py</span></td>
-              <td>对运行中的服务发真实 HTTP 请求验证全链路</td>
+              <td><span class="path">e2e_assistant_crud.py</span>、<span class="path">e2e_share_flow.py</span>、<span class="path">e2e_approval_flow.py</span>、<span class="path">e2e_remaining.py</span></td>
+              <td>对运行中的服务发真实 HTTP 请求，打印全链路结果，结束时清理数据</td>
             </tr>
             <tr>
               <td>对象存储</td>
-              <td><span class="path">obs_probe.py</span>、<span class="path">obs_upload.py</span></td>
-              <td>连通性探测、批量上传</td>
+              <td><span class="path">obs_probe.py</span>、<span class="path">obs_upload.py</span>、<span class="path">obs_set_policy.py</span>、<span class="path">migrate_avatars_to_obs.py</span></td>
+              <td>连通性探测、批量上传、桶只读策略、历史头像迁移</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="subsection">
-        <h3>常用环境变量与启动</h3>
+        <h3>tests 测试文件</h3>
+        <table>
+          <thead><tr><th>文件</th><th>覆盖范围</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">conftest.py</span></td><td>TestClient、测试库连接、用例前后数据清理</td></tr>
+            <tr><td><span class="path">test_skeleton.py</span></td><td>健康检查、统一响应结构、错误码基线</td></tr>
+            <tr><td><span class="path">test_assistants.py</span></td><td>助理创建、编辑、列表三范围、详情、删除、分类与 AI 生成</td></tr>
+            <tr><td><span class="path">test_share.py</span></td><td>共享提交、审批通过、订阅可见性、移除与重新订阅</td></tr>
+            <tr><td><span class="path">test_approval.py</span></td><td>共享/变更/授权范围/下架四类审批的通过与拒绝</td></tr>
+            <tr><td><span class="path">test_remaining.py</span></td><td>资源目录、范围查询、通用接口、头像上传与清理</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>常用环境变量</h3>
         <table>
           <thead><tr><th>变量</th><th>作用</th></tr></thead>
           <tbody>
             <tr><td><code>DATABASE_URL</code></td><td>MySQL 连接串（含库名、账号、密码）</td></tr>
-            <tr><td><code>LLM_API_KEY / LLM_BASE_URL</code></td><td>AI 生成使用的大模型配置</td></tr>
-            <tr><td><code>OBS_*</code></td><td>对象存储端点、桶、密钥、访问域名</td></tr>
+            <tr><td><code>LLM_API_KEY / LLM_BASE_URL / LLM_MODEL</code></td><td>AI 生成使用的大模型；未配置时回退模板</td></tr>
+            <tr><td><code>OBS_*</code></td><td>对象存储端点、桶、密钥、私有 CA、访问域名、头像前缀</td></tr>
+            <tr><td><code>AVATAR_*</code></td><td>头像大小上限、允许类型、本地回退访问前缀</td></tr>
           </tbody>
         </table>
-        <div class="code-wrap">
-          <button class="copy-btn" onclick="copyCode(this)">复制</button>
-          <pre class="tree">cd server
+        <pre class="tree">cd server
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000     <span class="note"># 开发启动</span>
+uvicorn app.main:app --host 0.0.0.0 --port 8000     <span class="note"># 开发启动；无 --reload，改代码需重启</span>
 pytest -q                                            <span class="note"># 全量接口测试</span></pre>
-        </div>
         <div class="callout">改完后端代码必须重启进程才会生效；pytest 使用独立测试数据并在用例结束后清理。</div>
       </div>
     </section>
@@ -390,13 +463,16 @@ pytest -q                                            <span class="note"># 全量
     <!-- 六、deploy -->
     <section id="deploy">
       <h2><span class="num">6</span>deploy/ · 部署物</h2>
-      <div class="code-wrap">
-        <button class="copy-btn" onclick="copyCode(this)">复制</button>
-        <pre class="tree">deploy/
+      <pre class="tree">deploy/
 └── <span class="dir">mysql/</span>
-    └── <span class="file">assistant_mysql.sql</span>   <span class="note"># 建库建表 + 索引 + CHECK 约束 + 演示数据</span></pre>
-      </div>
-      <div class="callout danger">⚠ 该脚本会<strong>重建表</strong>，禁止在存量库直接执行；存量库升级用 <code>server/scripts/migrate_v100_schema.py</code>。</div>
+    └── <span class="file">assistant_mysql.sql</span>   <span class="note"># 建库建表 + 索引 + CHECK 约束 + 演示数据（14 张表）</span></pre>
+      <table>
+        <thead><tr><th>文件</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">mysql/assistant_mysql.sql</span></td><td>新环境一次性初始化；包含表结构与平台内置助理、分类等种子数据</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">⚠ 该脚本会<strong>重建表</strong>，禁止在存量库直接执行；存量库升级用 <code>server/scripts/migrate_v100_schema.py</code>。</div>
     </section>
 
     <!-- 七、速查 -->
@@ -407,54 +483,51 @@ pytest -q                                            <span class="note"># 全量
         <tbody>
           <tr>
             <td>新增一个接口</td>
-            <td><code>api/v1/xxx.py</code> → <code>schemas/</code> → <code>services/</code>（核心业务）→ <code>web/src/api/index.ts</code></td>
+            <td><code>api/v1/xxx.py</code> → <code>schemas/</code> → <code>services/</code>（必要时 <code>repositories/</code>）→ <code>web/src/api/index.ts</code> → <code>web/src/types/</code> → <code>docs/03-接口设计.md</code></td>
           </tr>
           <tr>
-            <td>修改核心业务逻辑</td>
-            <td>直接定位到 <span style="background:#e8ffea; color:#007700; padding:2px 6px; border-radius:4px; font-weight:bold;">services/ 领域服务层</span> 对应模块进行修改</td>
+            <td>新增表或字段</td>
+            <td><code>models/</code> → <code>docs/02-数据库设计.md</code> → <code>deploy/mysql/assistant_mysql.sql</code> → 存量库迁移脚本</td>
           </tr>
           <tr>
-            <td>调整数据库查询</td>
-            <td><code>repositories/</code>（数据访问层）</td>
+            <td>调整状态机 / 审批规则</td>
+            <td><code>services/approval_service.py</code>、<code>share_service.py</code>、<code>models/assistant.py</code>（CHECK 约束）→ <code>docs/01</code>、<code>docs/02</code> → 对应测试</td>
+          </tr>
+          <tr>
+            <td>改列表卡片 / 详情交互</td>
+            <td><code>web/src/components/</code>、<code>views/assistant/</code>；对照 <code>prototype/</code></td>
+          </tr>
+          <tr>
+            <td>接入平台主数据</td>
+            <td><code>services/master_data.py</code>（保持函数签名，替换数据源）</td>
+          </tr>
+          <tr>
+            <td>接入平台资源中心（技能/连接器/知识库）</td>
+            <td><code>services/resource_service.py</code>、<code>resource_catalog.py</code></td>
+          </tr>
+          <tr>
+            <td>接入平台登录态 / 管理员权限</td>
+            <td><code>core/security.py</code></td>
+          </tr>
+          <tr>
+            <td>切换头像存储</td>
+            <td><code>services/common_service.py</code>、<code>obs_service.py</code>、<code>core/config.py</code></td>
+          </tr>
+          <tr>
+            <td>召唤后接真实会话</td>
+            <td><code>services/summon_service.py</code>；前端 <code>views/task/NewTask.vue</code> 改为跳转平台会话</td>
+          </tr>
+          <tr>
+            <td>新增文件或目录</td>
+            <td>同步更新本文档对应章节，保持“目录 = 职责”一致</td>
           </tr>
         </tbody>
       </table>
-    </section>
-
-    <!-- 八、开发规范与常见排障 -->
-    <section id="standards">
-      <h2><span class="num">8</span>开发联调规范与常见故障排查（FAQ）</h2>
-      <div class="faq-grid">
-        <div class="faq-item">
-          <h4>🖼️ 头像上传失败或裂图</h4>
-          <p>检查 <code>OBS_*</code> 配置及私有根证书。若云端不可用，系统会自动降级写入本地 <code>server/static/</code> 目录。</p>
-        </div>
-        <div class="faq-item">
-          <h4>🤖 AI 自动生成结果为空或固定</h4>
-          <p>当大模型未配置、网络超时或报错时，<code>ai_service.py</code> 会自动平滑降级为内置模板兜底。</p>
-        </div>
-      </div>
+      <div class="callout ok">约定：后端按“路由 / 服务 / 仓储 / 模型”四层归位；前端按“页面 / 组件 / 接口 / 类型 / 工具”归位；文档编号 01~03 与代码分层一一对应。新增文件前先判断它属于哪一层，避免堆在根目录或 pages 里。</div>
     </section>
 
     <footer>数智助理 · 助理团 ｜ 项目目录结构说明 ｜ 静态页面，可直接用浏览器打开</footer>
   </main>
 </div>
-
-<script>
-function copyCode(btn) {
-  const pre = btn.nextElementSibling;
-  navigator.clipboard.writeText(pre.innerText).then(() => {
-    const old = btn.innerText;
-    btn.innerText = '已复制 ✓';
-    btn.style.color = '#00b42a';
-    btn.style.borderColor = '#00b42a';
-    setTimeout(() => {
-      btn.innerText = old;
-      btn.style.color = '';
-      btn.style.borderColor = '';
-    }, 1500);
-  });
-}
-</script>
 </body>
 </html>
