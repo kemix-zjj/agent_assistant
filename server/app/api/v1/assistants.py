@@ -17,6 +17,7 @@ router = APIRouter(prefix="/assistants", tags=["assistants"])
 
 @router.get("", summary="助理团助理列表")
 def list_assistants(
+    # 参数声明区 - 分是客户端传的吗：是、间接、不是（简单参数、复合参数、资源型依赖）
     response: Response,
     scope: str = Query(default="all", description="all / mine / shared"),
     categoryId: int | None = Query(default=None),  # noqa: N803 - 保持前端参数名
@@ -27,7 +28,13 @@ def list_assistants(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
+
+# 判断标准 ：路由层与业务世界的接触面，应该只有一个"函数调用"。
+# 路由层是翻译官，只负责把 HTTP 语言翻成 Python 参数；判断对错、怎么存，都不归它管。
+
+    # ① 组装依赖：把会话交给服务层
     service = AssistantService(db)
+    # ② 调服务：参数原样往下传，不做判断
     page = service.list_assistants(
         user,
         scope=scope,
@@ -38,6 +45,7 @@ def list_assistants(
         page=paging.page,
         page_size=paging.page_size,
     )
+    # ③ 包响应：Pydantic → dict → 统一结构
     return ok(page.model_dump(by_alias=True))
 
 

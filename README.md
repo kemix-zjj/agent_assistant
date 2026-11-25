@@ -13,14 +13,15 @@
 | 全链路数据流向图 | [docs/data_flow.html](docs/data_flow.html) |
 | 项目目录结构说明 | [docs/项目目录结构说明.html](docs/项目目录结构说明.html) |
 | 技术架构补充说明（OBS 图片存储） | [docs/技术架构补充说明.html](docs/技术架构补充说明.html) |
-| FastAPI 实践教程（结合本项目） | [docs/FastAPI实践教程.html](docs/FastAPI实践教程.html) |
+| 后端速学笔记（前端基础友好，从零讲起） | [docs/后端速学笔记.html](docs/后端速学笔记.html) |
+| FastAPI 速学笔记（路由 / 依赖 / 校验 / 异常 / 测试） | [docs/FastAPI速学笔记.html](docs/FastAPI速学笔记.html) |
 | UI 原型（可直接运行） | [prototype/index.html](prototype/index.html) |
 
 ## 目录结构
 
 ```
 agent_assistant/
-├── docs/           设计与需求文档（4 份 Markdown + 3 份说明/教程 HTML + 1 份数据流向图）
+├── docs/           设计与需求文档（4 份 Markdown + 4 份说明/教程 HTML + 1 份数据流向图）
 ├── prototype/      UI 原型，纯静态，双击 index.html 即可运行
 ├── web/            前端工程（Vue 3 + Vite，已接入真实接口）
 ├── server/         后端工程（Python + FastAPI + MySQL 8.0）
@@ -38,7 +39,8 @@ agent_assistant/
 | `data_flow.html` | 全链路数据流向可视化（原型 → 接口 → 落库） |
 | `项目目录结构说明.html` | 前后端目录逐层说明、各文件职责与分层约束 |
 | `技术架构补充说明.html` | 头像存储链路：OBS 接入、上传中转、对象回收与演进方向 |
-| `FastAPI实践教程.html` | 结合本项目的 FastAPI 用法讲解（路由、依赖、校验、异常、测试） |
+| `后端速学笔记.html` | 面向有前端基础的同学：HTTP、FastAPI、Pydantic、SQLAlchemy、MySQL、鉴权、事务、测试、联调，含完整新增接口实战 |
+| `FastAPI速学笔记.html` | 结合本项目的 FastAPI 用法讲解（路由、依赖、校验、异常、测试） |
 
 ### prototype/
 

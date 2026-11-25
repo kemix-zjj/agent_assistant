@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>数智助理 · 助理团 技术架构补充说明 · 图片存储（OBS）</title>
+<title>数智助理 · 助理团 技术架构补充说明</title>
 <style>
   :root{
     --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2329; --ink-2:#4e5969; --ink-3:#86909c;
@@ -70,7 +70,39 @@
   .t-py{background:var(--green-soft); color:var(--green);}
   .t-cfg{background:var(--orange-soft); color:var(--orange);}
   .t-api{background:var(--brand-soft); color:var(--brand);}
+  /* ===== 侧栏 · Tab · 面板 ===== */
+  .side{position:sticky; top:0; flex:0 0 236px; align-self:flex-start; height:100vh; overflow:auto; padding:22px 0;}
+  .brand{display:flex; align-items:center; gap:10px; padding:0 10px 16px; margin:0 0 4px; border-bottom:1px solid var(--line);}
+  .brand .logo{flex:0 0 32px; width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#3370ff,#7aa2ff);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;}
+  .brand b{display:block; font-size:13.5px; line-height:1.4;}
+  .brand span{font-size:11px; color:var(--ink-3);}
+  .tabs{display:flex; flex-direction:column; gap:6px; padding:14px 8px 12px;}
+  .tab{appearance:none; width:100%; cursor:pointer; display:flex; align-items:center; gap:9px; text-align:left;
+    background:#fff; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
+    font-family:inherit; font-size:13px; font-weight:500; color:var(--ink-2); transition:all .15s;}
+  .tab:hover{border-color:#c8d8ff; color:var(--brand); background:#fbfcff;}
+  .tab .ic{flex:0 0 20px; width:20px; height:20px; border-radius:6px; background:var(--brand-soft); color:var(--brand);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;}
+  .tab.active{background:var(--brand); border-color:var(--brand); color:#fff; box-shadow:0 4px 14px rgba(51,112,255,.28);}
+  .tab.active .ic{background:rgba(255,255,255,.22); color:#fff;}
+  .side .toc{position:static; height:auto; width:auto; flex:none; overflow:visible; padding:6px 8px 24px; margin:0;}
+  .side .toc a.lv3{padding-left:24px; font-size:12.5px; color:var(--ink-3);}
+  .side .toc a.lv3:hover{color:var(--brand);}
+  .panel{display:none;}
+  .panel.active{display:block; animation:fade .22s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  .crossband{margin-top:2px; padding:10px 14px; border:1px dashed #c8d8ff; border-radius:12px; background:#fbfcff;}
+  .crossband .lbl{font-size:12px; font-weight:600; color:var(--brand); align-self:center;}
+  .crossband .lbl-note{font-size:12px; color:var(--ink-3); align-self:center;}
   footer{text-align:center; color:var(--ink-3); font-size:12px; padding:8px 0 0;}
+  @media (max-width:900px){
+    .side{position:static; height:auto; flex:none; width:100%; padding:14px 0 0; overflow:visible;}
+    .brand{padding:0 4px 12px;}
+    .tabs{flex-direction:row; overflow-x:auto; padding:10px 0; gap:8px;}
+    .tab{width:auto; flex:0 0 auto; white-space:nowrap;}
+    .side .toc{display:none;}
+  }
   @media (max-width:900px){
     .wrap{flex-direction:column; padding:0 14px;}
     .toc{position:static; height:auto; flex:none; width:100%; display:flex; flex-wrap:wrap; gap:4px; padding:14px 0;}
@@ -82,31 +114,40 @@
 </head>
 <body>
 <div class="wrap">
-  <nav class="toc">
-    <h2>目录导航</h2>
-    <a href="#scope"><span class="dot"></span>一、文档定位</a>
-    <a href="#arch"><span class="dot"></span>二、总体架构</a>
-    <a href="#model"><span class="dot"></span>三、存储模型</a>
-    <a href="#upload"><span class="dot"></span>四、上传链路</a>
-    <a href="#access"><span class="dot"></span>五、访问与桶策略</a>
-    <a href="#echo"><span class="dot"></span>六、回显与兼容</a>
-    <a href="#lifecycle"><span class="dot"></span>七、生命周期与清理</a>
-    <a href="#config"><span class="dot"></span>八、配置与脚本</a>
-    <a href="#limits"><span class="dot"></span>九、限制与演进</a>
-  </nav>
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">助</div>
+      <div>
+        <b>技术架构补充说明</b>
+        <span>数智助理 · 助理团</span>
+      </div>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="obs" role="tab"><span class="ic">1</span>图片存储 OBS</button>
+      <button class="tab" data-tab="flow" role="tab"><span class="ic">2</span>目录与数据流向</button>
+      <button class="tab" data-tab="py" role="tab"><span class="ic">3</span>Python 关键词</button>
+    </nav>
+
+    <nav class="toc" aria-label="本部分导航">
+      <h2>本部分导航</h2>
+      <div id="tocList"></div>
+    </nav>
+  </aside>
 
   <main>
     <header class="hero">
-      <h1>技术架构补充说明 · 图片存储（OBS）</h1>
-      <p>记录助理头像从天翼云 OBS 上传、落库、回显到清理的完整链路。本文档是《总体架构设计》的补充，聚焦对象存储相关实现与运维约定；后续附件、知识库文件等场景可复用同一套客户端与配置。</p>
+      <h1>技术架构补充说明</h1>
+      <p>本文档是《总体架构设计》的补充，分为三个标签页：图片上传与对象存储（OBS）的实现链路、后端目录结构与一次请求的数据流向、以及面向 Python 后端初学者的技术栈关键词速查。点击左侧标签切换。</p>
       <div class="badges">
-        <span class="badge">后端中转上传</span>
-        <span class="badge">S3 兼容 · 天翼云 OBS</span>
-        <span class="badge">数据库存对象 key</span>
-        <span class="badge">接口返回完整 URL</span>
-        <span class="badge">匿名只读 + 私有 CA</span>
+        <span class="badge">图片存储 OBS</span>
+        <span class="badge">目录结构与数据流向</span>
+        <span class="badge">Python 技术栈关键词</span>
+        <span class="badge">后端中转上传 · S3 兼容</span>
       </div>
     </header>
+
+    <div class="panel active" data-panel="obs">
 
     <!-- 一、文档定位 -->
     <section id="scope">
@@ -351,8 +392,305 @@ test/assistant/avatar/2026/11/16/fdb5412c5f30cdaf.png</pre>
       <div class="callout ok">已完成的验证：上传返回 201、对象可匿名访问（200 image/png）、库中仅存 key、详情返回完整 URL、换头像与删助理均能删除旧对象、后端测试 128 项全部通过。</div>
     </section>
 
-    <footer>数智助理 · 助理团 —— 技术架构补充说明（图片存储 / OBS）</footer>
+    </div><!-- /panel obs -->
+
+    <!-- ================= Tab 2：目录结构与数据流向 ================= -->
+    <div class="panel" data-panel="flow">
+
+      <section id="flow-overview">
+        <h2><span class="num">1</span>分层总览</h2>
+        <p class="lead">后端按「一层只做一类事」切分。纵向是调用链，越往下越接近数据库；<code>core/</code> 与 <code>schemas/</code> 不属于任何单一层，而是横切在所有层之上。</p>
+
+        <div class="arch-flow">
+          <span class="node">前端请求</span><span class="arrow">→</span>
+          <span class="node">api/</span><span class="arrow">→</span>
+          <span class="node">services/</span><span class="arrow">→</span>
+          <span class="node">repositories/</span><span class="arrow">→</span>
+          <span class="node">models/</span><span class="arrow">→</span>
+          <span class="node db">MySQL</span>
+        </div>
+
+        <div class="arch-flow crossband">
+          <span class="lbl">横切</span>
+          <span class="node">core/</span>
+          <span class="node">schemas/</span>
+          <span class="lbl-note">被多层同时 import，不参与单向下行</span>
+        </div>
+
+        <div class="callout info">判断一个目录是不是「一层」，看依赖是否单向：api 依赖 service，service 依赖 repository，反向不允许。而 <code>core</code> 被每一层依赖、<code>schemas</code> 被 api 与 service 同时依赖，所以它们是横切层。</div>
+      </section>
+
+      <section id="flow-layers">
+        <h2><span class="num">2</span>各层职责</h2>
+        <p class="lead">一句话概括：api 负责翻译，service 负责判断，repository 负责存取，model 负责映射。</p>
+        <table>
+          <thead><tr><th>目录</th><th>职责</th><th>依赖方向</th><th>典型文件</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">api/</span></td><td>翻译官：把 HTTP 参数翻译成 Python 参数，调用一个 service 方法，再把结果包成统一响应</td><td>schemas、core、services</td><td><span class="path">api/v1/assistants.py</span></td></tr>
+            <tr><td><span class="path">services/</span></td><td>业务规则：参数校验、权限判断、状态机流转、事务编排、出参组装</td><td>repositories、models、schemas、core</td><td><span class="path">services/assistant_service.py</span></td></tr>
+            <tr><td><span class="path">repositories/</span></td><td>数据访问：只做查询与持久化，不含权限判断与业务规则</td><td>models、core（Session）</td><td><span class="path">repositories/assistant_repo.py</span></td></tr>
+            <tr><td><span class="path">models/</span></td><td>ORM 模型：表结构映射，一个类对应一张表，一个属性对应一列</td><td>SQLAlchemy</td><td><span class="path">models/assistant.py</span></td></tr>
+            <tr><td><span class="path">schemas/</span></td><td>接口契约：出入参的字段、类型、camelCase 别名</td><td>被 api 与 service 依赖</td><td><span class="path">schemas/assistant.py</span></td></tr>
+            <tr><td><span class="path">core/</span></td><td>横切基础设施：配置、数据库会话、身份解析、错误码、统一响应、日志、中间件</td><td>被以上所有层依赖</td><td><span class="path">core/database.py</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="flow-trace">
+        <h2><span class="num">3</span>一次「查列表」的完整流转</h2>
+        <p class="lead">以 <code>GET /api/v1/assistants</code>（助理团助理列表）为例，同一份请求数据要经过七个环节。</p>
+        <table>
+          <thead><tr><th>#</th><th>所在层</th><th>动作</th><th>代码位置</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>api</td><td>Uvicorn 收到连接，FastAPI 匹配到 <code>list_assistants</code>；<code>Depends</code> 注入数据库会话与当前用户</td><td><span class="path">api/v1/assistants.py</span></td></tr>
+            <tr><td>2</td><td>api → service</td><td>参数原样下传，api 不做任何判断</td><td><span class="path">assistants.py</span></td></tr>
+            <tr><td>3</td><td>service</td><td>校验 <code>scope</code> / <code>statusFilter</code> / <code>subscribeFilter</code> / <code>keyword</code> 的取值是否合法</td><td><span class="path">assistant_service.py</span></td></tr>
+            <tr><td>4</td><td>service → repo</td><td>调用 <code>list_ids</code>，拿到「当前页的 id 列表 + 总数」</td><td><span class="path">assistant_service.py</span></td></tr>
+            <tr><td>5</td><td>repo</td><td>拼 <code>select ... where</code>（三范围 UNION），SQLAlchemy 生成 SQL，PyMySQL 执行</td><td><span class="path">assistant_repo.py</span></td></tr>
+            <tr><td>6</td><td>service</td><td>按 id 批量查详情与授权信息，逐条 <code>_to_card</code> 组装成 Pydantic 对象</td><td><span class="path">assistant_service.py</span></td></tr>
+            <tr><td>7</td><td>api</td><td><code>model_dump(by_alias=True)</code> 转字典，<code>ok()</code> 包成统一响应</td><td><span class="path">assistants.py</span></td></tr>
+          </tbody>
+        </table>
+<pre class="code"><span class="c"># ① api/v1/assistants.py —— 只做翻译与投递</span>
+service = AssistantService(db)
+page = service.list_assistants(user, scope=scope, category_id=categoryId, ...)
+<span class="k">return</span> ok(page.model_dump(by_alias=<span class="k">True</span>))
+
+<span class="c"># ② services/assistant_service.py —— 判断与组装</span>
+ids, total = self.repo.list_ids(...)          <span class="c"># 只拿 id + 总数</span>
+rows       = self.repo.load_many(ids)         <span class="c"># 再批量查详情</span>
+grants     = self.repo.find_grants(...)
+cards = [self._to_card(row, grants.get(row.id), user, scope) <span class="k">for</span> row <span class="k">in</span> rows]
+<span class="k">return</span> AssistantPage(list=cards, total=total, page=page, page_size=page_size)</pre>
+        <div class="callout">api 层从头到尾没有出现一次业务判断：它不知道「scope 为 all 时要折叠审批状态」，也不知道头像要拼域名。这些都属于 service。</div>
+      </section>
+
+      <section id="flow-shape">
+        <h2><span class="num">4</span>数据形态的四次转换</h2>
+        <p class="lead">同一份数据在链路里换了四次外形，每次转换都有明确的负责人。</p>
+        <table>
+          <thead><tr><th>形态</th><th>载体</th><th>谁产生</th><th>关键变化</th></tr></thead>
+          <tbody>
+            <tr><td>① ORM 行</td><td><code>Assistant</code> 实例</td><td>repositories</td><td>与表列一一对应；<code>created_at</code> 是 datetime，<code>category</code> 是关系对象</td></tr>
+            <tr><td>② 业务对象</td><td><code>AssistantCard</code> 实例</td><td>services</td><td>已格式化、按视角折叠、派生 <code>actions</code>；这些字段数据库里并不存在</td></tr>
+            <tr><td>③ 纯字典</td><td><code>dict</code></td><td>services 内调用 <code>model_dump</code></td><td>键名由 snake_case 变为 camelCase</td></tr>
+            <tr><td>④ 统一响应</td><td><code>{code, message, data, traceId}</code></td><td>api 层 <code>ok()</code></td><td>前端最终拿到的 JSON</td></tr>
+          </tbody>
+        </table>
+<pre class="code"><span class="c"># ① repositories 交出的 ORM 行</span>
+row.created_at       <span class="c">→</span> datetime(2026, 11, 16, 9, 30)
+row.category.name    <span class="c">→</span> <span class="s">"效率工具"</span>
+
+<span class="c"># ② services 组装后的 Pydantic 对象</span>
+created_at    = _fmt_required(row.created_at)                  <span class="c">→ "2026-11-16 09:30:00"</span>
+category_name = row.category.name <span class="k">if</span> row.category <span class="k">else</span> <span class="s">""</span>
+actions       = self._derive_actions(row, grant, user)         <span class="c"># 库里没有，按角色计算</span>
+
+<span class="c"># ③ api 层 model_dump(by_alias=True)</span>
+{<span class="k">"assistantId"</span>: 1, <span class="k">"createdAt"</span>: <span class="s">"2026-11-16 09:30:00"</span>, <span class="k">"actions"</span>: [...]}</pre>
+        <div class="callout info">ORM 行对象是「数据库的样子」，Pydantic 模型是「接口的样子」，中间那次转换由 service 负责——它也是唯一知道「这个值该是什么」的地方。</div>
+      </section>
+
+      <section id="flow-cross">
+        <h2><span class="num">5</span>core 与 schemas 的定位</h2>
+        <p class="lead"><code>core/</code> 不调用任何业务层，只被调用。它把「每个请求都要用、但与业务无关」的东西收在一起。</p>
+        <table>
+          <thead><tr><th>文件</th><th>职责</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">config.py</span></td><td>读 <code>.env</code> 提供全局配置：数据库、LLM、OBS、头像限制</td></tr>
+            <tr><td><span class="path">database.py</span></td><td>Engine 连接池、SessionLocal、依赖注入的 <code>get_db</code></td></tr>
+            <tr><td><span class="path">security.py</span></td><td>从请求头解析 <code>CurrentUser</code>，判定管理员</td></tr>
+            <tr><td><span class="path">errors.py</span> / <span class="path">exception_handlers.py</span></td><td>业务错误码与异常类；全局异常转统一响应结构</td></tr>
+            <tr><td><span class="path">response.py</span> / <span class="path">json_response.py</span></td><td><code>ok()</code> / <code>fail()</code> 响应包装；时间、Decimal 的自定义编码</td></tr>
+            <tr><td><span class="path">middleware.py</span> / <span class="path">logging.py</span></td><td>traceId、访问日志、耗时统计；日志格式与输出</td></tr>
+            <tr><td><span class="path">pagination.py</span> / <span class="path">timeutils.py</span></td><td>分页参数 <code>PageParams</code>；统一时间获取</td></tr>
+          </tbody>
+        </table>
+
+        <div class="subsection">
+          <h3>schemas 的边界</h3>
+          <p class="lead" style="margin-bottom:8px;">schemas 只描述接口形状，不持有业务逻辑（<code>computed_field</code> 这类纯派生除外）。</p>
+          <table>
+            <thead><tr><th>场景</th><th>谁使用</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>入参</td><td>api</td><td>FastAPI 把请求体 / query 解析成 Pydantic 对象并校验</td></tr>
+              <tr><td>出参</td><td>services</td><td>service 逐字段构造 Pydantic 对象后返回</td></tr>
+              <tr><td>是否下传到 repo / model</td><td>否</td><td>仓储层与模型层完全不认识 schemas，只接收普通参数</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout ok">一条实用判断：<strong>如果一个模块同时被三层以上 import，它就是横切层，不该塞进调用链。</strong></div>
+      </section>
+
+    </div><!-- /panel flow -->
+
+    <!-- ================= Tab 3：Python 技术栈关键词 ================= -->
+    <div class="panel" data-panel="py">
+
+    <!-- Tab 3 · 一、技术栈关键词 -->
+    <section id="glossary">
+      <h2><span class="num">1</span>后端技术栈关键词速查</h2>
+      <p class="lead">面向未接触过 Python 后端的读者。先把名词放回它所在的链路位置，再看逐词解释——脱离链路背名词，很容易把 <code>models</code> 和 <code>schemas</code> 这类名字相近的东西混在一起。</p>
+
+      <div class="subsection">
+        <h3>一次请求经过谁</h3>
+        <div class="arch-flow">
+          <span class="node">前端 fetch</span><span class="arrow">→</span>
+          <span class="node">Uvicorn（收连接）</span><span class="arrow">→</span>
+          <span class="node">FastAPI（找路由）</span><span class="arrow">→</span>
+          <span class="node">Pydantic（校验参数）</span><span class="arrow">→</span>
+          <span class="node">service（业务判断）</span><span class="arrow">→</span>
+          <span class="node">SQLAlchemy ORM</span><span class="arrow">→</span>
+          <span class="node db">MySQL</span>
+        </div>
+        <div class="callout info">Alembic 不在请求链路上。它只在开发期使用：对比代码里的 ORM 模型与数据库真实表结构，生成改表脚本。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>服务与框架</h3>
+        <table>
+          <thead><tr><th>关键词</th><th>一句话解释</th><th>项目中的位置</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Uvicorn</strong></td><td>用 Python 写的 Web 服务器进程，负责监听端口、接收 TCP 连接、把 HTTP 解析后交给应用。<code>uvicorn app.main:app --reload</code> 启动的就是它</td><td><span class="path">app/main.py</span> 顶部注释</td></tr>
+            <tr><td><strong>ASGI</strong></td><td>服务器与应用之间的协议标准。Uvicorn 是 ASGI 服务器，FastAPI 是 ASGI 应用，两者靠这个标准对接，因此可以互换</td><td><span class="path">requirements.txt</span> 的 <code>uvicorn[standard]</code></td></tr>
+            <tr><td><strong>FastAPI</strong></td><td>Web 框架：路由表、参数提取、依赖注入、中间件、自动文档。所有 <code>@router.get(...)</code> 都归它管</td><td><span class="path">app/main.py</span> 的 <code>create_app()</code></td></tr>
+            <tr><td><strong>OpenAPI / Swagger</strong></td><td>FastAPI 根据代码自动生成的接口描述，<code>/docs</code> 是可交互页面，可直接在页面上发请求</td><td><span class="path">app/main.py</span> 的 <code>docs_url="/docs"</code></td></tr>
+            <tr><td><strong>APIRouter</strong></td><td>一组路由的集合。<code>APIRouter(prefix="/assistants")</code> 定义后由主 app 统一挂载</td><td><span class="path">app/api/v1/__init__.py</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>数据契约</h3>
+        <table>
+          <thead><tr><th>关键词</th><th>一句话解释</th><th>项目中的位置</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Pydantic</strong></td><td>Python 的数据校验与序列化库。用类声明「要哪些字段、什么类型」，创建对象时自动校验与类型转换，也能一键导出成 dict / JSON</td><td><span class="path">app/schemas/</span> 全部文件</td></tr>
+            <tr><td><strong>Schema（Pydantic 模型）</strong></td><td>继承 <code>BaseModel</code> 的类，描述接口入参 / 出参的形状。<strong>它不是数据库表</strong></td><td><span class="path">schemas/assistant.py</span> 的 <code>AssistantCard</code></td></tr>
+            <tr><td><strong>BaseSettings / pydantic-settings</strong></td><td>Pydantic 的配置扩展：读环境变量与 <code>.env</code>，把 <code>DB_HOST=xxx</code> 变成 <code>settings.db_host</code> 并校验类型</td><td><span class="path">core/config.py</span> 的 <code>Settings</code></td></tr>
+            <tr><td><strong>model_dump()</strong></td><td>把 Pydantic 对象转成 dict；<code>by_alias=True</code> 让 <code>assistant_id</code> 输出为 <code>assistantId</code></td><td>每个 api 函数的最后一行</td></tr>
+            <tr><td><strong>computed_field</strong></td><td>只存在于出参、数据库里没有的派生字段，例如描述截断</td><td><span class="path">schemas/assistant.py</span> 的 <code>description_truncated</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>数据库</h3>
+        <table>
+          <thead><tr><th>关键词</th><th>一句话解释</th><th>项目中的位置</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ORM</strong></td><td>Object-Relational Mapping，对象关系映射：用类代表表、属性代表列、对象代表一行。写 <code>row.name</code>，底层自动变成 SQL，不必手写查询语句</td><td><span class="path">app/models/</span> 整个目录</td></tr>
+            <tr><td><strong>ORM 模型</strong></td><td>具体那个类。例如 <code>Assistant</code> 对应 <code>assistant</code> 表，<code>__tablename__</code> 指定表名，每个 <code>mapped_column</code> 对应一列</td><td><span class="path">models/assistant.py</span></td></tr>
+            <tr><td><strong>SQLAlchemy</strong></td><td>Python 最主流的 ORM 库（2.0 版本）。<code>Mapped</code>、<code>select()</code>、<code>relationship()</code> 都来自它</td><td><span class="path">requirements.txt</span> 的 <code>SQLAlchemy>=2.0.36</code></td></tr>
+            <tr><td><strong>PyMySQL</strong></td><td>纯 Python 的 MySQL 驱动，负责把 SQL 真正通过网络发给 MySQL 并读回结果。连接串 <code>mysql+pymysql://</code> 中的 <code>pymysql</code> 就是它</td><td><span class="path">core/config.py</span> 的 <code>database_url</code></td></tr>
+            <tr><td><strong>Engine</strong></td><td>连接池：维护一批复用的数据库长连接，避免每次请求都重新建连</td><td><span class="path">core/database.py</span> 的 <code>engine</code></td></tr>
+            <tr><td><strong>Session</strong></td><td>一次业务对话：在其中查询、修改，最后 <code>commit()</code> 提交或 <code>rollback()</code> 回滚；请求结束自动关闭</td><td><span class="path">core/database.py</span> 的 <code>get_db</code></td></tr>
+            <tr><td><strong>Alembic</strong></td><td>数据库版本控制 / 迁移工具，与 SQLAlchemy 同源。对比 ORM 模型与真实表结构，生成 <code>ALTER TABLE</code> 脚本并记录已执行版本</td><td><span class="path">server/alembic.ini</span>、<span class="path">server/migrations/env.py</span></td></tr>
+            <tr><td><strong>Migration（迁移）</strong></td><td>一次「改表结构」的脚本，有编号、可回滚、可重复执行</td><td><span class="path">server/migrations/</span></td></tr>
+          </tbody>
+        </table>
+        <div class="callout">当前项目建表以 <span class="path">deploy/mysql/assistant_mysql.sql</span> 为准，Alembic 只完成了环境接线（<code>env.py</code> 已绑定 <code>settings.database_url</code> 与 <code>Base.metadata</code>），尚无实际迁移版本文件，属于「预留未启用」。</div>
+      </div>
+
+      <div class="subsection">
+        <h3>框架机制</h3>
+        <table>
+          <thead><tr><th>关键词</th><th>一句话解释</th><th>项目中的位置</th></tr></thead>
+          <tbody>
+            <tr><td><strong>依赖注入（Depends）</strong></td><td>参数上写 <code>db: Session = Depends(get_db)</code>，框架在调用前自动执行 <code>get_db()</code> 并注入结果，请求结束自动收尾（关连接、异常回滚）</td><td><span class="path">api/v1/assistants.py</span></td></tr>
+            <tr><td><strong>中间件（Middleware）</strong></td><td>横在请求进入与响应返回之间的统一处理层：补 traceId、记访问日志、算耗时</td><td><span class="path">core/middleware.py</span> 的 <code>TraceMiddleware</code></td></tr>
+            <tr><td><strong>CORS</strong></td><td>跨域许可。前端 5173、后端 8000 属于不同源，浏览器默认拦截，必须后端显式声明允许来源</td><td><span class="path">app/main.py</span> 的 <code>CORSMiddleware</code></td></tr>
+            <tr><td><strong>统一响应包装</strong></td><td>所有接口都返回 <code>{code, message, data, traceId}</code> 同一形状，由 <code>ok()</code> / 异常处理器保证</td><td><span class="path">core/response.py</span>、<span class="path">core/exception_handlers.py</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>其它依赖</h3>
+        <table>
+          <thead><tr><th>关键词</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><strong>python-multipart</strong></td><td>解析 <code>multipart/form-data</code>，头像上传接口依赖它</td></tr>
+            <tr><td><strong>httpx</strong></td><td>HTTP 客户端，用于调用外部大模型接口</td></tr>
+            <tr><td><strong>boto3</strong></td><td>AWS SDK；天翼云 OBS 兼容 S3 协议，因此用它上传头像对象</td></tr>
+            <tr><td><strong>python-dotenv</strong></td><td><code>.env</code> 文件解析；本项目实际由 pydantic-settings 内部读取，未直接调用</td></tr>
+            <tr><td><strong>pytest</strong></td><td>Python 测试框架，相当于前端 Jest</td></tr>
+            <tr><td><strong>lru_cache</strong></td><td>标准库的缓存装饰器，<code>get_settings()</code> 用它保证配置只读一次 <code>.env</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>最容易混的一对：models 与 schemas</h3>
+        <table>
+          <thead><tr><th>对比项</th><th><span class="path">models/</span>（ORM）</th><th><span class="path">schemas/</span>（Pydantic）</th></tr></thead>
+          <tbody>
+            <tr><td>基类</td><td><code>Base</code>（SQLAlchemy）</td><td><code>BaseModel</code>（Pydantic）</td></tr>
+            <tr><td>典型字段写法</td><td><code>mapped_column(BigInteger, primary_key=True)</code></td><td><code>assistant_id: int</code></td></tr>
+            <tr><td>与数据库关系</td><td>一个属性对应一列，可直接建表</td><td>无关，只描述接口形状</td></tr>
+            <tr><td>能否有计算字段</td><td>不能</td><td>能，如 <code>description_truncated</code></td></tr>
+            <tr><td>谁在使用</td><td>repositories 查询、service 读写</td><td>api 校验入参、service 组装出参</td></tr>
+          </tbody>
+        </table>
+        <div class="callout ok">记忆口诀：<strong>数据库里存什么看 models，接口上暴露什么看 schemas，把前者变成后者是 service 的活。</strong></div>
+      </div>
+    </section>
+
+    </div><!-- /panel py -->
+
+    <footer>数智助理 · 助理团 —— 技术架构补充说明</footer>
   </main>
 </div>
+<script>
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+  var tocList = document.getElementById('tocList');
+
+  function stripNum(text) {
+    return text.replace(/^\s*\d+\s*/, '').trim();
+  }
+
+  function buildToc(panel) {
+    tocList.innerHTML = '';
+    var heads = panel.querySelectorAll('h2, h3');
+    for (var i = 0; i < heads.length; i++) {
+      var h = heads[i];
+      if (!h.id) { h.id = panel.dataset.panel + '-h' + i; }
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      if (h.tagName === 'H3') { a.className = 'lv3'; }
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      a.appendChild(dot);
+      a.appendChild(document.createTextNode(stripNum(h.textContent)));
+      tocList.appendChild(a);
+    }
+  }
+
+  function activate(name) {
+    tabs.forEach(function (t) {
+      var on = t.dataset.tab === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    var current = null;
+    panels.forEach(function (p) {
+      var on = p.dataset.panel === name;
+      p.classList.toggle('active', on);
+      if (on) { current = p; }
+    });
+    if (current) { buildToc(current); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { activate(t.dataset.tab); });
+  });
+
+  if (panels.length) { activate(panels[0].dataset.panel); }
+})();
+</script>
 </body>
 </html>

@@ -91,6 +91,7 @@ class AssistantService:
     # ============================ 列表 ============================
 
     def list_assistants(
+        # ① 函数签名 -- 我需要哪些信息
         self,
         user: CurrentUser,
         *,
@@ -102,6 +103,8 @@ class AssistantService:
         page: int,
         page_size: int,
     ) -> AssistantPage:
+
+        # ② 参数校验 -- 先确认你说的是人话
         if scope not in VALID_SCOPES:
             raise ParamInvalidError("scope 取值不合法", "scope")
         if status_filter and status_filter not in VALID_STATUS:
@@ -113,6 +116,7 @@ class AssistantService:
         if clean_keyword and len(clean_keyword) > 50:
             raise ParamInvalidError("关键词不超过 50 个字符", "keyword")
 
+        # ③ 调仓储层 -- 把话翻译成数据库语言（ids是id列表，total是总数）
         ids, total = self.repo.list_ids(
             company_id=user.company_id,
             user_id=user.user_id,
@@ -127,10 +131,12 @@ class AssistantService:
             limit=page_size,
         )
 
+        # ④ 组装 —— "两次批量查询 + 纯内存拼装"
         rows = self.repo.load_many(ids)
         grants = self.repo.find_grants(
             master_data.employee_id_for_login(user.user_id), ids
         )
+        
         cards = [self._to_card(row, grants.get(row.id), user, scope) for row in rows]
 
         return AssistantPage(

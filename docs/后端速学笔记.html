@@ -1,0 +1,3385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数智助理 · 助理团 —— 后端速学笔记（前端友好版）</title>
+<style>
+  :root{
+    --bg:#f4f7f8; --panel:#ffffff; --ink:#0f172a; --ink-2:#475569; --ink-3:#94a3b8;
+    --line:#e2e8f0; --brand:#0f766e; --brand-2:#0d9488; --brand-soft:#ecfdf5;
+    --blue:#0369a1; --blue-soft:#eff6ff; --purple:#7c3aed; --purple-soft:#f5f3ff;
+    --orange:#c2410c; --orange-soft:#fff7ed; --red:#b91c1c; --red-soft:#fef2f2;
+    --green:#15803d; --green-soft:#f0fdf4; --yellow:#a16207; --yellow-soft:#fefce8;
+    --code-bg:#0b1220; --code-ink:#dbeafe; --code-line:#1e293b;
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 12px 32px rgba(15,23,42,.06);
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.75; font-size:14.5px;
+  }
+  #progress{
+    position:fixed; top:0; left:0; height:3px; width:0; z-index:99;
+    background:linear-gradient(90deg,var(--brand),#22c55e,#0ea5e9);
+    transition:width .1s linear;
+  }
+  .layout{display:flex; align-items:flex-start; max-width:1440px; margin:0 auto; gap:28px; padding:0 24px;}
+
+  /* ---------- 左侧目录 ---------- */
+  .toc{
+    position:sticky; top:0; flex:0 0 250px; align-self:flex-start;
+    height:100vh; overflow:auto; padding:26px 0 40px; scrollbar-width:thin;
+  }
+  .toc .brand{
+    display:flex; align-items:center; gap:10px; margin:0 10px 14px; font-weight:800;
+    color:var(--ink); font-size:15px; letter-spacing:.2px;
+  }
+  .toc .brand .logo{
+    width:28px;height:28px;border-radius:9px;flex:none;
+    background:linear-gradient(135deg,var(--brand),#0ea5e9);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;
+  }
+  .toc h2{font-size:11px; letter-spacing:.16em; color:var(--ink-3); text-transform:uppercase; margin:14px 12px 8px;}
+  .toc a{
+    display:flex; gap:9px; align-items:baseline; padding:7px 11px; color:var(--ink-2);
+    text-decoration:none; border-radius:9px; font-size:12.8px; border-left:2px solid transparent;
+    transition:.15s;
+  }
+  .toc a .n{font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums;min-width:18px;}
+  .toc a:hover{background:var(--brand-soft); color:var(--brand);}
+  .toc a.active{background:var(--brand-soft); color:var(--brand); border-left-color:var(--brand); font-weight:700;}
+  .toc a.active .n{color:var(--brand);}
+  .toc .mini{
+    margin:18px 12px 0; padding:12px; border:1px dashed var(--line); border-radius:12px;
+    color:var(--ink-3); font-size:11.5px; line-height:1.7; background:#fff;
+  }
+  .toc .mini b{color:var(--ink-2);}
+
+  /* ---------- 主区域 ---------- */
+  main{flex:1 1 auto; min-width:0; padding:26px 0 90px; max-width:1120px;}
+
+  header.hero{
+    position:relative; overflow:hidden;
+    background:linear-gradient(130deg,#064e3b 0%,#0f766e 42%,#0369a1 100%);
+    color:#fff; border-radius:22px; padding:38px 40px 34px; box-shadow:var(--shadow); margin-bottom:26px;
+  }
+  header.hero::after{
+    content:""; position:absolute; right:-90px; top:-110px; width:340px; height:340px; border-radius:50%;
+    background:radial-gradient(circle,rgba(255,255,255,.18),transparent 66%);
+  }
+  header.hero .kicker{
+    display:inline-flex; align-items:center; gap:8px; font-size:12px; letter-spacing:.12em;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25);
+    padding:4px 12px; border-radius:999px; margin-bottom:16px;
+  }
+  header.hero h1{margin:0 0 10px; font-size:31px; line-height:1.35; letter-spacing:.3px;}
+  header.hero p{margin:0; color:rgba(255,255,255,.92); font-size:14.5px; max-width:880px;}
+  header.hero .badges{margin-top:20px; display:flex; flex-wrap:wrap; gap:8px;}
+  header.hero .badge{
+    background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.28);
+    color:#fff; padding:4px 12px; border-radius:999px; font-size:12px;
+  }
+  .hero-stats{
+    display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-top:24px; max-width:800px;
+  }
+  .hero-stats .stat{
+    background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18);
+    border-radius:12px; padding:10px 14px;
+  }
+  .hero-stats .stat b{display:block; font-size:20px; line-height:1.2;}
+  .hero-stats .stat span{font-size:11.5px; color:rgba(255,255,255,.72);}
+
+  section{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:28px 30px; margin-bottom:22px; scroll-margin-top:18px;
+  }
+  section > h2{
+    margin:0 0 6px; font-size:20px; display:flex; align-items:center; gap:11px; line-height:1.4;
+  }
+  section > h2 .num{
+    display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+    background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border-radius:9px;
+    font-size:13px; font-weight:700; flex:none; box-shadow:0 4px 10px rgba(15,118,110,.25);
+  }
+  .section-sub{color:var(--ink-3); font-size:12.5px; margin:0 0 18px 41px;}
+  .lead{color:var(--ink-2); margin:0 0 14px;}
+  p{margin:10px 0;}
+  strong{color:var(--ink);}
+  em{font-style:normal; background:linear-gradient(transparent 62%,#fde68a 62%); padding:0 1px;}
+
+  h3{font-size:16px; margin:26px 0 10px; display:flex; align-items:center; gap:9px; scroll-margin-top:16px;}
+  h3::before{content:""; width:4px; height:16px; border-radius:3px; background:var(--brand); flex:none;}
+  h4{font-size:13.5px; margin:18px 0 8px; color:var(--ink);}
+  ul,ol{padding-left:22px; color:var(--ink-2);}
+  li{margin:5px 0;}
+  li > strong{color:var(--ink);}
+
+  code{
+    background:#f1f5f9; border:1px solid #e2e8f0; border-radius:5px; padding:1px 6px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.4px; color:#0f172a; word-break:break-word;
+  }
+  .path{font-family:Consolas,"SFMono-Regular",monospace; color:var(--brand); font-size:12.5px; font-weight:600; white-space:nowrap;}
+
+  /* ---------- 代码块 ---------- */
+  .code-card{
+    margin:14px 0 6px; border-radius:13px; overflow:hidden; border:1px solid #1e293b;
+    background:var(--code-bg); box-shadow:0 10px 24px rgba(2,6,23,.14);
+  }
+  .code-head{
+    display:flex; align-items:center; gap:10px; padding:9px 14px;
+    background:#111c31; border-bottom:1px solid #1e293b; color:#94a3b8; font-size:11.5px;
+  }
+  .code-head .dots{display:flex;gap:5px;margin-right:4px;}
+  .code-head .dots i{width:8px;height:8px;border-radius:50%;display:block;background:#334155;}
+  .code-head .dots i:nth-child(1){background:#f87171;}
+  .code-head .dots i:nth-child(2){background:#fbbf24;}
+  .code-head .dots i:nth-child(3){background:#34d399;}
+  .code-head .fname{font-family:Consolas,monospace; color:#cbd5e1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .code-head .copy{
+    margin-left:auto; border:1px solid #334155; background:#1e293b; color:#cbd5e1;
+    border-radius:6px; font-size:11px; padding:2px 9px; cursor:pointer; flex:none;
+  }
+  .code-head .copy:hover{background:#334155; color:#fff;}
+  pre{
+    margin:0; padding:16px 18px; overflow:auto; background:var(--code-bg);
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.4px; line-height:1.8; color:var(--code-ink); white-space:pre;
+  }
+  pre .c{color:#64748b;}
+  pre .k{color:#7dd3fc;}
+  pre .s{color:#86efac;}
+  pre .n{color:#fca5a5;}
+  pre .hl{background:rgba(250,204,21,.18); border-radius:3px; padding:0 2px;}
+
+  /* ---------- 表格 ---------- */
+  .table-wrap{overflow-x:auto; margin:12px 0 4px; border:1px solid var(--line); border-radius:12px;}
+  table{width:100%; border-collapse:collapse; font-size:13px; background:#fff;}
+  thead th{
+    text-align:left; background:#f8fafc; color:var(--ink-2); font-weight:700;
+    padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fbfdfe;}
+  td code{font-size:12px;}
+
+  /* ---------- 提示框 ---------- */
+  .callout{
+    border-left:4px solid var(--blue); background:var(--blue-soft); color:#0c4a6e;
+    padding:12px 15px; border-radius:0 10px 10px 0; font-size:13.3px; margin:14px 0;
+  }
+  .callout b{color:inherit;}
+  .callout.analogy{border-left-color:var(--purple); background:var(--purple-soft); color:#4c1d95;}
+  .callout.warn{border-left-color:var(--orange); background:var(--orange-soft); color:#7c2d12;}
+  .callout.danger{border-left-color:var(--red); background:var(--red-soft); color:#7f1d1d;}
+  .callout.ok{border-left-color:var(--green); background:var(--green-soft); color:#14532d;}
+  .callout.tip{border-left-color:var(--yellow); background:var(--yellow-soft); color:#713f12;}
+  .callout .label{
+    display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:.06em;
+    padding:1px 7px; border-radius:5px; margin-right:6px; background:rgba(255,255,255,.7);
+    border:1px solid rgba(0,0,0,.06);
+  }
+
+  /* ---------- 流程图 ---------- */
+  .flow{
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:16px 0;
+  }
+  .flow .node{
+    background:var(--brand-soft); color:var(--brand); border:1px solid #99f6e4;
+    padding:7px 13px; border-radius:9px; font-weight:700; font-size:12.5px;
+  }
+  .flow .node.blue{background:var(--blue-soft); color:var(--blue); border-color:#bfdbfe;}
+  .flow .node.purple{background:var(--purple-soft); color:var(--purple); border-color:#ddd6fe;}
+  .flow .node.orange{background:var(--orange-soft); color:var(--orange); border-color:#fed7aa;}
+  .flow .node.dark{background:#0f172a; color:#e2e8f0; border-color:#0f172a;}
+  .flow .arrow{color:var(--ink-3); font-weight:800;}
+
+  .steps{counter-reset:step; margin:14px 0;}
+  .steps .step{
+    position:relative; padding:0 0 18px 42px; border-left:2px dashed #cbd5e1; margin-left:14px;
+  }
+  .steps .step:last-child{border-left-color:transparent; padding-bottom:0;}
+  .steps .step::before{
+    counter-increment:step; content:counter(step);
+    position:absolute; left:-15px; top:-2px; width:28px; height:28px; border-radius:50%;
+    background:#fff; border:2px solid var(--brand); color:var(--brand);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;
+  }
+  .steps .step h4{margin:0 0 5px; font-size:13.5px;}
+  .steps .step p{margin:0; color:var(--ink-2); font-size:13px;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:14px;}
+  .box{background:#fafcfd; border:1px solid var(--line); border-radius:12px; padding:15px 17px;}
+  .box h4{margin:0 0 8px; font-size:13.5px; display:flex; align-items:center; gap:7px;}
+  .box ul{margin:0; padding-left:18px; font-size:12.8px;}
+  .box li{margin:4px 0;}
+  .box.good{background:var(--green-soft); border-color:#bbf7d0;}
+  .box.bad{background:var(--red-soft); border-color:#fecaca;}
+  .box.info{background:var(--blue-soft); border-color:#bfdbfe;}
+  .box.warn{background:var(--orange-soft); border-color:#fed7aa;}
+
+  .pill{display:inline-block; padding:1px 8px; border-radius:999px; font-size:10.5px; font-weight:700; margin-right:4px;}
+  .pill.g{background:var(--green-soft); color:var(--green); border:1px solid #bbf7d0;}
+  .pill.r{background:var(--red-soft); color:var(--red); border:1px solid #fecaca;}
+  .pill.b{background:var(--blue-soft); color:var(--blue); border:1px solid #bfdbfe;}
+  .pill.o{background:var(--orange-soft); color:var(--orange); border:1px solid #fed7aa;}
+
+  .checklist{list-style:none; padding-left:0;}
+  .checklist li{display:flex; gap:9px; align-items:flex-start; padding:5px 0;}
+  .checklist input{margin-top:5px; accent-color:var(--brand); flex:none;}
+
+  details.quiz{
+    border:1px solid var(--line); border-radius:11px; padding:12px 15px; margin:9px 0; background:#fff;
+  }
+  details.quiz summary{cursor:pointer; font-weight:700; color:var(--ink); font-size:13.3px;}
+  details.quiz[open]{background:#fbfdfe;}
+  details.quiz p{font-size:13px; color:var(--ink-2); margin:8px 0 0;}
+
+  .kbd{
+    display:inline-block; padding:1px 6px; border:1px solid #cbd5e1; border-bottom-width:2px;
+    border-radius:5px; background:#f8fafc; font-family:Consolas,monospace; font-size:11.5px; color:#334155;
+  }
+  .muted{color:var(--ink-3); font-size:12.5px;}
+  .divider{height:1px; background:var(--line); margin:24px 0; border:0;}
+
+  footer{text-align:center; color:var(--ink-3); font-size:12px; padding:6px 0 0;}
+  footer a{color:var(--brand); text-decoration:none;}
+
+  #top{
+    position:fixed; right:22px; bottom:22px; width:42px; height:42px; border-radius:50%;
+    border:1px solid var(--line); background:#fff; color:var(--brand); font-size:17px; cursor:pointer;
+    box-shadow:var(--shadow); display:none; z-index:90;
+  }
+  #top.show{display:block;}
+
+  @media (max-width:1080px){
+    .layout{padding:0 16px; gap:18px;}
+    .toc{flex-basis:218px;}
+    .hero-stats{grid-template-columns:repeat(2,1fr);}
+    .grid3{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:860px){
+    .layout{flex-direction:column; padding:0 12px;}
+    .toc{
+      position:static; height:auto; width:100%; flex:none; display:flex; flex-wrap:wrap;
+      gap:5px; padding:14px 0 4px;
+    }
+    .toc .brand{width:100%;}
+    .toc h2{width:100%; margin:8px 6px 4px;}
+    .toc a{background:#fff; border:1px solid var(--line); padding:5px 9px; font-size:11.8px;}
+    .toc .mini{display:none;}
+    main{padding-top:10px;}
+    section{padding:22px 18px; border-radius:14px;}
+    section > h2{font-size:18px;}
+    .section-sub{margin-left:0;}
+    header.hero{padding:28px 22px; border-radius:16px;}
+    header.hero h1{font-size:24px;}
+    .grid2,.grid3{grid-template-columns:1fr;}
+    .hero-stats{grid-template-columns:1fr 1fr;}
+    .flow .node{font-size:11.5px; padding:6px 10px;}
+  }
+  @media print{
+    .toc,#progress,#top,.code-head .copy{display:none !important;}
+    .layout{display:block; max-width:none; padding:0;}
+    body{background:#fff; font-size:12px;}
+    section{box-shadow:none; break-inside:avoid;}
+    pre{white-space:pre-wrap;}
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <div class="brand"><span class="logo">后</span>后端速学笔记</div>
+    <h2>先建立地图</h2>
+    <a href="#howto"><span class="n">00</span>这份笔记怎么用</a>
+    <a href="#mindset"><span class="n">01</span>前端与后端差在哪</a>
+    <a href="#journey"><span class="n">02</span>一次请求的完整旅程</a>
+    <a href="#run"><span class="n">03</span>把项目跑起来</a>
+    <a href="#layers"><span class="n">04</span>目录分层：谁干什么</a>
+    <h2>看懂后端代码</h2>
+    <a href="#http"><span class="n">05</span>HTTP：前后端的快递单</a>
+    <a href="#router"><span class="n">06</span>FastAPI 路由</a>
+    <a href="#pydantic"><span class="n">07</span>Pydantic 参数安检</a>
+    <a href="#depends"><span class="n">08</span>Depends 依赖注入</a>
+    <a href="#database"><span class="n">09</span>数据库与 SQL 入门</a>
+    <a href="#orm"><span class="n">10</span>SQLAlchemy ORM</a>
+    <a href="#real-api"><span class="n">11</span>拆一个真实接口</a>
+    <h2>开始动手</h2>
+    <a href="#build"><span class="n">12</span>从零加一个接口</a>
+    <a href="#auth"><span class="n">13</span>登录态与权限</a>
+    <a href="#response"><span class="n">14</span>统一响应与异常</a>
+    <a href="#transaction"><span class="n">15</span>事务、并发与幂等</a>
+    <h2>能排错、能上线</h2>
+    <a href="#debug"><span class="n">16</span>日志与排错</a>
+    <a href="#test"><span class="n">17</span>测试：证明没写坏</a>
+    <a href="#config"><span class="n">18</span>配置与环境变量</a>
+    <a href="#integration"><span class="n">19</span>前后端联调清单</a>
+    <a href="#pitfalls"><span class="n">20</span>常见坑速查</a>
+    <h2>继续进阶</h2>
+    <a href="#roadmap"><span class="n">21</span>学习路线与练习</a>
+    <a href="#glossary"><span class="n">22</span>术语与命令速查</a>
+    <div class="mini">
+      <b>阅读建议：</b>第一次按 00 → 02 → 03 → 05 → 11 的顺序读，先把「一条请求怎么走」建立起来，再回头补细节。<br><br>
+      文中代码都来自当前仓库，路径可直接在编辑器里打开对照。
+    </div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="kicker">BACKEND 101 · 面向有前端基础的同学</div>
+      <h1>后端速学笔记<br>从点下按钮，到数据落进 MySQL</h1>
+      <p>不讲空泛概念。这份笔记只讲这个项目真正用到的后端知识：FastAPI、Pydantic、SQLAlchemy、MySQL、鉴权、事务、测试。每一节都配本仓库的真实代码和「前端类比」，目标是让你能看懂、能改、能自己加一个接口。</p>
+      <div class="badges">
+        <span class="badge">Python 3.10+</span>
+        <span class="badge">FastAPI</span>
+        <span class="badge">Pydantic v2</span>
+        <span class="badge">SQLAlchemy 2.0</span>
+        <span class="badge">MySQL 8.0</span>
+        <span class="badge">pytest</span>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><b>22</b><span>节，按学习顺序排好</span></div>
+        <div class="stat"><b>40+</b><span>段仓库真实代码</span></div>
+        <div class="stat"><b>3</b><span>层校验 + 4 层架构</span></div>
+        <div class="stat"><b>1</b><span>个完整新增接口实战</span></div>
+      </div>
+    </header>
+
+    <!-- ================= 00 ================= -->
+    <section id="howto">
+      <h2><span class="num">00</span>这份笔记怎么用</h2>
+      <p class="section-sub">先别急着背语法，先知道自己在学什么、学到什么程度算会。</p>
+
+      <p class="lead">你已经有前端基础，这是很大的优势：你理解「事件 → 状态 → 请求 → 渲染」，也用过 <code>fetch/axios</code>。后端只是把请求的另一半补上：<strong>谁接收、谁校验、谁判断权限、谁读写数据库、谁决定返回什么</strong>。</p>
+
+      <div class="grid2">
+        <div class="box info">
+          <h4>这份笔记假设你会</h4>
+          <ul>
+            <li>写 HTML / CSS / JavaScript</li>
+            <li>用过 Vue 或 React 中的一种</li>
+            <li>用 axios / fetch 调过后端接口</li>
+            <li>知道什么是 JSON、GET、POST</li>
+            <li>不要求会 Python，文中会解释语法</li>
+          </ul>
+        </div>
+        <div class="box good">
+          <h4>读完你应该能</h4>
+          <ul>
+            <li>看懂 <span class="path">server/app</span> 下任意一个接口</li>
+            <li>根据报错定位是前端、后端还是数据库的问题</li>
+            <li>照着现有分层，新增一个小功能</li>
+            <li>写一条接口测试，证明自己的改动没坏</li>
+            <li>和真正的后端同学用同一套词沟通</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>每个知识点按这个顺序讲</h3>
+      <div class="flow">
+        <span class="node">是什么</span><span class="arrow">→</span>
+        <span class="node blue">为什么需要</span><span class="arrow">→</span>
+        <span class="node purple">项目里在哪</span><span class="arrow">→</span>
+        <span class="node orange">前端怎么类比</span><span class="arrow">→</span>
+        <span class="node dark">怎么动手验证</span>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        学后端就像第一次接手一个别人写的大型 Vue 项目：先看路由表知道有哪些页面，再看一个页面从点击到请求到渲染的完整链路，最后照着现有页面的写法加一个新页面。不要一上来从 <code>main.ts</code> 第一行读到最后一行的每个配置。
+      </div>
+
+      <h3>三种标记，帮你分配注意力</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>标记</th><th>含义</th><th>建议</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill r">必懂</span></td><td>日常改接口、排错一定会遇到</td><td>读完能用自己的话讲出来</td></tr>
+            <tr><td><span class="pill b">知道即可</span></td><td>理解作用，不要求默写</td><td>用到时回来查</td></tr>
+            <tr><td><span class="pill o">进阶</span></td><td>并发、幂等、索引优化等</td><td>第一遍可跳过，做功能前再看</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">最重要的一句</span>
+        后端不是「把前端要的数据查出来」这么简单。后端是<strong>唯一可信的裁判</strong>：前端可以绕过、可以伪造、可以重复点击，所以权限、校验、事务必须放在后端。这句话后面每一节都会反复出现。
+      </div>
+    </section>
+
+    <!-- ================= 01 ================= -->
+    <section id="mindset">
+      <h2><span class="num">01</span>前端与后端到底差在哪</h2>
+      <p class="section-sub">先破除一个常见误解：后端不是「另一个写页面的地方」。</p>
+
+      <p class="lead">前端运行在<strong>用户的浏览器</strong>里，代码和请求参数用户都能改；后端运行在<strong>公司的服务器</strong>里，用户看不到代码，只能通过 HTTP 敲门。这个物理位置差异，决定了后端必须承担「可信裁判」的角色。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>维度</th><th>前端</th><th>后端（本项目）</th></tr></thead>
+          <tbody>
+            <tr><td>运行位置</td><td>用户浏览器</td><td>公司服务器 / 容器</td></tr>
+            <tr><td>代码可见性</td><td>打包后用户可下载、可改</td><td>用户看不到，只能调接口</td></tr>
+            <tr><td>主要职责</td><td>展示、交互、表单体验、状态管理</td><td>鉴权、校验、业务规则、数据持久化</td></tr>
+            <tr><td>数据从哪来</td><td>内存 / 接口</td><td>MySQL、对象存储、大模型等</td></tr>
+            <tr><td>出错的代价</td><td>页面白屏、体验差</td><td>数据错乱、越权、资损</td></tr>
+            <tr><td>典型技术</td><td>Vue 3、TS、Vite、Element Plus</td><td>Python、FastAPI、SQLAlchemy、MySQL</td></tr>
+            <tr><td>怎么调试</td><td>DevTools、Vue Devtools</td><td>终端日志、Swagger、pytest、数据库客户端</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>用餐厅打一个比方</h3>
+      <div class="steps">
+        <div class="step">
+          <h4>前端 = 菜单 + 服务员</h4>
+          <p>把菜品（功能）展示给顾客，记录顾客点了什么，把订单送到后厨，再把菜端回来。服务员可以态度很好、界面很漂亮，但<strong>不能自己决定免单</strong>。</p>
+        </div>
+        <div class="step">
+          <h4>后端 = 后厨 + 仓库 + 保安 + 账本</h4>
+          <p>后厨按配方做菜（业务逻辑），仓库保管食材（数据库），保安检查谁能进后厨（鉴权），账本记录每一笔操作（审计日志）。顾客说「我是老板」，保安不能信，要查工牌。</p>
+        </div>
+        <div class="step">
+          <h4>数据库 = 仓库</h4>
+          <p>食材不能堆在地上，要分区域、贴标签、登记出入库。表就是货架，字段就是标签，索引就是目录，事务就是「要么整单入库，要么整单退回」。</p>
+        </div>
+        <div class="step">
+          <h4>HTTP = 点餐单</h4>
+          <p>服务员和后厨之间靠一张标准格式的单子沟通：桌号（URL）、要做什么（方法）、备注（Body）、特殊要求（Header）。后端不认识「服务员」，只认这张单子。</p>
+        </div>
+      </div>
+
+      <h3>后端每天真正在处理的 6 件事</h3>
+      <div class="grid3">
+        <div class="box"><h4>① 接收</h4><p class="muted">从 HTTP 请求里取出路径、查询参数、Body、Header。</p></div>
+        <div class="box"><h4>② 校验</h4><p class="muted">字段长度、枚举取值、必填、格式、关联资源是否存在。</p></div>
+        <div class="box"><h4>③ 鉴权</h4><p class="muted">你是谁、属于哪个公司、是不是创建人、是不是管理员。</p></div>
+        <div class="box"><h4>④ 业务</h4><p class="muted">状态能不能流转、版本怎么算、范围怎么展开。</p></div>
+        <div class="box"><h4>⑤ 持久化</h4><p class="muted">开事务、写多张表、提交或回滚、保证一致性。</p></div>
+        <div class="box"><h4>⑥ 响应</h4><p class="muted">组装数据、脱敏、统一格式、错误码、traceId。</p></div>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">必懂</span>
+        前端隐藏一个按钮，只是「不让你点」，不是「不让你做」。用户完全可以在 DevTools 里直接发请求。所以后端每个接口都要<strong>重新判断一次</strong>：这个用户、这个公司、这个资源、这个状态，允不允许。
+      </div>
+
+      <h3>后端代码为什么看起来比前端「绕」</h3>
+      <p>因为后端要处理很多前端不需要处理的情况：两个人同时点审批、请求重复提交、数据库写到一半失败、用户伪造公司 ID、旧数据没有新字段、外部大模型超时。这些情况让代码必须分层、必须有事务、必须有兜底。你看到的「绕」，大多是在处理<strong>异常路径</strong>。</p>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        前端写一个表单，正常路径可能 30 行；但加上 loading、空状态、错误提示、防重复提交、字段级报错、权限隐藏，就变成 150 行。后端也是一样，正常路径很短，大部分代码在处理「万一」。
+      </div>
+    </section>
+
+    <!-- ================= 02 ================= -->
+    <section id="journey">
+      <h2><span class="num">02</span>一次请求的完整旅程</h2>
+      <p class="section-sub">这是整份笔记最重要的一节。看懂这条链路，后面的知识才有地方挂。</p>
+
+      <p class="lead">我们以「打开助理列表页，查询我的助理」为例。页面上你只是点了一个页签，但背后发生了十几步。先看全貌，不要纠结每个名词，后面会逐个拆。</p>
+
+      <div class="flow">
+        <span class="node">浏览器点击</span><span class="arrow">→</span>
+        <span class="node blue">axios 拦截器</span><span class="arrow">→</span>
+        <span class="node">Vite 代理 / 网关</span><span class="arrow">→</span>
+        <span class="node orange">Uvicorn</span><span class="arrow">→</span>
+        <span class="node purple">FastAPI</span><span class="arrow">→</span>
+        <span class="node">路由 + 依赖</span><span class="arrow">→</span>
+        <span class="node blue">Service</span><span class="arrow">→</span>
+        <span class="node blue">Repository</span><span class="arrow">→</span>
+        <span class="node dark">MySQL</span>
+      </div>
+
+      <h3>12 步拆解</h3>
+      <div class="steps">
+        <div class="step">
+          <h4>① 页面触发请求</h4>
+          <p>助理列表页调用 <code>getAssistants({ scope: 'mine', page: 1 })</code>。这层是前端 API 封装，和页面解耦。</p>
+        </div>
+        <div class="step">
+          <h4>② axios 请求拦截器补登录态</h4>
+          <p>开发期没有真实网关，前端在 <span class="path">web/src/api/request.ts</span> 里按当前角色塞入 <code>X-User-Id</code>、<code>X-Company-Id</code>、<code>X-User-Name</code>。中文姓名要先百分号编码，因为 HTTP Header 只允许 ASCII。</p>
+        </div>
+        <div class="step">
+          <h4>③ 请求发到 8000 端口</h4>
+          <p>开发环境浏览器访问的是 <code>localhost:5173</code>，Vite 把 <code>/api</code> 代理到 <code>127.0.0.1:8000</code>。生产环境通常由 Nginx / 网关转发，并顺便做登录校验。</p>
+        </div>
+        <div class="step">
+          <h4>④ Uvicorn 接收 TCP 请求</h4>
+          <p>Uvicorn 是 ASGI 服务器，负责监听端口、解析 HTTP、把请求交给 FastAPI。你可以把它理解成「后端的 Vite Dev Server」，但它不负责业务。</p>
+        </div>
+        <div class="step">
+          <h4>⑤ FastAPI 经过中间件</h4>
+          <p>请求会经过 CORS（判断哪个前端源可以跨域）和 <code>TraceMiddleware</code>（生成 traceId、记录耗时）。中间件像前端路由守卫，但它包住的是每一次请求。</p>
+        </div>
+        <div class="step">
+          <h4>⑥ 路由匹配</h4>
+          <p>FastAPI 根据 <code>GET /api/v1/assistants</code> 找到 <span class="path">app/api/v1/assistants.py</span> 里的 <code>list_assistants</code> 函数。找不到就 404，方法不对就 405。</p>
+        </div>
+        <div class="step">
+          <h4>⑦ 依赖注入准备「上下文」</h4>
+          <p><code>Depends(get_db)</code> 打开一个数据库会话；<code>Depends(get_current_user)</code> 解析 Header 得到当前用户；<code>Depends()</code> 解析分页参数。依赖像「函数参数的外卖」，框架先帮你准备好再调用函数。</p>
+        </div>
+        <div class="step">
+          <h4>⑧ Pydantic 解析并校验参数</h4>
+          <p>Query 参数按类型转换，Body 按模型校验。长度不够、枚举不对、类型不对，在这里就会被拦下，返回 400（项目把 FastAPI 默认的 422 统一成了 400）。</p>
+        </div>
+        <div class="step">
+          <h4>⑨ Service 执行业务规则</h4>
+          <p><code>AssistantService.list_assistants</code> 校验 scope 取值、清理关键词、决定「我的 / 共享 / 全部」怎么查、最后把 ORM 对象组装成响应模型。</p>
+        </div>
+        <div class="step">
+          <h4>⑩ Repository 把业务翻译成 SQL</h4>
+          <p><code>AssistantRepository.list_ids</code> 用 SQLAlchemy 拼出三段 UNION 查询，先拿当前页的 ID 和总数；<code>load_many</code> 再批量加载完整对象，避免一条条查。</p>
+        </div>
+        <div class="step">
+          <h4>⑪ MySQL 执行 SQL 并返回结果</h4>
+          <p>数据库只认 SQL，不认 Python 对象。SQLAlchemy 负责把 <code>select(...)</code> 变成 SQL，再把结果行变成 Python 对象。数据库里的表、索引、事务在这一层生效。</p>
+        </div>
+        <div class="step">
+          <h4>⑫ 响应一路回到浏览器</h4>
+          <p>Service 返回 <code>AssistantPage</code>，路由用 <code>ok(...)</code> 包成 <code>{ code, message, data, traceId }</code>，<code>UnifiedJSONResponse</code> 补上 traceId，序列化成 JSON。axios 响应拦截器判断 <code>code === 'OK'</code> 后剥掉外壳，页面拿到 <code>data.list</code> 开始渲染。</p>
+        </div>
+      </div>
+
+      <h3>真实请求长什么样</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">浏览器 Network 里看到的请求</span><button class="copy">复制</button></div>
+<pre>GET /api/v1/assistants?scope=mine&amp;page=1&amp;pageSize=12 HTTP/1.1
+Host: 127.0.0.1:8000
+X-User-Id: 1001
+X-Company-Id: 1
+X-User-Name: %E7%8E%8B%E6%99%93%E6%98%8E
+X-User-Dept: %E4%BA%BA%E5%8A%9B%E8%B5%84%E6%BA%90%E9%83%A8%20%C2%B7%20%E6%8B%9B%E8%81%98%E7%BB%84
+Accept: application/json</pre>
+      </div>
+
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">后端返回的 JSON（已简化）</span><button class="copy">复制</button></div>
+<pre>{
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "assistantId": 1001,
+        "name": "招聘助手",
+        "shareStatus": "approved",
+        "version": "V1.0.2",
+        "actions": ["summon", "edit", "shareScope", "offline"],
+        "descriptionTruncated": "帮你筛选简历、生成面试问题…"
+      }
+    ],
+    "total": 8,
+    "page": 1,
+    "pageSize": 12
+  },
+  "traceId": "9f1c2e7a4b6d4c8e9a0f3b5d7c1e2a4b"
+}</pre>
+      </div>
+
+      <h3>三层网络，别混在一起</h3>
+      <div class="grid3">
+        <div class="box info">
+          <h4>网络层</h4>
+          <ul>
+            <li>浏览器 / axios</li>
+            <li>Vite 代理 / Nginx / 网关</li>
+            <li>CORS、超时、重试</li>
+            <li>排查：Network 面板</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h4>应用层</h4>
+          <ul>
+            <li>Uvicorn + FastAPI</li>
+            <li>路由、依赖、校验</li>
+            <li>Service 业务规则</li>
+            <li>排查：终端日志、Swagger</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h4>数据层</h4>
+          <ul>
+            <li>SQLAlchemy + MySQL</li>
+            <li>表、索引、事务</li>
+            <li>慢查询、死锁</li>
+            <li>排查：SQL 日志、数据库客户端</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        这条链路很像 Vue 的一次更新：用户点击（事件）→ 调用 store action（axios）→ 发请求（HTTP）→ 后端返回（响应）→ store 更新（Service 组装）→ 组件重新渲染（JSON）。区别是后端每一步都可能失败，而且失败必须留下可追踪的记录。
+      </div>
+
+      <div class="callout ok">
+        <span class="label">记住这张图</span>
+        以后遇到任何问题，先问自己：<strong>现在卡在哪一层？</strong> 浏览器没发出请求？代理没转发？路由没匹配？参数校验没过？Service 抛错？SQL 写错？响应格式不对？定位到层，问题就解决一半。
+      </div>
+    </section>
+
+    <!-- ================= 03 ================= -->
+    <section id="run">
+      <h2><span class="num">03</span>把项目跑起来</h2>
+      <p class="section-sub">先让它跑起来，再谈原理。跑不起来时，90% 是环境问题，不是代码问题。</p>
+
+      <h3>你需要三样东西</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>东西</th><th>作用</th><th>本项目要求</th></tr></thead>
+          <tbody>
+            <tr><td>Python</td><td>运行后端代码</td><td>3.10+，本机在 conda 的 <code>Agent</code> 环境</td></tr>
+            <tr><td>MySQL</td><td>存数据</td><td>8.0，默认 <code>127.0.0.1:3306</code>，库名 <code>assistant</code></td></tr>
+            <tr><td>依赖包</td><td>FastAPI、SQLAlchemy 等</td><td><span class="path">server/requirements.txt</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">本机特有</span>
+        README 明确写了：依赖装在 <code>Agent</code> 环境，默认的 <code>python</code> 指向 conda base，那里没有 uvicorn。所以要么先 <code>conda activate Agent</code>，要么用绝对路径 <code>D:\Miniconda\envs\Agent\python.exe</code>。这是新手最常踩的第一个坑。
+      </div>
+
+      <h3>第一次启动的完整命令</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">PowerShell · 工作目录 server/</span><button class="copy">复制</button></div>
+<pre><span class="c"># 1. 进入后端目录</span>
+cd e:\agent-code\agent_assistant\server
+
+<span class="c"># 2. 激活项目依赖所在的环境（本机）</span>
+conda activate Agent
+
+<span class="c"># 3. 第一次运行：复制配置模板，然后填 DB_PASSWORD</span>
+copy .env.example .env
+notepad .env
+
+<span class="c"># 4. 安装依赖（第一次或 requirements 变了才需要）</span>
+python -m pip install -r requirements.txt
+
+<span class="c"># 5. 启动后端，改代码自动重载</span>
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app</pre>
+      </div>
+
+      <h3>这条启动命令每个词什么意思</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>片段</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td><code>python -m uvicorn</code></td><td>用当前 Python 解释器运行 uvicorn 模块，避免 PATH 里找不到命令</td></tr>
+            <tr><td><code>app.main:app</code></td><td>「模块:变量」：去 <code>app/main.py</code> 里找名叫 <code>app</code> 的对象</td></tr>
+            <tr><td><code>--host 127.0.0.1</code></td><td>只允许本机访问；要让局域网访问可改 <code>0.0.0.0</code></td></tr>
+            <tr><td><code>--port 8000</code></td><td>监听 8000 端口，和前端约定的代理目标一致</td></tr>
+            <tr><td><code>--reload</code></td><td>开发期改代码自动重启，生产环境不要开</td></tr>
+            <tr><td><code>--reload-dir app</code></td><td>只监听 <code>app/</code> 目录，避免脚本/测试频繁触发重启</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout danger">
+        <span class="label">常见坑</span>
+        README 里特别提醒：本机 <code>--reload</code> 偶发不生效。如果「代码已改但行为没变」，先看终端有没有 <code>Reloading...</code>，没有就手动 <span class="kbd">Ctrl</span>+<span class="kbd">C</span> 重启。不要怀疑人生，先怀疑热重载。
+      </div>
+
+      <h3>启动成功后先看这三个地址</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>地址</th><th>用途</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>http://127.0.0.1:8000/health</code></td><td>健康检查</td><td>能返回数据库连通状态，先确认服务活着</td></tr>
+            <tr><td><code>http://127.0.0.1:8000/docs</code></td><td>Swagger UI</td><td>FastAPI 根据代码自动生成，可直接点「Try it out」调接口</td></tr>
+            <tr><td><code>http://127.0.0.1:8000/openapi.json</code></td><td>OpenAPI 描述</td><td>机器可读的接口清单，Swagger 就是根据它渲染的</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">小提醒</span>
+        README 里写了 <code>/redoc</code>，但 <span class="path">app/main.py</span> 里显式配置了 <code>redoc_url=None</code>，所以当前代码实际上<strong>没有</strong> ReDoc 页面。以 <code>/docs</code> 为准。这也是读代码比读文档更可靠的一个例子。
+      </div>
+
+      <h3>不用前端，直接敲一个接口</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">PowerShell · 调助理列表</span><button class="copy">复制</button></div>
+<pre>$headers = @{
+  "X-User-Id"    = "1001"
+  "X-Company-Id" = "1"
+  "X-User-Name"  = [uri]::EscapeDataString("王晓明")
+}
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/v1/assistants?scope=mine&amp;page=1&amp;pageSize=12" `
+  -Headers $headers | ConvertTo-Json -Depth 6</pre>
+      </div>
+
+      <p>如果你看到 <code>code: "OK"</code> 和 <code>data.list</code>，说明网络层、应用层、数据层全通了。接下来读代码就不会「悬空」。</p>
+
+      <h3>数据库没初始化？</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">在项目根目录执行（会重建表，存量库不要直接跑）</span><button class="copy">复制</button></div>
+<pre>mysql -u root -p &lt; deploy/mysql/assistant_mysql.sql</pre>
+      </div>
+      <p>这个脚本会建 14 张表并插入演示数据。已有库升级要用 <span class="path">server/scripts/migrate_v100_schema.py</span>，具体见 README。</p>
+    </section>
+
+    <!-- ================= 04 ================= -->
+    <section id="layers">
+      <h2><span class="num">04</span>目录分层：谁该干什么</h2>
+      <p class="section-sub">这是后端的「组件拆分规范」。看懂它，你就知道新代码该放哪。</p>
+
+      <p class="lead">本项目强制一条依赖方向：<strong>api → services → repositories → models</strong>。上层可以调下层，下层不能反向依赖上层。就像 Vue 里页面可以调组件，组件不应该反过来 import 页面。</p>
+
+      <div class="flow">
+        <span class="node">api/v1<br><small>翻译官</small></span><span class="arrow">→</span>
+        <span class="node blue">services<br><small>大脑</small></span><span class="arrow">→</span>
+        <span class="node purple">repositories<br><small>手</small></span><span class="arrow">→</span>
+        <span class="node dark">models → MySQL<br><small>账本</small></span>
+      </div>
+      <div class="flow" style="margin-top:0">
+        <span class="node orange">schemas<br><small>对外合同</small></span>
+        <span class="node orange">core<br><small>基础设施</small></span>
+        <span class="muted">横切在所有层旁边，提供数据形状与公共能力</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>目录</th><th>一句话职责</th><th>可以 import</th><th>绝对不能做</th></tr></thead>
+          <tbody>
+            <tr><td><span class="path">app/api/</span></td><td>把 HTTP 翻译成 Python 函数调用</td><td>services、schemas、core</td><td>写业务判断、直接拼 SQL</td></tr>
+            <tr><td><span class="path">app/services/</span></td><td>业务规则、状态流转、事务边界</td><td>repositories、models、schemas、core</td><td>import FastAPI 的 Request/HTTPException</td></tr>
+            <tr><td><span class="path">app/repositories/</span></td><td>只负责查询与持久化</td><td>models、core</td><td>判断「能不能共享」「是不是管理员」</td></tr>
+            <tr><td><span class="path">app/models/</span></td><td>数据库表长什么样</td><td>SQLAlchemy</td><td>写业务流程</td></tr>
+            <tr><td><span class="path">app/schemas/</span></td><td>接口的入参/出参合同</td><td>Pydantic</td><td>查数据库</td></tr>
+            <tr><td><span class="path">app/core/</span></td><td>配置、数据库连接、鉴权、异常、日志、分页</td><td>第三方库、少量 model</td><td>写具体业务</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>为什么路由层不能写业务？</h3>
+      <div class="grid2">
+        <div class="box bad">
+          <h4><span class="pill r">反例</span>路由里塞满判断</h4>
+          <pre style="margin-top:8px;border-radius:8px;">@router.post("")
+def create(payload, db=Depends(get_db), user=Depends(...)):
+    if payload.name in [x.name for x in db.query(...)]:
+        raise HTTPException(409, "重名")
+    if user.user_id != ...:
+        raise HTTPException(403, "无权限")
+    row = Assistant(**payload.model_dump())
+    db.add(row); db.commit()
+    return row</pre>
+          <p class="muted" style="margin-top:8px">问题：无法复用、无法单测、换个入口（定时任务/消息队列）就要复制一遍。</p>
+        </div>
+        <div class="box good">
+          <h4><span class="pill g">本项目写法</span>路由只做三件事</h4>
+          <pre style="margin-top:8px;border-radius:8px;">@router.post("", status_code=201)
+def create_assistant(payload, db=Depends(get_db), user=Depends(...)):
+    service = AssistantService(db)
+    detail = service.create_assistant(payload, user)
+    return ok(detail.model_dump(by_alias=True))</pre>
+          <p class="muted" style="margin-top:8px">路由像服务员：接单、转述、上菜。配方和库存检查都在后厨（Service）。</p>
+        </div>
+      </div>
+
+      <h3>四个角色的「一句话人设」</h3>
+      <div class="grid2">
+        <div class="box"><h4>路由：翻译官</h4><p class="muted">把 URL、Header、Body 翻成 Python 参数；把 Service 的返回值翻成统一 JSON。它不应该知道「什么是共享」「版本号怎么算」。</p></div>
+        <div class="box"><h4>Service：大脑</h4><p class="muted">知道所有业务规则：谁能编辑、什么状态能删、审批通过后版本怎么变、事务什么时候提交。</p></div>
+        <div class="box"><h4>Repository：手</h4><p class="muted">只负责「怎么查、怎么存」。它像一个高级 SQL 生成器，不知道查出来的数据要用来干什么。</p></div>
+        <div class="box"><h4>Model：账本格式</h4><p class="muted">描述表结构、字段类型、外键、关系。它不知道接口长什么样，也不知道前端叫 <code>assistantId</code> 还是 <code>id</code>。</p></div>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        这很像 Vue 项目里的「页面 → composable/store → API 层 → 类型定义」。页面不直接拼 axios URL，store 不直接操作 DOM，API 层不关心页面怎么渲染。分层的目的不是好看，而是<strong>改一处不影响一片</strong>。
+      </div>
+
+      <h3>为什么 Model 和 Schema 要分开？</h3>
+      <p>因为「数据库怎么存」和「接口怎么传」经常不一样：</p>
+      <ul>
+        <li>数据库字段叫 <code>share_status</code>，前端要 <code>shareStatus</code>。</li>
+        <li>列表卡片不能返回 <code>prompt</code>（提示词），详情才返回。</li>
+        <li>被授权方看详情时，共享状态要折叠成「已共享」，不能暴露对方的审批 / 拒绝子类。</li>
+        <li>数据库存的是 <code>pending</code> + <code>pending_type</code>，前端要展示「审批中 · 共享审批」。</li>
+      </ul>
+      <p>如果直接把 ORM 对象丢给前端，字段名、脱敏、派生字段都会失控，还容易把内部字段泄露出去。Schema 就是那道<strong>出口安检</strong>。</p>
+
+      <div class="callout ok">
+        <span class="label">判断新代码放哪</span>
+        「这段代码如果换一个入口（定时任务、CLI、消息队列）还要不要？」要 → Service；只是 HTTP 相关 → api；只是查库 → Repository；只是数据形状 → Schema；只是表结构 → Model。
+      </div>
+    </section>
+
+    <!-- ================= 05 ================= -->
+    <section id="http">
+      <h2><span class="num">05</span>HTTP：前后端之间的快递单</h2>
+      <p class="section-sub">你已经会用 axios，这一节把「会用」变成「知道每一格填什么」。</p>
+
+      <p class="lead">HTTP 就是一张格式固定的快递单。后端不认识你的页面、你的组件、你的 Pinia，它只认这张单子上的：<strong>方法、路径、查询参数、请求头、请求体</strong>。</p>
+
+      <h3>请求的五脏六腑</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">一个 POST 请求的完整结构</span><button class="copy">复制</button></div>
+<pre>POST /api/v1/assistants?from=web HTTP/1.1     <span class="c">← 方法 + 路径 + 查询串</span>
+Host: 127.0.0.1:8000
+Content-Type: application/json                 <span class="c">← 请求头：Body 是什么格式</span>
+X-User-Id: 1001                                <span class="c">← 请求头：开发期模拟登录态</span>
+X-Company-Id: 1
+X-Trace-Id: 9f1c2e7a...                        <span class="c">← 请求头：可选，链路追踪</span>
+
+{                                              <span class="c">← 请求体 Body（JSON）</span>
+  "name": "招聘助手",
+  "description": "帮你筛选简历并生成面试问题",
+  "categoryId": 2,
+  "prompt": "你是招聘助手……"
+}</pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>部位</th><th>作用</th><th>前端写法</th><th>本项目例子</th></tr></thead>
+          <tbody>
+            <tr><td>方法 Method</td><td>想做什么动作</td><td><code>method: 'GET'</code></td><td>GET 查询、POST 创建、PUT 修改、DELETE 删除</td></tr>
+            <tr><td>路径 Path</td><td>操作哪个资源</td><td><code>/assistants/1001</code></td><td><code>assistantId</code> 从路径里取</td></tr>
+            <tr><td>查询串 Query</td><td>筛选、排序、分页</td><td><code>params: { page: 1 }</code></td><td><code>?scope=mine&amp;page=1&amp;pageSize=12</code></td></tr>
+            <tr><td>请求头 Header</td><td>元信息：格式、身份、追踪</td><td><code>headers: { ... }</code></td><td><code>X-User-Id</code>、<code>Content-Type</code></td></tr>
+            <tr><td>请求体 Body</td><td>要提交的完整数据</td><td><code>data: payload</code></td><td>创建助理的 JSON</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>方法不是随便选的</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>语义</th><th>有没有 Body</th><th>幂等？</th><th>本项目</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET</code></td><td>查询，不改变数据</td><td>一般没有</td><td>是</td><td>列表、详情、审批中心</td></tr>
+            <tr><td><code>POST</code></td><td>创建 / 执行一个动作</td><td>通常有</td><td>否</td><td>创建助理、提交共享、审批通过</td></tr>
+            <tr><td><code>PUT</code></td><td>全量替换</td><td>有</td><td>是</td><td>编辑助理、调整范围</td></tr>
+            <tr><td><code>PATCH</code></td><td>局部更新</td><td>有</td><td>视实现</td><td>本项目基本不用</td></tr>
+            <tr><td><code>DELETE</code></td><td>删除</td><td>一般没有</td><td>是</td><td>删除助理</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">必懂</span>
+        「幂等」= 同一个请求重复发多次，结果和发一次一样。GET / PUT / DELETE 天然应该幂等；POST 不一定。审批「通过」这种 POST 接口，如果用户双击，后端必须自己保证不会重复生效（后面第 15 节讲）。
+      </div>
+
+      <h3>状态码：HTTP 的「结果标签」</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>状态码</th><th>含义</th><th>本项目什么时候出现</th></tr></thead>
+          <tbody>
+            <tr><td><code>200</code></td><td>成功</td><td>查询、编辑、删除成功</td></tr>
+            <tr><td><code>201</code></td><td>已创建</td><td>创建助理成功（路由上显式声明）</td></tr>
+            <tr><td><code>400</code></td><td>请求参数不合法</td><td>scope 取值错、描述太短、字段校验失败</td></tr>
+            <tr><td><code>401</code></td><td>未登录 / 登录态失效</td><td>没带 <code>X-User-Id</code></td></tr>
+            <tr><td><code>403</code></td><td>已登录但没权限</td><td>非管理员进审批中心、非创建人编辑</td></tr>
+            <tr><td><code>404</code></td><td>资源不存在</td><td>助理不存在、审批单不存在</td></tr>
+            <tr><td><code>409</code></td><td>和当前状态冲突</td><td>重名、已共享还想删、审批已被处理</td></tr>
+            <tr><td><code>422</code></td><td>FastAPI 默认的校验失败</td><td>被项目统一转成 400，前端基本看不到</td></tr>
+            <tr><td><code>500</code></td><td>服务器内部错误</td><td>未捕获异常、数据库挂了</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">前端类比</span>
+        状态码像 Promise 的 <code>resolve/reject</code>，但更细：<code>2xx</code> 是 resolve；<code>4xx</code> 是「你这边有问题」；<code>5xx</code> 是「服务器这边有问题」。排查时先看状态码，能立刻判断该找谁。
+      </div>
+
+      <h3>状态码之外，还有业务错误码</h3>
+      <p>本项目所有响应（包括错误）都带一个 <code>code</code> 字段：HTTP 状态码告诉网络层「大概哪类问题」，业务 <code>code</code> 告诉前端「具体是哪个问题」。例如：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">409 + ASSISTANT_NAME_DUPLICATED</span><button class="copy">复制</button></div>
+<pre>HTTP/1.1 409 Conflict
+Content-Type: application/json
+
+{
+  "code": "ASSISTANT_NAME_DUPLICATED",
+  "message": "助理昵称已存在，请修改",
+  "data": { "field": "name" },
+  "traceId": "9f1c2e7a..."
+}</pre>
+      </div>
+      <p>前端拿到 <code>data.field === 'name'</code>，就能把错误提示精确标在「助理昵称」输入框下面，而不是弹一个笼统的 Toast。这就是「字段级错误定位」。</p>
+
+      <h3>三个参数位置，别放错</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>位置</th><th>适合放什么</th><th>例子</th><th>FastAPI 怎么取</th></tr></thead>
+          <tbody>
+            <tr><td>Path</td><td>资源 ID</td><td><code>/assistants/1001</code></td><td>函数参数名和路径占位符同名</td></tr>
+            <tr><td>Query</td><td>筛选、分页、排序</td><td><code>?scope=mine&amp;page=1</code></td><td><code>Query(...)</code> 或普通标量参数</td></tr>
+            <tr><td>Body</td><td>结构化的大块数据</td><td>创建助理的 JSON</td><td>Pydantic 模型参数</td></tr>
+            <tr><td>Header</td><td>身份、格式、追踪</td><td><code>X-User-Id</code></td><td><code>Header(alias=...)</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout danger">
+        <span class="label">常见错误</span>
+        把登录用户 ID 放在 Body 里。用户完全可以改成别人的 ID。身份必须来自网关/Token/Header，并且由后端解析，不能相信前端传来的「我是谁」。本项目虽然开发期用 Header 模拟，但结构上已经是「网关注入」的姿势。
+      </div>
+
+      <h3>动手：用 Network 面板反推后端</h3>
+      <p>打开前端页面，按 <span class="kbd">F12</span> → Network → 点一个页签，找到 <code>assistants</code> 请求，回答四个问题：</p>
+      <ol>
+        <li>方法是什么？路径是什么？</li>
+        <li>Query 里有哪些参数？分别对应页面上的什么筛选？</li>
+        <li>请求头里有没有 <code>X-User-Id</code>？值是谁？</li>
+        <li>响应里的 <code>code</code>、<code>data</code>、<code>traceId</code> 分别是什么？</li>
+      </ol>
+      <p>能回答这四个问题，你就已经具备「从页面反推接口」的能力，这是读后端代码最快的入口。</p>
+    </section>
+
+    <!-- ================= 06 ================= -->
+    <section id="router">
+      <h2><span class="num">06</span>FastAPI 路由：URL 怎么变成函数</h2>
+      <p class="section-sub">路由是后端的「页面路由表」，但映射的不是组件，而是函数。</p>
+
+      <p class="lead">Vue Router 把 <code>/assistant/list</code> 映射到 <code>AssistantList.vue</code>；FastAPI 把 <code>GET /api/v1/assistants</code> 映射到 <code>list_assistants()</code> 函数。你不需要手动 <code>if url == ...</code>，装饰器已经登记好了。</p>
+
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/api/v1/assistants.py · 路由声明</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> fastapi <span class="k">import</span> APIRouter, Depends, Query, Response, status
+
+<span class="c"># prefix 统一加在每条路径前；tags 决定 Swagger 里的分组</span>
+router = APIRouter(prefix=<span class="s">"/assistants"</span>, tags=[<span class="s">"assistants"</span>])
+
+<span class="c"># 装饰器 = 登记：GET + 空路径 → 实际 URL 是 /api/v1/assistants</span>
+@router.get(<span class="s">""</span>, summary=<span class="s">"助理团助理列表"</span>)
+<span class="k">def</span> list_assistants(
+    response: Response,
+    scope: str = Query(default=<span class="s">"all"</span>, description=<span class="s">"all / mine / shared"</span>),
+    categoryId: int | <span class="k">None</span> = Query(default=<span class="k">None</span>),
+    paging: PageParams = Depends(),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    service = AssistantService(db)
+    page = service.list_assistants(user, scope=scope, ...)
+    <span class="k">return</span> ok(page.model_dump(by_alias=<span class="k">True</span>))</pre>
+      </div>
+
+      <h3>装饰器到底做了什么</h3>
+      <p><code>@router.get("")</code> 不是「调用这个函数」，而是<strong>登记</strong>：把这个函数和「GET + 空路径 + 参数说明 + 返回说明」一起记到路由表。应用启动时，<code>include_router</code> 再把这张表合并进 FastAPI。</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/api/v1/__init__.py · 路由汇总</span><button class="copy">复制</button></div>
+<pre>api_router = APIRouter()
+
+<span class="c"># 助理详情为 /assistants/{id}，共享范围子路径需先注册以免被通配匹配</span>
+api_router.include_router(shares.router)
+api_router.include_router(approvals.router)
+api_router.include_router(assistants.router)
+api_router.include_router(scopes.router)
+api_router.include_router(resources.router)
+api_router.include_router(categories.router)
+api_router.include_router(ai.router)
+api_router.include_router(common.router)</pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">必懂</span>
+        路由有顺序。<code>/assistants/{assistantId}</code> 能匹配 <code>/assistants/1001</code>，也可能误匹配 <code>/assistants/1001/share-scope</code>（如果通配先注册）。所以项目把更具体的 <code>shares.router</code> 放在前面。这就像 Vue Router 里动态路由和静态路由的优先级，写反了就会「明明有页面却 404」。
+      </div>
+
+      <h3>参数来源的自动判断规则</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>写法</th><th>FastAPI 认为它来自</th></tr></thead>
+          <tbody>
+            <tr><td>路径里有同名占位符，如 <code>/{assistantId}</code> + 参数 <code>assistantId</code></td><td>Path</td></tr>
+            <tr><td>普通标量参数，如 <code>scope: str</code></td><td>Query</td></tr>
+            <tr><td>Pydantic 模型参数，如 <code>payload: AssistantUpsertPayload</code></td><td>Body</td></tr>
+            <tr><td><code>Header(...)</code></td><td>Header</td></tr>
+            <tr><td><code>Depends(...)</code></td><td>由依赖函数提供</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>真实路由逐行读</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>代码</th><th>大白话</th></tr></thead>
+          <tbody>
+            <tr><td><code>response: Response</code></td><td>把响应对象要过来，后面可以往响应头里塞 <code>X-Affected-Grant-Count</code></td></tr>
+            <tr><td><code>scope: str = Query(default="all")</code></td><td>从 URL 的 <code>?scope=</code> 取，默认 all</td></tr>
+            <tr><td><code>categoryId: int | None</code></td><td>可选整数；<code>| None</code> 是 Python 3.10 的联合类型写法</td></tr>
+            <tr><td><code>paging: PageParams = Depends()</code></td><td>分页参数由 <code>PageParams</code> 统一解析，默认第 1 页、每页 12 条</td></tr>
+            <tr><td><code>db: Session = Depends(get_db)</code></td><td>本次请求的数据库会话，请求结束自动关闭</td></tr>
+            <tr><td><code>user: CurrentUser = Depends(get_current_user)</code></td><td>解析请求头，得到当前用户；没登录会直接 401</td></tr>
+            <tr><td><code>-> dict</code></td><td>返回普通字典，已经被 <code>ok()</code> 包成统一结构</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>路由文件为什么这么短</h3>
+      <p>因为所有业务都下沉到 Service 了。路由只做三件事：<strong>收参数 → 调 Service → 包响应</strong>。你可以把路由想象成「接口的 TypeScript 声明 + 一行调用」，真正的实现不在这里。</p>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        路由文件像 Vue 的 <code>routes.ts</code>：只声明「什么 URL 对应什么组件」，不写组件内部逻辑。FastAPI 的路由函数同时承担了「声明」和「入口」，但真正干活的仍然是 Service。
+      </div>
+
+      <h3>为什么 <code>/docs</code> 能自动生成？</h3>
+      <p>因为 FastAPI 从你的类型注解、<code>Query(description=...)</code>、Pydantic 模型、<code>summary</code> 里提取信息，生成一份 OpenAPI JSON。Swagger UI 再把它渲染成网页。所以：</p>
+      <ul>
+        <li>参数名、类型、默认值、说明都会出现在文档里。</li>
+        <li>改代码 = 改文档，不会出现「文档和接口不一致」。</li>
+        <li>Pydantic 模型越清晰，文档越好用。</li>
+      </ul>
+
+      <h3>动手练习</h3>
+      <ol>
+        <li>打开 <span class="path">server/app/api/v1/categories.py</span>，找出它的 <code>prefix</code> 和每条路由的完整 URL。</li>
+        <li>在 <code>/docs</code> 里找到「删除助理」，看它声明了哪些参数、返回什么。</li>
+        <li>思考：为什么 <code>POST /assistants</code> 的状态码是 201，而 <code>PUT /assistants/{id}</code> 是 200？</li>
+      </ol>
+    </section>
+
+    <!-- ================= 07 ================= -->
+    <section id="pydantic">
+      <h2><span class="num">07</span>Pydantic：请求进门前先过安检</h2>
+      <p class="section-sub">前端表单校验是「体验」，Pydantic 校验是「守门」。两者都要有，但后者才是真的。</p>
+
+      <p class="lead">Pydantic 是 FastAPI 的「数据形状 + 校验」库。你定义一个类，写清楚每个字段的类型和限制，FastAPI 就会自动：把 JSON 转成 Python 对象、检查类型、检查长度、检查枚举、失败时返回错误。</p>
+
+      <h3>入参模型：创建助理的合同</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/schemas/assistant.py · AssistantUpsertPayload</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> AssistantUpsertPayload(BaseModel):
+    <span class="c"># 关键：Python 用 snake_case，前端用 camelCase，两边自动转换</span>
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=<span class="k">True</span>)
+
+    name: str = Field(min_length=2, max_length=20)
+    avatar_type: Literal[<span class="s">"char"</span>, <span class="s">"image"</span>] = <span class="s">"char"</span>
+    avatar_char: str | <span class="k">None</span> = Field(default=<span class="k">None</span>, max_length=2)
+    avatar_url: str | <span class="k">None</span> = Field(default=<span class="k">None</span>, max_length=512)
+    avatar_color: str = Field(default=<span class="s">"#3685F2"</span>, pattern=<span class="s">r"^#[0-9A-Fa-f]{6}$"</span>)
+    description: str = Field(min_length=10, max_length=200)
+    tags: list[str] = Field(default_factory=list, max_length=5)
+    category_id: int
+    prompt: str = Field(min_length=1, max_length=4000)
+    skill_ids: list[str] = Field(default_factory=list, max_length=20)
+    mcp_ids: list[str] = Field(default_factory=list, max_length=20)
+    knowledge_base_ids: list[str] = Field(default_factory=list, max_length=10)
+    quick_questions: list[str] = Field(default_factory=list, max_length=6)
+    change_note: str | <span class="k">None</span> = Field(default=<span class="k">None</span>, max_length=200)</pre>
+      </div>
+
+      <h3>这些写法分别是什么意思</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>写法</th><th>大白话</th><th>前端类比</th></tr></thead>
+          <tbody>
+            <tr><td><code>name: str</code></td><td>name 必须是字符串，必填</td><td><code>name: string</code></td></tr>
+            <tr><td><code>str | None</code></td><td>字符串或 null，可空</td><td><code>string \| null</code></td></tr>
+            <tr><td><code>Field(min_length=2)</code></td><td>最短 2 个字符</td><td>表单规则 <code>min: 2</code></td></tr>
+            <tr><td><code>Literal["char","image"]</code></td><td>只能是这两个值之一</td><td>联合类型枚举</td></tr>
+            <tr><td><code>pattern=r"^#..."</code></td><td>必须匹配正则</td><td>颜色格式校验</td></tr>
+            <tr><td><code>default_factory=list</code></td><td>默认空数组，每个实例独立</td><td><code>default: () =&gt; []</code></td></tr>
+            <tr><td><code>max_length=5</code> 用在 list 上</td><td>数组最多 5 项</td><td><code>&lt;= 5</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        Pydantic 模型很像 TypeScript 的 <code>interface</code> + Element Plus 的 <code>rules</code> 合体：<strong>类型定义</strong>和<strong>运行时校验</strong>都在一个类里。TS 的 interface 编译后就没了，运行时管不住；Pydantic 在运行时真的会检查。
+      </div>
+
+      <h3>camelCase 自动转换：前后端不必互相迁就</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">别名转换的效果</span><button class="copy">复制</button></div>
+<pre><span class="c"># 前端发来的 JSON（camelCase）</span>
+{ <span class="s">"categoryId"</span>: 2, <span class="s">"skillIds"</span>: [<span class="s">"s1"</span>], <span class="s">"knowledgeBaseIds"</span>: [<span class="s">"k1"</span>] }
+
+<span class="c"># 进到 Python 后（snake_case），Service 里这样用</span>
+payload.category_id
+payload.skill_ids
+payload.knowledge_base_ids
+
+<span class="c"># 返回给前端时，再转回 camelCase</span>
+detail.model_dump(by_alias=<span class="k">True</span>)</pre>
+      </div>
+      <ul>
+        <li><code>alias_generator=to_camel</code>：自动把 <code>category_id</code> 映射成 <code>categoryId</code>。</li>
+        <li><code>populate_by_name=True</code>：用 Python 字段名构造对象也可以，测试里很方便。</li>
+        <li><code>model_dump(by_alias=True)</code>：输出时用别名，否则前端拿到的是 snake_case。</li>
+      </ul>
+
+      <div class="callout warn">
+        <span class="label">常见坑</span>
+        只写了 <code>alias_generator</code>，返回时忘了 <code>by_alias=True</code>，前端就会收到 <code>category_id</code>、<code>share_status</code>，页面显示 <code>undefined</code>。项目里所有路由出参都显式写了 <code>model_dump(by_alias=True)</code>，照抄即可。
+      </div>
+
+      <h3>自定义校验：Field 表达不了的规则</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/schemas/assistant.py · field_validator</span><button class="copy">复制</button></div>
+<pre><span class="c"># 去除首尾空格：用户输入 " 招聘助手 " 应该存 "招聘助手"</span>
+@field_validator(<span class="s">"name"</span>, <span class="s">"description"</span>)
+@classmethod
+<span class="k">def</span> _strip_text(cls, value: str) -> str:
+    <span class="k">return</span> value.strip()
+
+<span class="c"># 标签：不能空、单个不超过 8 字、不能重复</span>
+@field_validator(<span class="s">"tags"</span>)
+@classmethod
+<span class="k">def</span> _check_tags(cls, value: list[str]) -> list[str]:
+    result: list[str] = []
+    <span class="k">for</span> tag <span class="k">in</span> value:
+        name = tag.strip()
+        <span class="k">if</span> <span class="k">not</span> name:
+            <span class="k">raise</span> ValueError(<span class="s">"标签不能为空"</span>)
+        <span class="k">if</span> len(name) > 8:
+            <span class="k">raise</span> ValueError(<span class="s">"单个标签不超过 8 个字符"</span>)
+        <span class="k">if</span> name <span class="k">in</span> result:
+            <span class="k">raise</span> ValueError(<span class="s">"标签不能重复"</span>)
+        result.append(name)
+    <span class="k">return</span> result</pre>
+      </div>
+      <p>校验器有两个作用：<strong>清洗</strong>（strip）和<strong>拒绝</strong>（raise ValueError）。失败时 FastAPI 收集错误，交给全局异常处理器变成统一的 400 响应。</p>
+
+      <h3>出参模型：不是所有字段都能给前端</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/schemas/assistant.py · 列表卡片</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> AssistantCard(CamelModel):
+    <span class="c">"""列表卡片：不含提示词与能力组成明细。"""</span>
+    assistant_id: int
+    name: str
+    description: str
+    share_status: str | <span class="k">None</span> = <span class="k">None</span>
+    version: str
+    actions: list[AssistantAction] = []
+
+    <span class="c"># 派生字段：不存数据库，返回时现算</span>
+    @computed_field
+    @property
+    def description_truncated(self) -> str:
+        <span class="k">return</span> f<span class="s">"{self.description[:60]}…"</span> <span class="k">if</span> len(self.description) > 60 <span class="k">else</span> self.description</pre>
+      </div>
+      <p>注意 <code>AssistantCard</code> 里<strong>没有</strong> <code>prompt</code>。这不是忘了，而是刻意：列表接口不该把 4000 字的提示词全部传给前端。详情接口 <code>AssistantDetail</code> 才有 <code>prompt</code>。Schema 注释里约定了「被授权方视角下置为 <code>null</code>」，但当前 <span class="path">assistant_service.py</span> 的 <code>get_detail</code> 仍然直接返回 <code>row.prompt</code>，如果要做严格脱敏，需要在这里补条件判断。读代码时要注意这种「注释写了、实现还没补齐」的地方。</p>
+
+      <div class="callout ok">
+        <span class="label">设计原则</span>
+        出参模型是「白名单」，不是「黑名单」。只列出允许返回的字段，而不是把 ORM 对象整个序列化再删几个。白名单漏字段会报错，黑名单漏删会泄露。
+      </div>
+
+      <h3>校验要分三层，缺一不可</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>层</th><th>在哪</th><th>负责什么</th><th>能不能绕过</th></tr></thead>
+          <tbody>
+            <tr><td>体验层</td><td>前端表单 rules</td><td>即时提示、减少无效请求</td><td>能，DevTools 可改</td></tr>
+            <tr><td>形状层</td><td>Pydantic Schema</td><td>类型、长度、格式、枚举</td><td>不能，进函数前就拦</td></tr>
+            <tr><td>业务层</td><td>Service</td><td>分类是否存在、资源是否可用、状态是否允许</td><td>不能，需要查库/查状态</td></tr>
+            <tr><td>兜底层</td><td>数据库约束</td><td>唯一键、外键、非空</td><td>不能，并发下最后防线</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>例子：助理重名。前端可以提示，Pydantic 管不了（要查库），Service 会 <code>find_name_conflict</code> 查一次，数据库还有 <code>uk_assistant_company_name</code> 唯一索引兜底。四层各司其职。</p>
+
+      <h3>校验失败时前端收到什么</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">HTTP 400 + PARAM_INVALID</span><button class="copy">复制</button></div>
+<pre>{
+  "code": "PARAM_INVALID",
+  "message": "String should have at least 10 characters",
+  "data": { "field": "description" },
+  "traceId": "..."
+}</pre>
+      </div>
+      <p>全局异常处理器会取第一条错误，把 <code>loc</code> 里的 <code>body</code> 去掉，拼成字段路径。前端用 <code>data.field</code> 就能定位到具体输入框。</p>
+
+      <details class="quiz">
+        <summary>自测：为什么 Pydantic 已经校验了长度，Service 里还要校验 scope 取值？</summary>
+        <p>因为 <code>scope</code> 是 Query 参数，代码里声明的是 <code>str</code>，不是 <code>Literal</code>。Pydantic 只能保证它是字符串，不能保证是 all/mine/shared。Service 里用 <code>VALID_SCOPES</code> 做业务枚举校验，并返回项目统一的 <code>PARAM_INVALID</code> 和字段名。你也可以把 Query 改成 <code>Literal["all","mine","shared"]</code>，但那样错误信息会变成 FastAPI 默认格式，项目选择统一在 Service 里管。</p>
+      </details>
+    </section>
+
+    <!-- ================= 08 ================= -->
+    <section id="depends">
+      <h2><span class="num">08</span>Depends 依赖注入：框架帮你递工具</h2>
+      <p class="section-sub">这是 FastAPI 最核心的设计。看懂它，路由参数里那些「没传却有值」的变量就都解释得通了。</p>
+
+      <p class="lead">依赖注入（Dependency Injection）听起来吓人，其实一句话：<strong>函数不自己创建工具，而是声明「我需要什么」，框架在调用前把工具递进来。</strong> 就像你去修车，不用自己造扳手，报个型号就有人递给你。</p>
+
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/api/v1/assistants.py · 三个依赖</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> list_assistants(
+    paging: PageParams = Depends(),                 <span class="c"># 分页参数</span>
+    db: Session = Depends(get_db),                  <span class="c"># 数据库会话</span>
+    user: CurrentUser = Depends(get_current_user),  <span class="c"># 当前登录用户</span>
+):
+    ...</pre>
+      </div>
+
+      <h3>依赖一：get_db —— 每个请求一个会话</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/database.py</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> get_db() -> Generator[Session, <span class="k">None</span>, <span class="k">None</span>]:
+    <span class="c">"""FastAPI 依赖：每个请求一个会话，异常回滚，结束关闭。"""</span>
+    db = SessionLocal()
+    <span class="k">try</span>:
+        <span class="k">yield</span> db          <span class="c"># 把会话交给路由函数使用</span>
+    <span class="k">except</span> Exception:
+        db.rollback()      <span class="c"># 出异常就撤销本次请求的所有未提交修改</span>
+        <span class="k">raise</span>
+    <span class="k">finally</span>:
+        db.close()         <span class="c"># 无论成功失败都归还连接</span></pre>
+      </div>
+
+      <p><code>yield</code> 是「暂停在这里，等路由函数执行完再回来」。所以整个生命周期是：</p>
+      <div class="flow">
+        <span class="node">创建 Session</span><span class="arrow">→</span>
+        <span class="node blue">yield 给路由</span><span class="arrow">→</span>
+        <span class="node purple">路由/Service 读写</span><span class="arrow">→</span>
+        <span class="node orange">成功：close</span>
+        <span class="muted">/</span>
+        <span class="node dark">异常：rollback → close</span>
+      </div>
+
+      <div class="callout danger">
+        <span class="label">为什么不能全局一个 Session</span>
+        数据库会话不是线程安全的，也不是「一个连接大家一起用」。全局会话会导致：请求 A 的事务影响请求 B、连接不释放、并发下数据串台。FastAPI 每个请求创建一个，是最小隔离单元。
+      </div>
+
+      <h3>依赖二：get_current_user —— 从 Header 得到用户</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/security.py</span><button class="copy">复制</button></div>
+<pre>@dataclass(frozen=<span class="k">True</span>)              <span class="c"># frozen：创建后不可改，避免被中途篡改</span>
+<span class="k">class</span> CurrentUser:
+    user_id: int
+    company_id: int
+    is_admin: bool
+    name: str
+    dept_name: str | <span class="k">None</span> = <span class="k">None</span>
+
+<span class="k">def</span> get_current_user(
+    x_user_id: str | <span class="k">None</span> = Header(default=<span class="k">None</span>, alias=<span class="s">"X-User-Id"</span>),
+    x_company_id: str | <span class="k">None</span> = Header(default=<span class="k">None</span>, alias=<span class="s">"X-Company-Id"</span>),
+    x_user_name: str | <span class="k">None</span> = Header(default=<span class="k">None</span>, alias=<span class="s">"X-User-Name"</span>),
+    x_user_dept: str | <span class="k">None</span> = Header(default=<span class="k">None</span>, alias=<span class="s">"X-User-Dept"</span>),
+) -> CurrentUser:
+    <span class="k">if</span> <span class="k">not</span> x_user_id:
+        <span class="k">raise</span> UnauthenticatedError()       <span class="c"># 没登录 → 401</span>
+    ...
+    <span class="k">return</span> CurrentUser(
+        user_id=user_id,
+        company_id=company_id,
+        is_admin=user_id <span class="k">in</span> _ADMIN_USER_IDS,
+        name=unquote(x_user_name) <span class="k">if</span> x_user_name <span class="k">else</span> f<span class="s">"用户{user_id}"</span>,
+        dept_name=unquote(x_user_dept) <span class="k">if</span> x_user_dept <span class="k">else</span> <span class="k">None</span>,
+    )</pre>
+      </div>
+
+      <p>几个细节：</p>
+      <ul>
+        <li><code>Header(alias="X-User-Id")</code>：HTTP Header 名带连字符，Python 变量名不能，所以用 alias 映射。</li>
+        <li><code>unquote</code>：HTTP Header 只能放 ASCII，中文姓名是前端百分号编码后传的，这里解码。</li>
+        <li><code>_ADMIN_USER_IDS = {9001}</code>：开发期用固定 ID 模拟管理员，接网关后应由网关注入 <code>is_admin</code>。</li>
+        <li>没登录直接抛 <code>UnauthenticatedError</code>，全局异常处理器转成 401，路由函数根本不会执行。</li>
+      </ul>
+
+      <h3>依赖三：PageParams —— 分页参数复用</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/pagination.py</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> PageParams:
+    <span class="k">def</span> __init__(
+        self,
+        page: int = Query(default=1, ge=1, description=<span class="s">"页码，从 1 开始"</span>),
+        page_size: int = Query(default=12, ge=1, le=50, alias=<span class="s">"pageSize"</span>),
+    ) -> <span class="k">None</span>:
+        self.page = page
+        self.page_size = page_size
+
+    @property
+    def offset(self) -> int:
+        <span class="k">return</span> (self.page - 1) * self.page_size</pre>
+      </div>
+      <p>所有需要分页的接口都写 <code>paging: PageParams = Depends()</code>，不用重复声明 page/pageSize。注意 <code>Depends()</code> 没传参数，FastAPI 会根据类型注解 <code>PageParams</code> 自动实例化。</p>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        依赖注入很像 Vue 的 <code>provide / inject</code> 或 React 的 Context：子组件不自己 new 一个全局对象，而是声明「我要用这个上下文」，由上层提供。区别是 FastAPI 的依赖可以按请求创建、可以嵌套、可以在测试里替换。
+      </div>
+
+      <h3>依赖可以嵌套</h3>
+      <p>依赖函数自己也可以有依赖。例如「管理员权限」可以写成：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">依赖链示意</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> get_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    user.require_admin()   <span class="c"># 非管理员抛 403</span>
+    <span class="k">return</span> user
+
+<span class="c"># 路由只需要声明最终结果，FastAPI 会自动先解析 CurrentUser</span>
+@router.get(<span class="s">"/pending"</span>)
+<span class="k">def</span> list_pending(admin: CurrentUser = Depends(get_admin)):
+    ...</pre>
+      </div>
+      <p>项目里审批服务是在方法内调用 <code>user.require_admin()</code>，效果一样。两种写法都可以，关键是<strong>权限判断不能只在前端</strong>。</p>
+
+      <h3>为什么依赖好用：测试可替换</h3>
+      <p>FastAPI 允许在测试里覆盖依赖：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">测试里替换数据库 / 用户（示例）</span><button class="copy">复制</button></div>
+<pre>app.dependency_overrides[get_db] = fake_db
+app.dependency_overrides[get_current_user] = <span class="k">lambda</span>: CurrentUser(
+    user_id=1001, company_id=1, is_admin=<span class="k">False</span>, name=<span class="s">"测试用户"</span>
+)
+
+<span class="c"># 测试结束记得清理，避免影响其他用例</span>
+app.dependency_overrides.clear()</pre>
+      </div>
+      <p>如果数据库会话是函数里 <code>SessionLocal()</code> 硬编码的，就没法替换，测试只能连真库。依赖注入把「创建」和「使用」解耦了。</p>
+
+      <details class="quiz">
+        <summary>自测：路由函数里能直接 <code>from app.core.database import SessionLocal</code> 然后自己创建会话吗？</summary>
+        <p>语法上可以，但会破坏依赖注入：请求结束不会自动 close、异常不会自动 rollback、测试无法替换、连接池容易耗尽。项目统一用 <code>Depends(get_db)</code>，不要在路由里自己 new Session。</p>
+      </details>
+    </section>
+
+    <!-- ================= 09 ================= -->
+    <section id="database">
+      <h2><span class="num">09</span>数据库与 SQL 入门</h2>
+      <p class="section-sub">后端真正的「硬盘」。前端状态刷新就没了，数据库里的数据要一直在。</p>
+
+      <p class="lead">数据库不是「一个很大的 JSON」。它是<strong>有结构、有约束、有事务</strong>的数据仓库。你可以先把它想成一组 Excel 表：每张表有列名和类型，每行是一条记录，表之间用 ID 关联。</p>
+
+      <h3>六个必须知道的词</h3>
+      <div class="grid2">
+        <div class="box"><h4>表 Table</h4><p class="muted">一类数据的集合，比如 <code>assistant</code> 存所有助理。类似前端的一个数组，但每项结构固定。</p></div>
+        <div class="box"><h4>行 Row / 记录</h4><p class="muted">表里的一条数据，比如「招聘助手」这个助理。类似数组里的一个对象。</p></div>
+        <div class="box"><h4>列 Column / 字段</h4><p class="muted">一条记录有哪些属性，比如 <code>name</code>、<code>share_status</code>。类似对象的 key。</p></div>
+        <div class="box"><h4>主键 Primary Key</h4><p class="muted">这一行的唯一身份证，通常是自增 <code>id</code>。前端列表的 <code>key</code> 就靠它。</p></div>
+        <div class="box"><h4>外键 Foreign Key</h4><p class="muted">指向另一张表的主键，表示「属于谁」。比如 <code>assistant.category_id</code> 指向分类表。</p></div>
+        <div class="box"><h4>索引 Index</h4><p class="muted">加速查询的目录。唯一索引还能防止重复，比如同一公司不能有同名助理。</p></div>
+      </div>
+
+      <h3>本项目的 14 张表，按职责分组</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>组</th><th>表</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="8">助理配置</td><td><code>assistant_category</code></td><td>分类字典（人资、财务等）</td></tr>
+            <tr><td><code>assistant</code></td><td>助理主表：名称、描述、提示词、状态、版本</td></tr>
+            <tr><td><code>assistant_skill_rel</code></td><td>助理关联的 SKILL</td></tr>
+            <tr><td><code>assistant_mcp_rel</code></td><td>助理关联的 MCP</td></tr>
+            <tr><td><code>assistant_kb_rel</code></td><td>助理关联的知识库</td></tr>
+            <tr><td><code>assistant_tag</code></td><td>助理标签</td></tr>
+            <tr><td><code>assistant_quick_question</code></td><td>召唤后的快速问题</td></tr>
+            <tr><td><code>assistant_version_history</code></td><td>版本与操作记录</td></tr>
+            <tr><td rowspan="3">共享授权</td><td><code>share_scope</code></td><td>一次范围选择的快照头（requested / adjusted / effective）</td></tr>
+            <tr><td><code>share_scope_item</code></td><td>快照里的四维明细（组织/角色/岗位/人员/排除）</td></tr>
+            <tr><td><code>assistant_grant</code></td><td>范围展开后的<strong>人员级</strong>授权与订阅状态</td></tr>
+            <tr><td>审批</td><td><code>approval</code></td><td>共享 / 调整 / 授权 / 下架四类审批单</td></tr>
+            <tr><td rowspan="2">支撑</td><td><code>assistant_summon</code></td><td>召唤记录，每次召唤一个会话</td></tr>
+            <tr><td><code>sys_audit_log</code></td><td>操作审计日志，按时间分区</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>表之间怎么关联</h3>
+      <div class="flow" style="align-items:flex-start">
+        <span class="node">assistant_category<br><small>1</small></span><span class="arrow">→</span>
+        <span class="node blue">assistant<br><small>N</small></span><span class="arrow">→</span>
+        <span class="node purple">assistant_tag / skill_rel / mcp_rel / kb_rel / quick_question / version_history<br><small>N</small></span>
+      </div>
+      <div class="flow" style="align-items:flex-start">
+        <span class="node blue">assistant<br><small>1</small></span><span class="arrow">→</span>
+        <span class="node purple">share_scope<br><small>N 次快照</small></span><span class="arrow">→</span>
+        <span class="node orange">share_scope_item<br><small>四维明细</small></span>
+      </div>
+      <div class="flow" style="align-items:flex-start">
+        <span class="node blue">assistant<br><small>1</small></span><span class="arrow">→</span>
+        <span class="node orange">assistant_grant<br><small>N 个被授权人</small></span>
+        <span class="muted">+</span>
+        <span class="node purple">approval<br><small>N 张审批单</small></span>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        这很像前端 store 的规范化设计：<code>assistants</code> 存主体，<code>tags</code>、<code>skills</code> 用 ID 关联，避免每个助理里塞一份重复数据。数据库的「外键」就是更严格的关联 ID，删除时还能级联。
+      </div>
+
+      <h3>四种最常见的 SQL</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">SQL 速览 · 大写关键字是习惯，不是必须</span><button class="copy">复制</button></div>
+<pre><span class="c">-- 1. 查询：找某公司所有已共享的助理，按更新时间倒序，取前 10 条</span>
+<span class="k">SELECT</span> id, name, share_status, updated_at
+<span class="k">FROM</span> assistant
+<span class="k">WHERE</span> company_id = 1
+  <span class="k">AND</span> share_status = <span class="s">'approved'</span>
+  <span class="k">AND</span> deleted_at <span class="k">IS NULL</span>
+<span class="k">ORDER BY</span> updated_at <span class="k">DESC</span>
+<span class="k">LIMIT</span> 10 <span class="k">OFFSET</span> 0;
+
+<span class="c">-- 2. 插入：新增一个分类</span>
+<span class="k">INSERT INTO</span> assistant_category (company_id, name, sort_no, is_builtin)
+<span class="k">VALUES</span> (1, <span class="s">'法务'</span>, 10, 0);
+
+<span class="c">-- 3. 更新：把助理状态改为审批中</span>
+<span class="k">UPDATE</span> assistant
+<span class="k">SET</span> share_status = <span class="s">'pending'</span>, pending_type = <span class="s">'share'</span>, updated_at = <span class="k">NOW</span>()
+<span class="k">WHERE</span> id = 1001 <span class="k">AND</span> company_id = 1;
+
+<span class="c">-- 4. 关联：查每个助理及其分类名称</span>
+<span class="k">SELECT</span> a.id, a.name, c.name <span class="k">AS</span> category_name
+<span class="k">FROM</span> assistant a
+<span class="k">LEFT JOIN</span> assistant_category c <span class="k">ON</span> c.id = a.category_id
+<span class="k">WHERE</span> a.deleted_at <span class="k">IS NULL</span>;</pre>
+      </div>
+
+      <h3>为什么用「逻辑删除」而不是真删？</h3>
+      <p>看 <code>assistant</code> 表里的 <code>deleted_at</code>。删除助理时，项目不是 <code>DELETE FROM assistant</code>，而是把 <code>deleted_at</code> 设为当前时间。所有查询都带 <code>deleted_at IS NULL</code>。</p>
+      <div class="grid2">
+        <div class="box good"><h4>逻辑删除的好处</h4><ul><li>历史审批、审计日志还能关联到对象</li><li>误删可恢复</li><li>唯一键可以用生成列处理「删除后同名可重建」</li></ul></div>
+        <div class="box bad"><h4>代价</h4><ul><li>每条查询都要记得过滤</li><li>表会越来越大</li><li>唯一索引要配合生成列，不能直接建在 name 上</li></ul></div>
+      </div>
+
+      <h3>索引：让查询不用翻完整本书</h3>
+      <p>没有索引，数据库要从第一行扫到最后一行（全表扫描）。有索引，就像书的目录，能直接跳到目标页。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>索引</th><th>作用</th><th>项目里的意义</th></tr></thead>
+          <tbody>
+            <tr><td><code>uk_assistant_company_name</code></td><td>同一公司内助理名唯一</td><td>重名直接 409，Service 先查只是为了友好提示</td></tr>
+            <tr><td><code>uk_category_company_name</code></td><td>同一公司内分类名唯一</td><td>分类重名拦截</td></tr>
+            <tr><td><code>uk_approval_pending_assistant</code></td><td>同一助理同时只能有一条待审批</td><td>并发提交时数据库兜底</td></tr>
+            <tr><td>公司 + 状态 / 创建人 等普通索引</td><td>加速列表筛选</td><td>助理列表、审批中心的常用条件</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">进阶</span>
+        索引不是越多越好：每个索引都会占空间、拖慢写入。给「经常出现在 WHERE / ORDER BY / JOIN 的列」建索引，而不是给每个字段都建。
+      </div>
+
+      <h3>事务：要么全成，要么全不成</h3>
+      <p>「提交共享」要同时写：审批单、范围快照、范围明细、助理状态、版本记录、审计日志。如果写到一半数据库挂了，只写了一半，数据就乱了。事务保证这些操作<strong>打包成一个原子操作</strong>。</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">事务的四个字母（ACID）</span><button class="copy">复制</button></div>
+<pre><span class="k">A</span> 原子性 Atomicity   ：要么全做，要么全不做
+<span class="k">C</span> 一致性 Consistency ：约束前后都成立（外键、唯一键、非空）
+<span class="k">I</span> 隔离性 Isolation   ：并发事务互不干扰（隔离级别控制）
+<span class="k">D</span> 持久性 Durability  ：提交后掉电也不丢（靠日志与刷盘）</pre>
+      </div>
+      <p>在代码里，事务边界通常就是 <code>db.commit()</code>。Service 里做一系列 <code>add/flush/update</code>，最后统一 commit；中途抛异常，<code>get_db</code> 会 rollback。</p>
+
+      <h3>SQL 注入：为什么不要拼字符串</h3>
+      <div class="grid2">
+        <div class="box bad">
+          <h4><span class="pill r">危险</span>字符串拼接</h4>
+          <pre style="margin-top:8px;border-radius:8px;">sql = f"SELECT * FROM assistant WHERE name = '{keyword}'"</pre>
+          <p class="muted" style="margin-top:8px">如果 keyword 是 <code>' OR '1'='1</code>，条件永远成立，数据全被查出来。</p>
+        </div>
+        <div class="box good">
+          <h4><span class="pill g">安全</span>参数化 / ORM</h4>
+          <pre style="margin-top:8px;border-radius:8px;">stmt = select(Assistant).where(Assistant.name == keyword)
+<span class="c"># 或 text("... WHERE name = :name"), {"name": keyword}</span></pre>
+          <p class="muted" style="margin-top:8px">值会被当作数据，不会变成 SQL 语法。</p>
+        </div>
+      </div>
+
+      <h3>字符集：为什么是 utf8mb4</h3>
+      <p>MySQL 的 <code>utf8</code> 历史上只能存 3 字节，存不了 emoji 和一些生僻字。<code>utf8mb4</code> 才是真正的 UTF-8。项目连接串里显式写了 <code>?charset=utf8mb4</code>，建表脚本也用它。用户输入 emoji 时不会报错或变问号。</p>
+
+      <details class="quiz">
+        <summary>自测：为什么助理列表查询要带 <code>company_id</code>，只按 <code>id</code> 查不行吗？</summary>
+        <p>因为这是多租户系统。如果只按 id 查，A 公司用户猜到 B 公司的助理 ID，就能看到别人的数据（越权 / IDOR）。所有查询都必须带 <code>company_id</code>，这是租户隔离的底线。项目 Repository 的 <code>find_by_id(assistant_id, company_id)</code> 就是这个意思。</p>
+      </details>
+    </section>
+
+    <!-- ================= 10 ================= -->
+    <section id="orm">
+      <h2><span class="num">10</span>SQLAlchemy ORM：用 Python 操作数据库</h2>
+      <p class="section-sub">ORM = Object Relational Mapping。说人话：把「表的一行」变成「Python 对象」。</p>
+
+      <p class="lead">不用 ORM 时，你要手写 SQL 字符串、处理游标、把结果拼成字典。用了 ORM，你可以写 <code>Assistant.name == "招聘助手"</code>，它帮你生成 SQL；查出来的是 <code>Assistant</code> 对象，直接 <code>row.name</code> 就能取。</p>
+
+      <h3>一个 Model 长什么样</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/models/assistant.py · Assistant（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> Assistant(Base):
+    <span class="c">"""助理主表。"""</span>
+    __tablename__ = <span class="s">"assistant"</span>
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=<span class="k">True</span>, autoincrement=<span class="k">True</span>)
+    company_id: Mapped[int] = mapped_column(BigInteger, nullable=<span class="k">False</span>)
+    name: Mapped[str] = mapped_column(String(20), nullable=<span class="k">False</span>)
+    description: Mapped[str] = mapped_column(String(200), nullable=<span class="k">False</span>)
+    share_status: Mapped[str] = mapped_column(String(16), nullable=<span class="k">False</span>, default=<span class="s">"unshared"</span>)
+    version: Mapped[str] = mapped_column(String(16), nullable=<span class="k">False</span>, default=<span class="s">""</span>)
+    deleted_at: Mapped[datetime | <span class="k">None</span>] = mapped_column(DateTime)
+
+    <span class="c"># 关系：一个助理属于一个分类（lazy="joined" 查助理时顺便 JOIN 分类）</span>
+    category: Mapped[AssistantCategory] = relationship(lazy=<span class="s">"joined"</span>)
+
+    <span class="c"># 关系：一个助理有多个标签；cascade 表示删助理时一起删标签</span>
+    tags: Mapped[list[<span class="s">"AssistantTag"</span>]] = relationship(
+        back_populates=<span class="s">"assistant"</span>, cascade=<span class="s">"all, delete-orphan"</span>
+    )</pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>写法</th><th>大白话</th></tr></thead>
+          <tbody>
+            <tr><td><code>__tablename__</code></td><td>这张表在数据库里叫什么</td></tr>
+            <tr><td><code>Mapped[int]</code></td><td>Python 侧类型提示：这个属性是整数</td></tr>
+            <tr><td><code>mapped_column(BigInteger, ...)</code></td><td>数据库侧类型与约束：大整数、非空、默认值</td></tr>
+            <tr><td><code>primary_key=True</code></td><td>主键</td></tr>
+            <tr><td><code>ForeignKey("...")</code></td><td>外键，指向另一张表</td></tr>
+            <tr><td><code>relationship(...)</code></td><td>对象之间的导航：<code>assistant.tags</code> 直接拿到标签列表</td></tr>
+            <tr><td><code>cascade="all, delete-orphan"</code></td><td>删主对象时，关联对象一起删</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        Model 很像前端定义的数据类型 + 一张「关联关系说明书」。<code>assistant.tags</code> 就像 store 里已经帮你把 <code>tagIds</code> 解析成对象数组，不用自己 <code>tags.map(id =&gt; tagMap[id])</code>。但 ORM 的关联查询有性能陷阱（N+1），后面会讲。
+      </div>
+
+      <h3>Session：一次请求的工作台</h3>
+      <p>Session 是 ORM 的「工作台」：你查出来的对象放在上面，修改会被跟踪，最后统一提交。它不是连接本身，而是连接之上的一层缓存与事务上下文。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>作用</th><th>前端类比</th></tr></thead>
+          <tbody>
+            <tr><td><code>db.add(obj)</code></td><td>把新对象加入待保存队列</td><td>把草稿放进购物车</td></tr>
+            <tr><td><code>db.flush()</code></td><td>把 SQL 发给数据库，但<strong>不提交</strong>；能拿到自增 ID</td><td>提交订单预览，还没付款</td></tr>
+            <tr><td><code>db.commit()</code></td><td>提交事务，真正落库</td><td>付款成功</td></tr>
+            <tr><td><code>db.rollback()</code></td><td>撤销本次事务</td><td>取消订单</td></tr>
+            <tr><td><code>db.close()</code></td><td>归还连接、清理会话</td><td>关掉收银台</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout danger">
+        <span class="label">必懂</span>
+        <code>flush</code> 不等于 <code>commit</code>。项目里经常先 <code>flush()</code> 拿到审批单 ID，再写范围快照；最后统一 <code>commit()</code>。如果只 flush 不 commit，请求结束会话关闭，数据就没了。
+      </div>
+
+      <h3>查询：从 select 开始</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/repositories/assistant_repo.py · 常见查询</span><button class="copy">复制</button></div>
+<pre><span class="c"># 查一条：按 id + 公司 + 未删除</span>
+<span class="k">return</span> self.db.scalar(
+    select(Assistant).where(
+        Assistant.id == assistant_id,
+        Assistant.company_id == company_id,
+        Assistant.deleted_at.is_(<span class="k">None</span>),
+    )
+)
+
+<span class="c"># 查多条：批量按 id 查，避免循环单查</span>
+rows = self.db.scalars(
+    select(Assistant).options(*_EAGER).where(Assistant.id.in_(ids))
+).all()
+
+<span class="c"># 统计总数：SELECT COUNT(*) FROM (...)</span>
+total = self.db.scalar(select(func.count()).select_from(base)) <span class="k">or</span> 0
+
+<span class="c"># 分页：ORDER BY ... LIMIT ... OFFSET ...</span>
+rows = self.db.execute(
+    select(base.c.id)
+    .order_by(base.c.rank.asc(), base.c.sort_time.desc(), base.c.id.desc())
+    .offset(offset)
+    .limit(limit)
+).all()</pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>SQL</th><th>SQLAlchemy</th></tr></thead>
+          <tbody>
+            <tr><td><code>SELECT * FROM assistant</code></td><td><code>select(Assistant)</code></td></tr>
+            <tr><td><code>WHERE id = 1</code></td><td><code>.where(Assistant.id == 1)</code></td></tr>
+            <tr><td><code>WHERE deleted_at IS NULL</code></td><td><code>.where(Assistant.deleted_at.is_(None))</code></td></tr>
+            <tr><td><code>WHERE id IN (1,2,3)</code></td><td><code>.where(Assistant.id.in_([1,2,3]))</code></td></tr>
+            <tr><td><code>ORDER BY updated_at DESC</code></td><td><code>.order_by(Assistant.updated_at.desc())</code></td></tr>
+            <tr><td><code>LIMIT 10 OFFSET 20</code></td><td><code>.limit(10).offset(20)</code></td></tr>
+            <tr><td><code>JOIN ... ON ...</code></td><td><code>.join(AssistantGrant, ...)</code></td></tr>
+            <tr><td><code>COUNT(*)</code></td><td><code>select(func.count())</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>N+1 查询：ORM 最常见的性能坑</h3>
+      <div class="grid2">
+        <div class="box bad">
+          <h4><span class="pill r">坑</span>列表 20 条，查了 21 次</h4>
+          <pre style="margin-top:8px;border-radius:8px;">rows = db.scalars(select(Assistant)).all()   <span class="c"># 1 次</span>
+<span class="k">for</span> row <span class="k">in</span> rows:
+    print(row.category.name)                 <span class="c"># 每条再查 1 次 → N 次</span></pre>
+          <p class="muted" style="margin-top:8px">列表越长越慢，数据库被打满。</p>
+        </div>
+        <div class="box good">
+          <h4><span class="pill g">解</span>提前告诉 ORM 要哪些关联</h4>
+          <pre style="margin-top:8px;border-radius:8px;">_EAGER = (
+  selectinload(Assistant.tags),
+  selectinload(Assistant.skills),
+  selectinload(Assistant.category),
+)
+rows = db.scalars(select(Assistant).options(*_EAGER)).all()</pre>
+          <p class="muted" style="margin-top:8px">每条 SQL 批量加载关联，次数可控。</p>
+        </div>
+      </div>
+      <p>项目里 <span class="path">assistant_repo.py</span> 顶部的 <code>_EAGER</code> 就是干这个的。它用 <code>selectinload</code> 一次性把标签、技能、MCP、知识库、版本记录都加载出来，避免组装卡片时每条都去查一次。</p>
+
+      <h3>为什么列表要「先查 ID，再批量查对象」？</h3>
+      <p>因为列表要同时满足：多段 UNION 排序、分页、总数、去重。最稳的做法是：</p>
+      <div class="steps">
+        <div class="step"><h4>第一步：只查 ID</h4><p><code>list_ids</code> 拼出平台 / 自建 / 共享三段，UNION 后排序、分页，得到当前页的 ID 列表和总数。这一步不加载任何关联数据，轻量。</p></div>
+        <div class="step"><h4>第二步：按 ID 批量加载</h4><p><code>load_many(ids)</code> 用 <code>IN (...)</code> 一次查出所有完整对象，并按传入 ID 的顺序重新排序，保证分页顺序不乱。</p></div>
+        <div class="step"><h4>第三步：批量查授权关系</h4><p><code>find_grants</code> 一次查出当前用户对这些助理的授权状态，避免逐条查。</p></div>
+        <div class="step"><h4>第四步：内存组装</h4><p>Service 把 ORM 对象 + 授权关系 + 当前用户组装成 <code>AssistantCard</code>，派生按钮、脱敏、折叠状态都在这里完成。</p></div>
+      </div>
+      <div class="callout ok">
+        <span class="label">这个模式很常用</span>
+        「先查 ID + 总数分页，再批量查详情」几乎适用于所有复杂列表。它把「排序分页」和「加载关联」分开，既保证顺序正确，又避免 N+1。
+      </div>
+
+      <h3>expire_on_commit=False 是什么</h3>
+      <p>SQLAlchemy 默认在 commit 后让对象过期，下次访问属性会重新查库。项目设置 <code>expire_on_commit=False</code>，commit 后对象仍然可用，避免「提交完再组装响应」时又打一堆查询。代价是：同一会话里可能读到缓存，所以 <code>find_by_id</code> 用了 <code>populate_existing=True</code> 强制刷新。</p>
+
+      <details class="quiz">
+        <summary>自测：<code>db.add(row)</code> 之后，<code>row.id</code> 什么时候才有值？</summary>
+        <p>执行 <code>flush()</code> 或 <code>commit()</code> 之后。add 只是把对象放进会话，还没发 INSERT；flush 会发 INSERT 并回填自增 ID。项目里 <code>create</code> 方法在 add 后立刻 flush，就是为了让后续逻辑能拿到 ID。</p>
+      </details>
+    </section>
+
+    <!-- ================= 11 ================= -->
+    <section id="real-api">
+      <h2><span class="num">11</span>拆一个真实接口：助理列表</h2>
+      <p class="section-sub">把前面所有零件装起来。这一节建议对照源码逐行读。</p>
+
+      <p class="lead">我们选最典型的 <code>GET /api/v1/assistants</code>。它包含：Query 参数、分页依赖、登录态依赖、业务校验、复杂查询、权限派生、响应模型。看懂它，其他接口都是它的变体。</p>
+
+      <h3>先看入口：一行调用</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/api/v1/assistants.py · list_assistants</span><button class="copy">复制</button></div>
+<pre>@router.get(<span class="s">""</span>, summary=<span class="s">"助理团助理列表"</span>)
+<span class="k">def</span> list_assistants(
+    response: Response,
+    scope: str = Query(default=<span class="s">"all"</span>),
+    categoryId: int | <span class="k">None</span> = Query(default=<span class="k">None</span>),
+    keyword: str | <span class="k">None</span> = Query(default=<span class="k">None</span>),
+    statusFilter: str | <span class="k">None</span> = Query(default=<span class="k">None</span>),
+    subscribeFilter: str | <span class="k">None</span> = Query(default=<span class="k">None</span>),
+    paging: PageParams = Depends(),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    service = AssistantService(db)
+    page = service.list_assistants(
+        user,
+        scope=scope,
+        category_id=categoryId,
+        keyword=keyword,
+        status_filter=statusFilter,
+        subscribe_filter=subscribeFilter,
+        page=paging.page,
+        page_size=paging.page_size,
+    )
+    <span class="k">return</span> ok(page.model_dump(by_alias=<span class="k">True</span>))</pre>
+      </div>
+      <p>路由层只有三步：<strong>建 Service → 传参数 → 包响应</strong>。它不判断 scope 合不合法，也不拼 SQL。这是分层约束的直接体现。</p>
+
+      <h3>Service：先校验，再查，再组装</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/services/assistant_service.py · list_assistants（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> list_assistants(self, user: CurrentUser, *, scope: str, category_id, keyword,
+                     status_filter, subscribe_filter, page, page_size) -> AssistantPage:
+    <span class="c"># ② 参数校验：先确认你说的是人话</span>
+    <span class="k">if</span> scope <span class="k">not in</span> VALID_SCOPES:
+        <span class="k">raise</span> ParamInvalidError(<span class="s">"scope 取值不合法"</span>, <span class="s">"scope"</span>)
+    <span class="k">if</span> status_filter <span class="k">and</span> status_filter <span class="k">not in</span> VALID_STATUS:
+        <span class="k">raise</span> ParamInvalidError(<span class="s">"statusFilter 取值不合法"</span>, <span class="s">"statusFilter"</span>)
+    <span class="k">if</span> subscribe_filter <span class="k">and</span> subscribe_filter <span class="k">not in</span> VALID_SUBSCRIBE:
+        <span class="k">raise</span> ParamInvalidError(<span class="s">"subscribeFilter 取值不合法"</span>, <span class="s">"subscribeFilter"</span>)
+
+    clean_keyword = keyword.strip() <span class="k">if</span> keyword <span class="k">else</span> <span class="k">None</span>
+    <span class="k">if</span> clean_keyword <span class="k">and</span> len(clean_keyword) > 50:
+        <span class="k">raise</span> ParamInvalidError(<span class="s">"关键词不超过 50 个字符"</span>, <span class="s">"keyword"</span>)
+
+    <span class="c"># ③ 调仓储层：把业务语言翻译成数据库查询</span>
+    ids, total = self.repo.list_ids(
+        company_id=user.company_id,
+        user_id=user.user_id,
+        grant_user_id=master_data.employee_id_for_login(user.user_id),
+        scope=scope,
+        category_id=category_id,
+        keyword=clean_keyword,
+        status_filter=status_filter <span class="k">if</span> scope == <span class="s">"mine"</span> <span class="k">else</span> <span class="k">None</span>,
+        subscribe_filter=subscribe_filter <span class="k">if</span> scope == <span class="s">"shared"</span> <span class="k">else</span> <span class="k">None</span>,
+        offset=(page - 1) * page_size,
+        limit=page_size,
+    )
+
+    <span class="c"># ④ 两次批量查询 + 内存拼装</span>
+    rows = self.repo.load_many(ids)
+    grants = self.repo.find_grants(master_data.employee_id_for_login(user.user_id), ids)
+    cards = [self._to_card(row, grants.get(row.id), user, scope) <span class="k">for</span> row <span class="k">in</span> rows]
+
+    <span class="k">return</span> AssistantPage(list=cards, total=total, page=page, page_size=page_size)</pre>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        Service 很像一个页面级的 composable：先校验参数，再调用多个 API/工具，最后把结果拼成页面需要的形状。Repository 更像底层 API 封装，只负责「怎么取」，不决定「取来干什么」。
+      </div>
+
+      <h3>Repository：三段 UNION 是什么意思</h3>
+      <p>「全部」页签不是简单 <code>SELECT * FROM assistant</code>，而是三类来源合并：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>段</th><th>含义</th><th>条件</th><th>排序权重</th></tr></thead>
+          <tbody>
+            <tr><td>平台内置 platform</td><td>公司预置的助理</td><td><code>source = 'platform'</code></td><td>0（最前）</td></tr>
+            <tr><td>我的自建 mine</td><td>我创建、且「本质已共享」的助理</td><td><code>owner_user_id = 我</code> 且状态符合</td><td>1</td></tr>
+            <tr><td>共享给我 shared</td><td>别人授权给我、且我已订阅</td><td><code>assistant_grant.user_id = 我</code></td><td>2 / 3</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>三段各自 <code>select(id, rank, sort_time)</code>，用 <code>union_all</code> 合并，再统一 <code>ORDER BY rank, sort_time DESC, id DESC</code>，最后分页。这样能保证「平台在最前、同状态按时间倒序」的页面规则，而不是在前端排。</p>
+
+      <div class="callout warn">
+        <span class="label">为什么排序要在后端</span>
+        前端排序只能排当前页，跨页顺序会乱；而且分页后你根本拿不到全部数据。凡是「跨页的排序 / 筛选 / 统计」，必须由后端在数据库层完成。
+      </div>
+
+      <h3>_to_card：同一份数据，不同人看到不同结果</h3>
+      <p>这是本项目很值得学的一段。列表卡片不是简单字段拷贝，而是根据「我是谁」派生：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/services/assistant_service.py · _to_card（简化）</span><button class="copy">复制</button></div>
+<pre><span class="c"># 被授权方视角：source 显示 shared，不暴露对方的审批 / 拒绝状态</span>
+is_shared = grant <span class="k">is not</span> <span class="k">None</span> <span class="k">and</span> row.owner_user_id != user.user_id
+<span class="k">if</span> is_shared:
+    <span class="k">return</span> AssistantCard(
+        ...,
+        source=<span class="s">"shared"</span>,
+        share_status=<span class="k">None</span>,
+        subscribe_status=grant.subscribe_status,
+        owner_name=row.owner_name,
+        actions=actions,
+    )
+
+<span class="c"># 「全部」页签：审批中 / 已拒绝折叠成「已共享」，不带子类角标</span>
+collapse = scope == <span class="s">"all"</span>
+collapsed_status = row.share_status
+<span class="k">if</span> collapse <span class="k">and</span> collapsed_status <span class="k">in</span> (<span class="s">"pending"</span>, <span class="s">"rejected"</span>):
+    collapsed_status = <span class="s">"approved"</span></pre>
+      </div>
+      <p>同一张表的数据，创建人看到「审批中 · 调整审批」，被授权方只看到「已共享」，管理员能看到审批原因。这层「视角裁剪」必须放在后端，不能靠前端根据字段自己猜。</p>
+
+      <h3>actions：按钮权限由后端算</h3>
+      <p><code>_derive_actions</code> 根据「是不是创建人、是不是管理员、有没有授权、当前状态」返回一个字符串数组，例如 <code>["summon", "edit", "shareScope", "offline"]</code>。前端只负责把字符串映射成按钮。</p>
+      <div class="grid2">
+        <div class="box good"><h4>好处</h4><ul><li>卡片和详情共用同一套规则，不会漂移</li><li>前端不用重复写状态机</li><li>新增状态时只改后端一处</li></ul></div>
+        <div class="box warn"><h4>注意</h4><ul><li>actions 只是「界面提示」</li><li>真正的接口仍要再校验一次</li><li>不能因为前端没显示按钮就跳过权限判断</li></ul></div>
+      </div>
+
+      <h3>响应：Pydantic 模型 → 统一外壳</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">响应组装链路</span><button class="copy">复制</button></div>
+<pre>AssistantPage(
+    list=[AssistantCard(...), ...],
+    total=8,
+    page=1,
+    page_size=12,
+)
+        ↓ model_dump(by_alias=True)
+{
+  "list": [{ "assistantId": 1001, "shareStatus": "approved", ... }],
+  "total": 8,
+  "page": 1,
+  "pageSize": 12
+}
+        ↓ ok(...)
+{ "code": "OK", "message": "success", "data": {...}, "traceId": "" }
+        ↓ UnifiedJSONResponse.render
+{ "code": "OK", "message": "success", "data": {...}, "traceId": "9f1c..." }</pre>
+      </div>
+
+      <h3>对应测试：一条断言就是一份需求</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/tests/test_assistants.py · 列表测试（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> test_list_all_contains_platform_seed() -> <span class="k">None</span>:
+    resp = client.get(<span class="s">"/api/v1/assistants"</span>, headers=OWNER, params={<span class="s">"scope"</span>: <span class="s">"all"</span>})
+    <span class="k">assert</span> resp.status_code == 200
+    body = resp.json()[<span class="s">"data"</span>]
+    <span class="k">assert</span> body[<span class="s">"page"</span>] == 1
+    <span class="k">assert</span> body[<span class="s">"pageSize"</span>] == 12
+    <span class="k">assert</span> body[<span class="s">"total"</span>] >= 6
+    sources = {card[<span class="s">"source"</span>] <span class="k">for</span> card <span class="k">in</span> body[<span class="s">"list"</span>]}
+    <span class="k">assert</span> <span class="s">"platform"</span> <span class="k">in</span> sources
+    <span class="k">assert</span> body[<span class="s">"list"</span>][0][<span class="s">"source"</span>] == <span class="s">"platform"</span>
+
+<span class="k">def</span> test_list_card_has_no_prompt_field() -> <span class="k">None</span>:
+    resp = client.get(<span class="s">"/api/v1/assistants"</span>, headers=OWNER, params={<span class="s">"scope"</span>: <span class="s">"all"</span>})
+    card = resp.json()[<span class="s">"data"</span>][<span class="s">"list"</span>][0]
+    <span class="k">assert</span> <span class="s">"prompt"</span> <span class="k">not in</span> card
+    <span class="k">assert</span> card[<span class="s">"descriptionTruncated"</span>]</pre>
+      </div>
+      <p>注意第二条测试：它不是在测「功能」，而是在防止「以后有人不小心把 prompt 加到列表出参里」。这种测试叫<strong>回归保护</strong>，比注释更可靠。</p>
+
+      <h3>自己走一遍</h3>
+      <ol>
+        <li>在 <code>/docs</code> 里调一次 <code>GET /api/v1/assistants?scope=all</code>，把 <code>X-User-Id</code> 设为 1001。</li>
+        <li>在 <span class="path">assistant_service.py</span> 里找到 <code>_derive_actions</code>，看「已共享」状态会返回哪些按钮。</li>
+        <li>在 <span class="path">assistant_repo.py</span> 里找到 <code>list_ids</code>，试着用大白话解释三段 UNION。</li>
+        <li>把 <code>scope</code> 改成 <code>unknown</code>，观察返回的状态码、code、data.field。</li>
+      </ol>
+    </section>
+
+    <!-- ================= 12 ================= -->
+    <section id="build">
+      <h2><span class="num">12</span>从零加一个接口：收藏助理</h2>
+      <p class="section-sub">这是整份笔记的实战章。跟着做一遍，你就真正会写后端了。</p>
+
+      <p class="lead">需求：用户可以收藏 / 取消收藏一个助理，并且能查询自己是否收藏过。这是一个典型的「关联表 + 幂等写 + 权限校验」功能，难度适中，覆盖了后端最常用的套路。</p>
+
+      <div class="callout warn">
+        <span class="label">说明</span>
+        下面是<strong>练习设计</strong>，不会自动写进当前仓库。代码风格完全对齐项目现有分层，你可以照着在自己的分支里实现。真实需求请先和产品/后端确认字段与接口契约。
+      </div>
+
+      <h3>第 0 步：先定接口契约</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>路径</th><th>作用</th><th>成功响应</th></tr></thead>
+          <tbody>
+            <tr><td>POST</td><td><code>/api/v1/assistants/{assistantId}/favorite</code></td><td>收藏（重复调用不报错）</td><td><code>{ assistantId, favorited: true, favoriteCount }</code></td></tr>
+            <tr><td>DELETE</td><td><code>/api/v1/assistants/{assistantId}/favorite</code></td><td>取消收藏（重复调用不报错）</td><td><code>{ assistantId, favorited: false, favoriteCount }</code></td></tr>
+            <tr><td>GET</td><td><code>/api/v1/assistants/{assistantId}/favorite</code></td><td>查询当前用户是否收藏</td><td><code>{ assistantId, favorited, favoriteCount }</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>先定契约的好处：前端可以并行开发，测试可以照着写，后端也知道自己要返回什么。不要上来就写 Model。</p>
+
+      <h3>第 1 步：建表</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">deploy/mysql 或迁移脚本 · assistant_favorite</span><button class="copy">复制</button></div>
+<pre><span class="k">CREATE TABLE</span> assistant_favorite (
+  id            BIGINT       <span class="k">NOT NULL AUTO_INCREMENT</span>,
+  company_id    BIGINT       <span class="k">NOT NULL</span>,
+  assistant_id  BIGINT       <span class="k">NOT NULL</span>,
+  user_id       BIGINT       <span class="k">NOT NULL</span>,
+  created_at    DATETIME     <span class="k">NOT NULL DEFAULT</span> CURRENT_TIMESTAMP,
+  <span class="k">PRIMARY KEY</span> (id),
+  <span class="k">UNIQUE KEY</span> uk_favorite_user_assistant (company_id, user_id, assistant_id),
+  <span class="k">KEY</span> idx_favorite_user (company_id, user_id, created_at),
+  <span class="k">CONSTRAINT</span> fk_favorite_assistant
+    <span class="k">FOREIGN KEY</span> (assistant_id) <span class="k">REFERENCES</span> assistant (id)
+) <span class="k">ENGINE</span>=InnoDB <span class="k">DEFAULT CHARSET</span>=utf8mb4;</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>设计点</th><th>为什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>company_id</code></td><td>多租户隔离，查询必须带</td></tr>
+            <tr><td>唯一键 <code>(company_id,user_id,assistant_id)</code></td><td>同一个人对同一个助理只能有一条收藏，防重复</td></tr>
+            <tr><td><code>idx_favorite_user</code></td><td>加速「我的收藏列表」按时间排序</td></tr>
+            <tr><td>外键 <code>assistant_id</code></td><td>防止收藏一个不存在的助理</td></tr>
+            <tr><td>不加 <code>deleted_at</code></td><td>收藏是轻量关系，取消就删；需要留痕可以另加审计</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>第 2 步：Model</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/models/favorite.py（新建）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> datetime <span class="k">import</span> datetime
+
+<span class="k">from</span> sqlalchemy <span class="k">import</span> BigInteger, DateTime, ForeignKey, UniqueConstraint, func
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Mapped, mapped_column
+
+<span class="k">from</span> app.models.base <span class="k">import</span> Base
+
+
+<span class="k">class</span> AssistantFavorite(Base):
+    <span class="c">"""用户收藏助理的关系表。"""</span>
+    __tablename__ = <span class="s">"assistant_favorite"</span>
+    __table_args__ = (
+        UniqueConstraint(
+            <span class="s">"company_id"</span>, <span class="s">"user_id"</span>, <span class="s">"assistant_id"</span>,
+            name=<span class="s">"uk_favorite_user_assistant"</span>,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=<span class="k">True</span>, autoincrement=<span class="k">True</span>)
+    company_id: Mapped[int] = mapped_column(BigInteger, nullable=<span class="k">False</span>)
+    assistant_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey(<span class="s">"assistant.id"</span>, name=<span class="s">"fk_favorite_assistant"</span>), nullable=<span class="k">False</span>
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=<span class="k">False</span>)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=<span class="k">False</span>, server_default=func.current_timestamp()
+    )</pre>
+      </div>
+      <p>然后在 <span class="path">app/models/__init__.py</span> 里导出它，保证应用启动时模型被注册。</p>
+
+      <h3>第 3 步：Schema</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/schemas/favorite.py（新建）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> pydantic <span class="k">import</span> BaseModel, ConfigDict
+<span class="k">from</span> pydantic.alias_generators <span class="k">import</span> to_camel
+
+
+<span class="k">class</span> FavoriteResult(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=<span class="k">True</span>)
+
+    assistant_id: int
+    favorited: bool
+    favorite_count: int</pre>
+      </div>
+      <p>出参只有三个字段，不多不少。收藏状态是「当前用户」的，收藏总数是「这个助理」的，语义要分清。</p>
+
+      <h3>第 4 步：Repository</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/repositories/favorite_repo.py（新建）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> sqlalchemy <span class="k">import</span> func, select
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+
+<span class="k">from</span> app.models.favorite <span class="k">import</span> AssistantFavorite
+
+
+<span class="k">class</span> FavoriteRepository:
+    <span class="k">def</span> __init__(self, db: Session) -> <span class="k">None</span>:
+        self.db = db
+
+    <span class="k">def</span> exists(self, company_id: int, user_id: int, assistant_id: int) -> bool:
+        <span class="k">return</span> self.db.scalar(
+            select(AssistantFavorite.id).where(
+                AssistantFavorite.company_id == company_id,
+                AssistantFavorite.user_id == user_id,
+                AssistantFavorite.assistant_id == assistant_id,
+            )
+        ) <span class="k">is not None</span>
+
+    <span class="k">def</span> add(self, company_id: int, user_id: int, assistant_id: int) -> <span class="k">None</span>:
+        self.db.add(
+            AssistantFavorite(
+                company_id=company_id, user_id=user_id, assistant_id=assistant_id
+            )
+        )
+        self.db.flush()
+
+    <span class="k">def</span> remove(self, company_id: int, user_id: int, assistant_id: int) -> <span class="k">None</span>:
+        row = self.db.scalar(
+            select(AssistantFavorite).where(
+                AssistantFavorite.company_id == company_id,
+                AssistantFavorite.user_id == user_id,
+                AssistantFavorite.assistant_id == assistant_id,
+            )
+        )
+        <span class="k">if</span> row <span class="k">is not None</span>:
+            self.db.delete(row)
+            self.db.flush()
+
+    <span class="k">def</span> count(self, company_id: int, assistant_id: int) -> int:
+        <span class="k">return</span> int(
+            self.db.scalar(
+                select(func.count()).select_from(AssistantFavorite).where(
+                    AssistantFavorite.company_id == company_id,
+                    AssistantFavorite.assistant_id == assistant_id,
+                )
+            ) <span class="k">or</span> 0
+        )</pre>
+      </div>
+      <p>Repository 不知道「用户有没有权限收藏」，它只负责查、增、删、计数。权限和存在性校验在 Service。</p>
+
+      <h3>第 5 步：Service</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/services/favorite_service.py（新建）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+
+<span class="k">from</span> app.core.errors <span class="k">import</span> ErrorCode, NotFoundError
+<span class="k">from</span> app.core.security <span class="k">import</span> CurrentUser
+<span class="k">from</span> app.repositories.assistant_repo <span class="k">import</span> AssistantRepository
+<span class="k">from</span> app.repositories.favorite_repo <span class="k">import</span> FavoriteRepository
+<span class="k">from</span> app.schemas.favorite <span class="k">import</span> FavoriteResult
+
+
+<span class="k">class</span> FavoriteService:
+    <span class="k">def</span> __init__(self, db: Session) -> <span class="k">None</span>:
+        self.db = db
+        self.repo = FavoriteRepository(db)
+        self.assistants = AssistantRepository(db)
+
+    <span class="k">def</span> _ensure_assistant(self, assistant_id: int, user: CurrentUser) -> <span class="k">None</span>:
+        <span class="c"># 必须带 company_id，防止收藏到别的公司的助理</span>
+        row = self.assistants.find_by_id(assistant_id, user.company_id)
+        <span class="k">if</span> row <span class="k">is None</span>:
+            <span class="k">raise</span> NotFoundError(ErrorCode.ASSISTANT_NOT_FOUND, <span class="s">"助理不存在或已删除"</span>)
+
+    <span class="k">def</span> status(self, assistant_id: int, user: CurrentUser) -> FavoriteResult:
+        self._ensure_assistant(assistant_id, user)
+        <span class="k">return</span> FavoriteResult(
+            assistant_id=assistant_id,
+            favorited=self.repo.exists(user.company_id, user.user_id, assistant_id),
+            favorite_count=self.repo.count(user.company_id, assistant_id),
+        )
+
+    <span class="k">def</span> add(self, assistant_id: int, user: CurrentUser) -> FavoriteResult:
+        self._ensure_assistant(assistant_id, user)
+        <span class="c"># 幂等：已收藏就不重复插入</span>
+        <span class="k">if not</span> self.repo.exists(user.company_id, user.user_id, assistant_id):
+            self.repo.add(user.company_id, user.user_id, assistant_id)
+        self.db.commit()
+        <span class="k">return</span> self.status(assistant_id, user)
+
+    <span class="k">def</span> remove(self, assistant_id: int, user: CurrentUser) -> FavoriteResult:
+        self._ensure_assistant(assistant_id, user)
+        self.repo.remove(user.company_id, user.user_id, assistant_id)
+        self.db.commit()
+        <span class="k">return</span> self.status(assistant_id, user)</pre>
+      </div>
+
+      <div class="callout danger">
+        <span class="label">并发说明</span>
+        <code>if not exists</code> 在并发双击时仍可能两个请求同时判断为「不存在」，然后都插入。数据库唯一键会拦住第二个，抛 <code>IntegrityError</code>。生产代码应捕获这个异常并当作「已收藏」返回。这就是「Service 校验 + 数据库约束兜底」的组合拳。
+      </div>
+
+      <h3>第 6 步：路由</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/api/v1/assistants.py 末尾追加</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> app.services.favorite_service <span class="k">import</span> FavoriteService
+
+
+@router.get(<span class="s">"/{assistantId}/favorite"</span>, summary=<span class="s">"查询是否收藏助理"</span>)
+<span class="k">def</span> get_favorite(
+    assistantId: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    result = FavoriteService(db).status(assistantId, user)
+    <span class="k">return</span> ok(result.model_dump(by_alias=<span class="k">True</span>))
+
+
+@router.post(<span class="s">"/{assistantId}/favorite"</span>, summary=<span class="s">"收藏助理"</span>)
+<span class="k">def</span> favorite_assistant(
+    assistantId: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    result = FavoriteService(db).add(assistantId, user)
+    <span class="k">return</span> ok(result.model_dump(by_alias=<span class="k">True</span>))
+
+
+@router.delete(<span class="s">"/{assistantId}/favorite"</span>, summary=<span class="s">"取消收藏助理"</span>)
+<span class="k">def</span> unfavorite_assistant(
+    assistantId: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    result = FavoriteService(db).remove(assistantId, user)
+    <span class="k">return</span> ok(result.model_dump(by_alias=<span class="k">True</span>))</pre>
+      </div>
+      <p>如果单独建 <code>favorites.py</code> 路由文件，记得在 <span class="path">api/v1/__init__.py</span> 里注册，并且注意和其他通配路由的顺序。</p>
+
+      <h3>第 7 步：测试</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/tests/test_favorite.py（新建）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> fastapi.testclient <span class="k">import</span> TestClient
+
+<span class="k">from</span> app.main <span class="k">import</span> app
+
+client = TestClient(app)
+OWNER = {<span class="s">"X-User-Id"</span>: <span class="s">"1001"</span>, <span class="s">"X-Company-Id"</span>: <span class="s">"1"</span>}
+
+
+<span class="k">def</span> _create_assistant(name: str) -> int:
+    resp = client.post(<span class="s">"/api/v1/assistants"</span>, headers=OWNER, json={
+        <span class="s">"name"</span>: name,
+        <span class="s">"description"</span>: <span class="s">"用于收藏接口测试的助理，描述需要超过十个字。"</span>,
+        <span class="s">"categoryId"</span>: 2,
+        <span class="s">"prompt"</span>: <span class="s">"你是测试助理。"</span>,
+    })
+    <span class="k">assert</span> resp.status_code == 201, resp.text
+    <span class="k">return</span> resp.json()[<span class="s">"data"</span>][<span class="s">"assistantId"</span>]
+
+
+<span class="k">def</span> test_favorite_is_idempotent() -> <span class="k">None</span>:
+    assistant_id = _create_assistant(<span class="s">"收藏测试助理甲"</span>)
+    url = f<span class="s">"/api/v1/assistants/{assistant_id}/favorite"</span>
+
+    first = client.post(url, headers=OWNER)
+    <span class="k">assert</span> first.status_code == 200
+    <span class="k">assert</span> first.json()[<span class="s">"data"</span>][<span class="s">"favorited"</span>] <span class="k">is True</span>
+
+    second = client.post(url, headers=OWNER)
+    <span class="k">assert</span> second.status_code == 200
+    <span class="k">assert</span> second.json()[<span class="s">"data"</span>][<span class="s">"favoriteCount"</span>] == 1
+
+    status = client.get(url, headers=OWNER)
+    <span class="k">assert</span> status.json()[<span class="s">"data"</span>][<span class="s">"favorited"</span>] <span class="k">is True</span>
+
+    client.delete(url, headers=OWNER)
+    client.delete(f<span class="s">"/api/v1/assistants/{assistant_id}"</span>, headers=OWNER)</pre>
+      </div>
+      <p>记得把「收藏测试助理」前缀登记到 <span class="path">server/tests/conftest.py</span> 的 <code>_TEST_NAME_PREFIXES</code>，否则测试数据可能残留在开发库里。</p>
+
+      <h3>第 8 步：前端接入</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">web/src/api/index.ts 里加三个函数（示意）</span><button class="copy">复制</button></div>
+<pre><span class="k">export const</span> getFavorite = (assistantId: number) =&gt;
+  request&lt;FavoriteResult&gt;({ url: `/assistants/${assistantId}/favorite` })
+
+<span class="k">export const</span> favoriteAssistant = (assistantId: number) =&gt;
+  request&lt;FavoriteResult&gt;({ url: `/assistants/${assistantId}/favorite`, method: <span class="s">'post'</span> })
+
+<span class="k">export const</span> unfavoriteAssistant = (assistantId: number) =&gt;
+  request&lt;FavoriteResult&gt;({ url: `/assistants/${assistantId}/favorite`, method: <span class="s">'delete'</span> })</pre>
+      </div>
+      <p>页面里点击爱心 → 调接口 → 用返回的 <code>favorited</code> 更新本地状态。不要「前端先翻转，失败再翻回来」——收藏数这种数据最好以服务端返回为准。</p>
+
+      <h3>验收清单</h3>
+      <ul class="checklist">
+        <li><input type="checkbox"><span>建表脚本 / 迁移已执行，表结构正确</span></li>
+        <li><input type="checkbox"><span>Model 已导出，应用启动能识别</span></li>
+        <li><input type="checkbox"><span>Schema 使用 camelCase，返回 <code>assistantId/favoriteCount</code></span></li>
+        <li><input type="checkbox"><span>Repository 所有查询都带 <code>company_id</code></span></li>
+        <li><input type="checkbox"><span>Service 校验助理存在且属于当前公司</span></li>
+        <li><input type="checkbox"><span>重复收藏不报错、不重复计数</span></li>
+        <li><input type="checkbox"><span>取消一个没收藏的助理也不报错</span></li>
+        <li><input type="checkbox"><span>没带 <code>X-User-Id</code> 返回 401</span></li>
+        <li><input type="checkbox"><span>收藏别的公司的助理返回 404</span></li>
+        <li><input type="checkbox"><span>pytest 新用例通过，测试数据被清理</span></li>
+        <li><input type="checkbox"><span><code>/docs</code> 里能看到三个新接口</span></li>
+      </ul>
+    </section>
+
+    <!-- ================= 13 ================= -->
+    <section id="auth">
+      <h2><span class="num">13</span>登录态与权限：前端说了不算</h2>
+      <p class="section-sub">这是后端最重要的安全边界。所有「谁能看、谁能改」的判断都必须在这里。</p>
+
+      <h3>本项目当前怎么识别用户</h3>
+      <p>开发期没有接真实网关，用请求头模拟：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">前端请求拦截器（web/src/api/request.ts）</span><button class="copy">复制</button></div>
+<pre>config.headers.set(<span class="s">'X-User-Id'</span>, profile.id)          <span class="c">// 1001 / 9001 / 2001 ...</span>
+config.headers.set(<span class="s">'X-Company-Id'</span>, <span class="s">'1'</span>)
+config.headers.set(<span class="s">'X-User-Name'</span>, encodeURIComponent(profile.name))
+config.headers.set(<span class="s">'X-User-Dept'</span>, encodeURIComponent(profile.dept))</pre>
+      </div>
+      <p>后端 <code>get_current_user</code> 解析这些头，构造 <code>CurrentUser</code>。正式环境由网关先校验 Cookie / Authorization，再把可信的用户信息注入请求头，服务内部只做解析，不自己做登录密码校验。</p>
+
+      <div class="callout warn">
+        <span class="label">重要</span>
+        这套 Header 方案<strong>只适合内网开发期</strong>。如果直接暴露公网，任何人都能伪造 <code>X-User-Id: 9001</code> 当管理员。生产必须有网关/签名/JWT 校验，或者至少让内网服务只接受来自网关的流量。
+      </div>
+
+      <h3>四种权限判断，缺一不可</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>判断</th><th>问题</th><th>项目里的实现</th><th>失败结果</th></tr></thead>
+          <tbody>
+            <tr><td>登录</td><td>你是谁？</td><td>没有 <code>X-User-Id</code> 就抛 <code>UnauthenticatedError</code></td><td>401</td></tr>
+            <tr><td>租户</td><td>你是不是这个公司的？</td><td>所有查询带 <code>company_id</code></td><td>404 / 403</td></tr>
+            <tr><td>角色</td><td>你是不是管理员？</td><td><code>user.require_admin()</code></td><td>403</td></tr>
+            <tr><td>资源归属</td><td>这个助理是不是你的？</td><td><code>row.owner_user_id != user.user_id</code></td><td>403</td></tr>
+            <tr><td>授权关系</td><td>别人有没有授权给你？</td><td><code>AssistantGrant</code> 查询</td><td>无权限 / 不可见</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>IDOR：最容易犯的越权漏洞</h3>
+      <div class="grid2">
+        <div class="box bad">
+          <h4><span class="pill r">错误</span>只按 ID 查</h4>
+          <pre style="margin-top:8px;border-radius:8px;">row = db.get(Assistant, assistant_id)
+<span class="c"># 只要猜到 ID，就能看别的公司的数据</span>
+<span class="k">return</span> row</pre>
+          <p class="muted" style="margin-top:8px">IDOR（Insecure Direct Object Reference）：把内部 ID 直接暴露且不校验归属。</p>
+        </div>
+        <div class="box good">
+          <h4><span class="pill g">正确</span>ID + 租户一起查</h4>
+          <pre style="margin-top:8px;border-radius:8px;">row = db.scalar(
+  select(Assistant).where(
+    Assistant.id == assistant_id,
+    Assistant.company_id == user.company_id,
+    Assistant.deleted_at.is_(<span class="k">None</span>),
+  )
+)
+<span class="k">if</span> row <span class="k">is None</span>: <span class="k">raise</span> NotFoundError(...)</pre>
+          <p class="muted" style="margin-top:8px">查不到就 404，不告诉攻击者「存在但不属于你」。</p>
+        </div>
+      </div>
+
+      <h3>为什么前端隐藏按钮不算安全</h3>
+      <p>因为用户可以直接调接口。比如「删除助理」按钮只对创建人显示，但攻击者可以在控制台执行：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">绕过 UI 直接发请求</span><button class="copy">复制</button></div>
+<pre><span class="k">await</span> fetch(<span class="s">'/api/v1/assistants/1001'</span>, {
+  method: <span class="s">'DELETE'</span>,
+  headers: { <span class="s">'X-User-Id'</span>: <span class="s">'1002'</span> }   <span class="c">// 换成别人的身份</span>
+})</pre>
+      </div>
+      <p>如果后端只信前端，数据就没了。所以 <code>delete_assistant</code> 里必须再判断 <code>row.owner_user_id != user.user_id</code>，以及状态是否允许删除。</p>
+
+      <h3>本项目的权限矩阵（简化）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>操作</th><th>创建人</th><th>公司管理员</th><th>被授权人</th><th>其他人</th></tr></thead>
+          <tbody>
+            <tr><td>查看平台助理</td><td>✓</td><td>✓</td><td>✓</td><td>✓（同公司）</td></tr>
+            <tr><td>编辑 / 删除自建助理</td><td>✓</td><td>✗（不能替人编辑）</td><td>✗</td><td>✗</td></tr>
+            <tr><td>提交共享 / 下架</td><td>✓</td><td>✗</td><td>✗</td><td>✗</td></tr>
+            <tr><td>审批中心 / 通过 / 拒绝</td><td>✗</td><td>✓</td><td>✗</td><td>✗</td></tr>
+            <tr><td>直接调整平台助理范围</td><td>—</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>召唤已共享助理</td><td>✓</td><td>✓</td><td>✓（已订阅）</td><td>✗</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">注：真实规则以 <span class="path">assistant_service.py</span> 的 <code>_derive_actions</code> 和 <code>share_service.py</code> 为准，这里只是帮你建立直觉。</p>
+
+      <h3>真实登录系统会怎么演进</h3>
+      <div class="grid3">
+        <div class="box"><h4>Session + Cookie</h4><p class="muted">登录后服务端存会话，浏览器带 Cookie。适合同域、传统 Web。</p></div>
+        <div class="box"><h4>JWT / Token</h4><p class="muted">登录后发一个签名 Token，前端放 Authorization 头。适合前后端分离、多服务。</p></div>
+        <div class="box"><h4>OAuth / SSO</h4><p class="muted">接入公司统一登录，网关校验后注入用户信息。本项目最终形态接近这种。</p></div>
+      </div>
+      <div class="callout danger">
+        <span class="label">不要自己造加密</span>
+        密码哈希用 bcrypt/argon2，Token 校验用成熟库或网关，不要自己写「加盐 MD5」或「前端加密传密码」。前端加密不能替代 HTTPS，也不能替代后端校验。
+      </div>
+
+      <h3>中文姓名为什么要百分号编码</h3>
+      <p>HTTP Header 的值按规范只允许 ASCII。前端把「王晓明」用 <code>encodeURIComponent</code> 变成 <code>%E7%8E%8B%E6%99%93%E6%98%8E</code>，后端用 <code>unquote</code> 解码。如果不编码，某些服务器/代理会直接拒绝请求或出现乱码。</p>
+
+      <details class="quiz">
+        <summary>自测：管理员能编辑别人创建的助理吗？</summary>
+        <p>按本项目规则不能。管理员的能力是「审批、调整平台助理范围、查看审批」，不是「代替创建人编辑」。<code>update_assistant</code> 明确判断 <code>row.owner_user_id != user.user_id</code> 就抛 403。权限不是「官大什么都能干」，而是按职责细分。</p>
+      </details>
+    </section>
+
+    <!-- ================= 14 ================= -->
+    <section id="response">
+      <h2><span class="num">14</span>统一响应与异常：错误也要有格式</h2>
+      <p class="section-sub">前端最怕的不是报错，而是「每个接口报错格式都不一样」。</p>
+
+      <h3>统一外壳长什么样</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/response.py</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> ok(data: object = <span class="k">None</span>) -> dict:
+    <span class="c">"""成功响应体；traceId 由中间件在返回前补齐。"""</span>
+    <span class="k">return</span> {<span class="s">"code"</span>: <span class="s">"OK"</span>, <span class="s">"message"</span>: <span class="s">"success"</span>, <span class="s">"data"</span>: data, <span class="s">"traceId"</span>: <span class="s">""</span>}
+
+<span class="k">def</span> fail(code: str, message: str, data: object = <span class="k">None</span>) -> dict:
+    <span class="k">return</span> {<span class="s">"code"</span>: code, <span class="s">"message"</span>: message, <span class="s">"data"</span>: data, <span class="s">"traceId"</span>: <span class="s">""</span>}</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>字段</th><th>给谁看</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>code</code></td><td>前端程序</td><td>机器可读的结果：OK 或具体错误码</td></tr>
+            <tr><td><code>message</code></td><td>用户 / 开发</td><td>人能看懂的提示，可直接 Toast</td></tr>
+            <tr><td><code>data</code></td><td>前端程序</td><td>业务数据；错误时可能带 <code>field</code>、<code>missing</code> 等</td></tr>
+            <tr><td><code>traceId</code></td><td>开发 / 运维</td><td>把这次请求和后台日志串起来</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>traceId 是怎么补上的</h3>
+      <div class="flow">
+        <span class="node">请求进来</span><span class="arrow">→</span>
+        <span class="node blue">TraceMiddleware<br>取 X-Trace-Id 或生成</span><span class="arrow">→</span>
+        <span class="node purple">日志上下文 ContextVar</span><span class="arrow">→</span>
+        <span class="node orange">响应 render 时填入</span><span class="arrow">→</span>
+        <span class="node dark">响应头 X-Trace-Id</span>
+      </div>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/json_response.py</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> UnifiedJSONResponse(JSONResponse):
+    <span class="k">def</span> render(self, content: Any) -> bytes:
+        <span class="k">if</span> (
+            isinstance(content, dict)
+            <span class="k">and</span> <span class="s">"code"</span> <span class="k">in</span> content
+            <span class="k">and</span> <span class="s">"traceId"</span> <span class="k">in</span> content
+            <span class="k">and</span> <span class="k">not</span> content[<span class="s">"traceId"</span>]
+        ):
+            content[<span class="s">"traceId"</span>] = get_trace_id()
+        <span class="k">return</span> super().render(content)</pre>
+      </div>
+      <p>所以你写 <code>ok(...)</code> 时 traceId 是空串没关系，真正序列化前会被补上。响应头里也会带同一个 ID，前端可以在报错弹窗里显示「问题编号」，用户截图给开发，开发一搜日志就定位到了。</p>
+
+      <h3>异常体系：业务错误用 BizError</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/errors.py（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> BizError(Exception):
+    <span class="k">def</span> __init__(self, code: ErrorCode, message: str, data: dict | <span class="k">None</span> = <span class="k">None</span>,
+                 http_status: int = 400) -> <span class="k">None</span>:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data = data
+        self.http_status = http_status
+
+<span class="k">class</span> NotFoundError(BizError):        <span class="c"># 404</span>
+<span class="k">class</span> UnauthenticatedError(BizError): <span class="c"># 401</span>
+<span class="k">class</span> NoPermissionError(BizError):    <span class="c"># 403</span>
+<span class="k">class</span> ParamInvalidError(BizError):    <span class="c"># 400，可带 field</span>
+<span class="k">class</span> ConflictError(BizError):        <span class="c"># 409</span></pre>
+      </div>
+      <p>Service 里 <code>raise ConflictError(...)</code> 就够了，不需要 import FastAPI 的 <code>HTTPException</code>。这正是分层约束的好处：Service 不依赖 HTTP，换一个入口（CLI/消息队列）仍然能用同一套异常。</p>
+
+      <h3>全局异常处理器：所有错误统一出口</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/exception_handlers.py（节选）</span><button class="copy">复制</button></div>
+<pre>@app.exception_handler(BizError)
+<span class="k">async def</span> _biz_error(_, exc: BizError) -> JSONResponse:
+    <span class="k">return</span> JSONResponse(
+        status_code=exc.http_status,
+        content=_body(exc.code.value, exc.message, exc.data),
+    )
+
+@app.exception_handler(RequestValidationError)
+<span class="k">async def</span> _validation_error(_, exc: RequestValidationError) -> JSONResponse:
+    first = exc.errors()[0] <span class="k">if</span> exc.errors() <span class="k">else</span> {}
+    field = <span class="s">"."</span>.join(str(part) <span class="k">for</span> part <span class="k">in</span> first.get(<span class="s">"loc"</span>, ()) <span class="k">if</span> part != <span class="s">"body"</span>)
+    <span class="k">return</span> JSONResponse(
+        status_code=400,
+        content=_body(ErrorCode.PARAM_INVALID.value, first.get(<span class="s">"msg"</span>, <span class="s">"参数不合法"</span>),
+                      {<span class="s">"field"</span>: field} <span class="k">if</span> field <span class="k">else</span> <span class="k">None</span>),
+    )</pre>
+      </div>
+
+      <h3>数据库唯一键冲突也会翻译成人话</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">_UNIQUE_CONSTRAINT_MAP</span><button class="copy">复制</button></div>
+<pre><span class="c"># 数据库唯一键名 -> 业务错误码，避免把底层约束名暴露给前端</span>
+_UNIQUE_CONSTRAINT_MAP = {
+    <span class="s">"uk_assistant_company_name"</span>: (
+        ErrorCode.ASSISTANT_NAME_DUPLICATED, <span class="s">"助理昵称已存在，请修改"</span>, <span class="s">"name"</span>
+    ),
+    <span class="s">"uk_category_company_name"</span>: (
+        ErrorCode.CATEGORY_DUPLICATED, <span class="s">"分类名称已存在"</span>, <span class="s">"name"</span>
+    ),
+    <span class="s">"uk_approval_pending_assistant"</span>: (
+        ErrorCode.ASSISTANT_STATUS_CHANGED, <span class="s">"该助理已有待审批申请，请刷新后重试"</span>, <span class="s">""</span>
+    ),
+}</pre>
+      </div>
+      <p>如果数据库抛 <code>IntegrityError</code>，处理器会看异常文本里包含哪个约束名，映射成 409 + 友好提示。没映射的才返回 500，并记 warning 日志。</p>
+
+      <div class="callout ok">
+        <span class="label">设计原则</span>
+        不要直接把 <code>str(exception)</code> 返回给前端。它可能包含 SQL、表名、文件路径，既不友好也不安全。对外只给业务码和提示，细节写日志，用 traceId 关联。
+      </div>
+
+      <h3>HTTP 状态码 vs 业务 code：为什么要两个</h3>
+      <div class="grid2">
+        <div class="box info">
+          <h4>HTTP 状态码负责「大类」</h4>
+          <ul>
+            <li>浏览器、代理、监控系统都认它</li>
+            <li>401 能触发前端跳登录</li>
+            <li>5xx 能触发告警</li>
+            <li>缓存、重试策略依赖它</li>
+          </ul>
+        </div>
+        <div class="box info">
+          <h4>业务 code 负责「具体」</h4>
+          <ul>
+            <li><code>ASSISTANT_NAME_DUPLICATED</code> 能精确提示</li>
+            <li>前端可以 switch 处理特殊场景</li>
+            <li>不改 HTTP 语义也能扩展</li>
+            <li>日志/埋点可统计</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>前端怎么消费</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">web/src/api/request.ts · 响应拦截器</span><button class="copy">复制</button></div>
+<pre>instance.interceptors.response.use(
+  (response) =&gt; {
+    <span class="k">const</span> body = response.data <span class="k">as</span> ApiResponse&lt;unknown&gt;
+    <span class="k">if</span> (body.code !== <span class="s">'OK'</span>) {
+      <span class="k">throw new</span> ApiError(body.code, body.message, body.data ?? <span class="k">null</span>, body.traceId)
+    }
+    response.data = body.data          <span class="c">// 剥壳，页面只拿 data</span>
+    <span class="k">return</span> response
+  },
+  (error) =&gt; {
+    <span class="k">const</span> body = error.response?.data
+    <span class="k">if</span> (body?.code) <span class="k">throw new</span> ApiError(body.code, body.message, body.data, body.traceId)
+    <span class="k">throw new</span> ApiError(<span class="s">'INTERNAL_ERROR'</span>, <span class="s">'操作失败，请稍后重试'</span>, <span class="k">null</span>, <span class="s">''</span>)
+  }
+)</pre>
+      </div>
+      <p>页面层只需要 <code>try/catch</code>，拿到 <code>ApiError</code> 后按 <code>code</code> 或 <code>data.field</code> 处理。这样每个页面不用自己判断 HTTP 状态码、不用自己剥 <code>data</code>。</p>
+
+      <h3>本项目常见错误码</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>code</th><th>HTTP</th><th>场景</th><th>前端建议</th></tr></thead>
+          <tbody>
+            <tr><td><code>PARAM_INVALID</code></td><td>400</td><td>参数格式/枚举/长度不合法</td><td>按 <code>data.field</code> 标红</td></tr>
+            <tr><td><code>UNAUTHENTICATED</code></td><td>401</td><td>没登录 / 登录过期</td><td>跳登录或提示切换角色</td></tr>
+            <tr><td><code>NO_PERMISSION</code></td><td>403</td><td>非管理员 / 非创建人</td><td>提示无权限，刷新列表</td></tr>
+            <tr><td><code>ASSISTANT_NOT_FOUND</code></td><td>404</td><td>助理不存在或已删除</td><td>返回列表并提示</td></tr>
+            <tr><td><code>ASSISTANT_NAME_DUPLICATED</code></td><td>409</td><td>助理重名</td><td>定位 name 字段</td></tr>
+            <tr><td><code>ASSISTANT_STATUS_CHANGED</code></td><td>409</td><td>状态已变（别人先审批了）</td><td>刷新详情 / 列表</td></tr>
+            <tr><td><code>SHARE_SCOPE_IMMUTABLE</code></td><td>409</td><td>审批中不可编辑</td><td>禁用编辑，提示等待</td></tr>
+            <tr><td><code>RESOURCE_UNAVAILABLE</code></td><td>409</td><td>所选 SKILL/MCP 不可用</td><td>定位并让用户重选</td></tr>
+            <tr><td><code>APPROVAL_ALREADY_HANDLED</code></td><td>409</td><td>审批单已被处理</td><td>刷新审批列表</td></tr>
+            <tr><td><code>INTERNAL_ERROR</code></td><td>500</td><td>未捕获异常</td><td>通用提示 + traceId</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= 15 ================= -->
+    <section id="transaction">
+      <h2><span class="num">15</span>事务、并发与幂等：别让数据打结</h2>
+      <p class="section-sub">这一节偏进阶，但只要你做「审批、下单、扣库存、重复点击」这类功能，就一定会用到。</p>
+
+      <h3>事务边界放在哪里</h3>
+      <p>本项目把事务边界放在 <strong>Service</strong>：Repository 只 <code>flush</code>，Service 决定什么时候 <code>commit</code>，路由不碰事务。原因很简单：只有 Service 知道「这一组操作是不是一个完整的业务动作」。</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/services/share_service.py · 提交共享（节选）</span><button class="copy">复制</button></div>
+<pre><span class="c"># 一个循环里写：审批单 + 范围快照 + 助理状态 + 版本记录 + 审计</span>
+<span class="k">for</span> index, row <span class="k">in</span> enumerate(assistants, start=1):
+    approval = Approval(...)
+    self.db.add(approval)
+    self.db.flush()                       <span class="c"># 拿到 approval.id</span>
+
+    scope_row = self.scopes.create_snapshot(..., approval_id=approval.id)
+    approval.requested_scope_id = scope_row.id
+
+    row.share_status = <span class="s">"pending"</span>
+    row.pending_type = <span class="s">"share"</span>
+    self.repo.add_version_history(row, ...)
+    audit.record(...)
+
+<span class="c"># 最后统一提交：前面任何一步抛异常，整个批次都回滚</span>
+self.db.commit()</pre>
+      </div>
+      <div class="callout ok">
+        <span class="label">设计选择</span>
+        文档 Q-09 明确：批量提交采用「整批失败」语义，不做「部分成功」。因为用户一次选了 10 个助理，如果有 3 个成功 7 个失败，前端很难解释，用户也不知道该重试哪些。要么全提交，要么全不提交，重试成本最低。
+      </div>
+
+      <h3>并发审批：两个管理员同时点「通过」</h3>
+      <p>假设审批单当前是 <code>pending</code>。管理员 A 和 B 同时打开，同时点通过。如果代码是「先查再改」：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">有并发问题的写法（示意，不要这样）</span><button class="copy">复制</button></div>
+<pre>row = db.get(Approval, approval_id)
+<span class="k">if</span> row.status != <span class="s">"pending"</span>:
+    <span class="k">raise</span> ...
+row.status = <span class="s">"approved"</span>          <span class="c"># A 和 B 都执行了</span>
+db.commit()                        <span class="c"># 版本号可能被推进两次，授权被重算两次</span></pre>
+      </div>
+      <p>项目用的是<strong>条件更新</strong>：把「当前还是 pending」作为 UPDATE 的条件，让数据库来裁决。只有第一个请求的 <code>rowcount</code> 是 1，第二个是 0。</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/services/approval_service.py · approve</span><button class="copy">复制</button></div>
+<pre>result = self.db.execute(
+    update(Approval)
+    .where(Approval.id == row.id, Approval.status == <span class="s">"pending"</span>)  <span class="c"># ← 关键条件</span>
+    .values(status=<span class="s">"approved"</span>, approver_id=user.user_id, ...)
+)
+
+<span class="k">if</span> result.rowcount == 0:
+    <span class="c"># 说明已经被别人处理过了</span>
+    self.db.rollback()
+    <span class="k">return</span> self._replay_decision(row.id, user, expected=<span class="s">"approved"</span>)</pre>
+      </div>
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        像抢票：不是「先看有没有票，再买」，而是「带条件扣减，扣成功才算买到」。条件更新就是数据库层的「CAS（Compare And Swap）」。
+      </div>
+
+      <h3>幂等：用户双击了怎么办</h3>
+      <p>幂等（idempotent）不是「不报错」，而是「重复执行的结果和执行一次一样」。项目里有两个层面的保证：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>层面</th><th>手段</th><th>例子</th></tr></thead>
+          <tbody>
+            <tr><td>业务层</td><td>先判断状态，已处理就回放首次结果</td><td>审批已通过，再点通过返回「已通过」而不是再推进版本</td></tr>
+            <tr><td>数据库层</td><td>唯一索引兜底</td><td>同一助理同一时刻只能有一条 pending 审批；同一用户同一助理只能收藏一次</td></tr>
+            <tr><td>接口层</td><td>前端按钮 loading / 禁用</td><td>减少重复请求，但不能替代后端保证</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>唯一索引是最后一道防线</h3>
+      <p>Service 里的「先查有没有」只能挡住 99% 的情况，挡不住并发。两个请求可能同时查到「没有」，然后同时插入。这时数据库唯一索引会让第二个失败，事务回滚。</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">docs/02 · 审批单唯一约束</span><button class="copy">复制</button></div>
+<pre><span class="c">-- 同一助理同一时刻仅一条 pending，由生成列 + 唯一索引保证</span>
+pending_flag <span class="k">GENERATED ALWAYS AS</span> (
+  <span class="k">CASE WHEN</span> status = <span class="s">'pending'</span> <span class="k">THEN</span> 1 <span class="k">ELSE NULL END</span>
+) STORED,
+<span class="k">UNIQUE KEY</span> uk_approval_pending_assistant (assistant_id, pending_flag)</pre>
+      </div>
+      <p>为什么用生成列？因为 MySQL 唯一索引对 NULL 的处理是「多个 NULL 不冲突」。已处理的审批单 <code>pending_flag</code> 为 NULL，可以有很多条；pending 的为 1，同一助理只能有一条。</p>
+
+      <h3>不要在事务里做慢操作</h3>
+      <div class="grid2">
+        <div class="box bad"><h4><span class="pill r">不要</span>事务里调外部服务</h4><ul><li>调大模型（可能 30 秒）</li><li>上传 OBS 大文件</li><li>发短信 / 邮件</li><li>调用不稳定的第三方接口</li></ul><p class="muted">事务一直不提交，数据库锁和连接被占用，并发一高就雪崩。</p></div>
+        <div class="box good"><h4><span class="pill g">推荐</span>先落库，再处理副作用</h4><ul><li>先 commit 核心数据</li><li>再删除旧头像 / 发通知</li><li>失败只记日志，不回滚主流程</li><li>用补偿任务兜底</li></ul><p class="muted">项目删除旧头像就是 commit 之后做的，失败不影响助理保存。</p></div>
+      </div>
+
+      <h3>死锁：两个事务互相等对方</h3>
+      <p>事务 A 锁了行 1 等行 2，事务 B 锁了行 2 等行 1，谁也动不了。MySQL 会检测到并杀掉一个，抛 deadlock 异常。常见预防：</p>
+      <ul>
+        <li><strong>固定加锁顺序</strong>：批量操作时按 ID 升序处理，不要一会儿正序一会儿倒序。</li>
+        <li><strong>缩短事务</strong>：不要在事务里做网络请求、循环几千次。</li>
+        <li><strong>合理索引</strong>：没索引的 UPDATE 会锁很多行，更容易冲突。</li>
+        <li><strong>失败重试</strong>：对 deadlock / lock wait timeout 做有限次重试。</li>
+      </ul>
+
+      <h3>隔离级别，先知道有这回事</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>级别</th><th>能避免</th><th>代价</th></tr></thead>
+          <tbody>
+            <tr><td>READ UNCOMMITTED</td><td>几乎不避免</td><td>会读到别人未提交的脏数据</td></tr>
+            <tr><td>READ COMMITTED</td><td>脏读</td><td>同一事务内两次读可能不一样</td></tr>
+            <tr><td>REPEATABLE READ（MySQL 默认）</td><td>脏读、不可重复读</td><td>可能出现幻读（InnoDB 用间隙锁缓解）</td></tr>
+            <tr><td>SERIALIZABLE</td><td>全部</td><td>并发性能最差</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>日常开发不需要背，只要记住：<strong>默认级别 + 条件更新 + 唯一索引 + 短事务</strong>，已经能解决绝大多数业务并发问题。</p>
+
+      <details class="quiz">
+        <summary>自测：审批接口为什么不用「先查状态再更新」？</summary>
+        <p>因为「查」和「更新」之间有时间窗口，两个请求可能都查到 pending。条件更新把判断和写入合成一条原子 SQL，由数据库保证只有一个能成功。第二个请求 rowcount=0，走幂等回放，返回首次结果。</p>
+      </details>
+    </section>
+
+    <!-- ================= 16 ================= -->
+    <section id="debug">
+      <h2><span class="num">16</span>日志与排错：出问题先看哪里</h2>
+      <p class="section-sub">后端排错不是玄学，是「按层缩小范围」。这一节给你一套固定流程。</p>
+
+      <h3>项目日志长什么样</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">终端输出（格式来自 core/logging.py）</span><button class="copy">复制</button></div>
+<pre>2026-11-25 10:21:03 | INFO    | 9f1c2e7a4b6d4c8e | app.access | GET /api/v1/assistants -&gt; 200 (18.4ms)
+2026-11-25 10:21:08 | WARNING | 3a7d1b9c0e2f4a6d | app.error  | 未映射的数据库约束异常：...
+2026-11-25 10:21:12 | ERROR   | -                | app.error  | 未处理异常：...</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>片段</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td>时间</td><td>精确到秒，方便和前端报错时间对齐</td></tr>
+            <tr><td>级别</td><td>INFO 正常、WARNING 可恢复异常、ERROR 需要处理</td></tr>
+            <tr><td>traceId</td><td>这次请求的唯一 ID，和响应里的 <code>traceId</code>、响应头 <code>X-Trace-Id</code> 一致</td></tr>
+            <tr><td>logger 名</td><td><code>app.access</code> 访问日志、<code>app.error</code> 异常、<code>app.share</code> 业务日志</td></tr>
+            <tr><td>消息</td><td>方法、路径、状态码、耗时；或具体异常</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>固定排错六步</h3>
+      <div class="steps">
+        <div class="step"><h4>① 先看浏览器 Network</h4><p>请求发出去了吗？URL、方法、Header、Body 对不对？状态码是多少？响应体是什么？如果是 CORS / 502 / 连接拒绝，问题在网络层，不用看 Python。</p></div>
+        <div class="step"><h4>② 看后端终端</h4><p>请求到没到？有没有 traceId？有没有异常堆栈？<code>--reload</code> 有没有报语法错误导致服务没起来？</p></div>
+        <div class="step"><h4>③ 看状态码和业务 code</h4><p>400 是参数，401 是没登录，403 是权限，404 是路径/资源，409 是状态冲突，500 是后端 bug。先分类，再细看。</p></div>
+        <div class="step"><h4>④ 用 Swagger 复现</h4><p>打开 <code>/docs</code>，用同样的 Header 和 Body 调一次。如果 Swagger 正常、页面不正常，问题在前端；如果都异常，问题在后端。</p></div>
+        <div class="step"><h4>⑤ 看数据库</h4><p>查一下数据到底有没有写进去、字段值对不对、事务有没有提交。用 <code>DB_ECHO=true</code> 还能把 SQL 打出来。</p></div>
+        <div class="step"><h4>⑥ 加日志 / 断点</h4><p>在 Service 入口打一行 <code>logger.info</code>，或在 VS Code 里打断点。不要靠猜，让程序告诉你走到了哪。</p></div>
+      </div>
+
+      <h3>症状对照表</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>症状</th><th>最可能的原因</th><th>怎么确认 / 解决</th></tr></thead>
+          <tbody>
+            <tr><td>浏览器 CORS 报错，但 curl 正常</td><td>跨域被浏览器拦，后端没允许该源</td><td>开发用 Vite 代理；或把源加进 <code>CORS_ORIGINS</code></td></tr>
+            <tr><td>401 未登录</td><td>没带 <code>X-User-Id</code>，或值为空</td><td>看 Network 请求头；检查 axios 拦截器 / Swagger 参数</td></tr>
+            <tr><td>403 无权限</td><td>不是管理员 / 不是创建人</td><td>换 9001 管理员或对应创建人账号；看 Service 权限判断</td></tr>
+            <tr><td>404 但路径看起来没错</td><td>路由顺序、前缀、末尾斜杠、方法不对</td><td>看 <code>/docs</code> 的真实路径；检查 <code>include_router</code> 顺序</td></tr>
+            <tr><td>400 参数不合法</td><td>字段长度、枚举、类型、必填</td><td>看响应 <code>data.field</code> 和 <code>message</code></td></tr>
+            <tr><td>409 状态冲突</td><td>重名、审批中、已共享、已被处理</td><td>刷新数据；看具体 code</td></tr>
+            <tr><td>500 未处理异常</td><td>代码 bug、数据库断连、空指针</td><td>看终端堆栈最后一行 + traceId</td></tr>
+            <tr><td><code>No module named uvicorn</code></td><td>用错 Python 环境</td><td><code>conda activate Agent</code> 或用绝对路径</td></tr>
+            <tr><td>改了代码没生效</td><td><code>--reload</code> 没触发</td><td>看终端有没有 Reloading，手动重启</td></tr>
+            <tr><td>数据没保存</td><td>只 flush 没 commit；或异常回滚</td><td>看 Service 是否 commit；看日志有没有异常</td></tr>
+            <tr><td><code>traceId</code> 是空串</td><td>不是统一响应结构，或没经过 <code>UnifiedJSONResponse</code></td><td>确认返回的是 <code>ok()/fail()</code> 结构</td></tr>
+            <tr><td>前端字段是 undefined</td><td>后端返回 snake_case / 少了字段</td><td>看 Network 原始 JSON；确认 <code>by_alias=True</code></td></tr>
+            <tr><td>中文姓名乱码</td><td>Header 没百分号编码，或没 unquote</td><td>前端 <code>encodeURIComponent</code>，后端 <code>unquote</code></td></tr>
+            <tr><td>列表很慢</td><td>N+1、缺索引、一次查太多</td><td>开 SQL 日志；看是否循环查库；加 <code>selectinload</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>用 VS Code 调试</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">.vscode/launch.json（示例）</span><button class="copy">复制</button></div>
+<pre>{
+  <span class="s">"version"</span>: <span class="s">"0.2.0"</span>,
+  <span class="s">"configurations"</span>: [
+    {
+      <span class="s">"name"</span>: <span class="s">"FastAPI: uvicorn"</span>,
+      <span class="s">"type"</span>: <span class="s">"debugpy"</span>,
+      <span class="s">"request"</span>: <span class="s">"launch"</span>,
+      <span class="s">"module"</span>: <span class="s">"uvicorn"</span>,
+      <span class="s">"args"</span>: [<span class="s">"app.main:app"</span>, <span class="s">"--host"</span>, <span class="s">"127.0.0.1"</span>, <span class="s">"--port"</span>, <span class="s">"8000"</span>],
+      <span class="s">"cwd"</span>: <span class="s">"${workspaceFolder}/server"</span>,
+      <span class="s">"python"</span>: <span class="s">"D:\\Miniconda\\envs\\Agent\\python.exe"</span>,
+      <span class="s">"justMyCode"</span>: <span class="k">false</span>
+    }
+  ]
+}</pre>
+      </div>
+      <p>在 Service 方法第一行打断点，然后用 Swagger 发请求。断下来后看：参数对不对、用户对不对、SQL 条件是什么、返回前的对象长什么样。比在代码里到处加 print 高效得多。</p>
+
+      <h3>读堆栈的正确姿势</h3>
+      <p>异常堆栈从下往上看：</p>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">堆栈示例（简化）</span><button class="copy">复制</button></div>
+<pre>Traceback (most recent call last):
+  File "app/api/v1/assistants.py", line 95, in create_assistant
+    detail = service.create_assistant(payload, user)
+  File "app/services/assistant_service.py", line 376, in create_assistant
+    if self.repo.find_name_conflict(...) is not None:
+  File "app/repositories/assistant_repo.py", line 274, in find_name_conflict
+    stmt = select(Assistant.id).where(...)
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server")</pre>
+      </div>
+      <p>最后一行才是根因：连不上 MySQL。上面的行只是「调用链」。先解决根因，再看业务逻辑。</p>
+
+      <div class="callout tip">
+        <span class="label">让数据库说话</span>
+        在 <code>.env</code> 里设 <code>DB_ECHO=true</code>，SQLAlchemy 会把每条 SQL 打到终端。排查「查询条件不对」「为什么查了 50 次」「是不是没带 company_id」非常有用。排查完记得关掉，日志会很多。
+      </div>
+    </section>
+
+    <!-- ================= 17 ================= -->
+    <section id="test">
+      <h2><span class="num">17</span>测试：用代码证明接口没坏</h2>
+      <p class="section-sub">后端没有「刷新页面看看」这种廉价的验证方式。测试就是后端的预览环境。</p>
+
+      <p class="lead">本项目用 <strong>pytest + FastAPI TestClient</strong> 做接口测试。TestClient 不启动真实端口，直接把请求交给 FastAPI 应用，所以快、稳定、能进 CI。</p>
+
+      <h3>一条测试长什么样</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/tests/test_assistants.py（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">from</span> fastapi.testclient <span class="k">import</span> TestClient
+<span class="k">from</span> app.main <span class="k">import</span> app
+
+client = TestClient(app)
+
+<span class="k">def</span> test_create_rejects_short_description() -> <span class="k">None</span>:
+    resp = client.post(
+        <span class="s">"/api/v1/assistants"</span>,
+        headers=OWNER,
+        json=_payload(<span class="s">"接口测试助理丁"</span>, description=<span class="s">"太短"</span>),
+    )
+    <span class="k">assert</span> resp.status_code == 400
+    <span class="k">assert</span> resp.json()[<span class="s">"code"</span>] == <span class="s">"PARAM_INVALID"</span></pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>部分</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>TestClient(app)</code></td><td>创建一个「假浏览器」，直接调 ASGI 应用</td></tr>
+            <tr><td><code>client.post(url, headers=..., json=...)</code></td><td>发请求，等价于 axios 的 post</td></tr>
+            <tr><td><code>resp.status_code</code></td><td>HTTP 状态码</td></tr>
+            <tr><td><code>resp.json()</code></td><td>解析响应 JSON</td></tr>
+            <tr><td><code>assert</code></td><td>不成立就失败，测试用例报错</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>怎么造登录态</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/tests/test_assistants.py · 测试头</span><button class="copy">复制</button></div>
+<pre><span class="k">def</span> _h(user_id: str, name: str, dept: str | <span class="k">None</span> = <span class="k">None</span>) -> dict[str, str]:
+    <span class="c">"""HTTP 头只能是 ASCII，中文姓名按 UTF-8 百分号编码后传入。"""</span>
+    <span class="k">from</span> urllib.parse <span class="k">import</span> quote
+    headers = {<span class="s">"X-User-Id"</span>: user_id, <span class="s">"X-User-Name"</span>: quote(name)}
+    <span class="k">if</span> dept:
+        headers[<span class="s">"X-User-Dept"</span>] = quote(dept)
+    <span class="k">return</span> headers
+
+OWNER = _h(<span class="s">"1001"</span>, <span class="s">"王晓明"</span>, <span class="s">"人力资源部 · 招聘组"</span>)
+OTHER = _h(<span class="s">"1002"</span>, <span class="s">"李静"</span>, <span class="s">"人力资源部 · 招聘组"</span>)
+ADMIN = {**_h(<span class="s">"9001"</span>, <span class="s">"王建国"</span>), <span class="s">"X-Company-Id"</span>: <span class="s">"1"</span>}</pre>
+      </div>
+      <p>测试里没有真实登录，直接构造 Header。这和后端开发期的鉴权方式一致。以后接了真实网关，测试可以改成生成测试 Token，路由和 Service 不用动。</p>
+
+      <h3>测试会连真数据库吗</h3>
+      <p>会。当前项目的接口测试直接连 <code>.env</code> 配置的数据库，所以跑测试前要先初始化数据库。为了让测试可重复执行，<span class="path">conftest.py</span> 做了两件事：</p>
+      <div class="steps">
+        <div class="step"><h4>会话开始前清理</h4><p>删除名称命中测试前缀的旧助理及其关联数据，避免上次失败的残留影响本次。</p></div>
+        <div class="step"><h4>会话结束后再清理</h4><p>删除本次测试新建的助理、审批、范围快照、授权、审计、召唤记录，避免污染开发库。</p></div>
+      </div>
+      <div class="callout warn">
+        <span class="label">注意</span>
+        新增测试时，助理名称要用已登记的前缀（如「接口测试助理%」），或把新前缀加进 <code>_TEST_NAME_PREFIXES</code>。否则测试数据不会被自动清理，日积月累开发库就脏了。
+      </div>
+
+      <h3>怎么跑</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">PowerShell · 工作目录 server/</span><button class="copy">复制</button></div>
+<pre><span class="c"># 全部测试（README 记录当前 129 项）</span>
+python -m pytest -q
+
+<span class="c"># 只跑助理相关</span>
+python -m pytest tests/test_assistants.py -q
+
+<span class="c"># 只跑名字包含 favorite 的用例</span>
+python -m pytest -q -k favorite
+
+<span class="c"># 显示每条用例名</span>
+python -m pytest -v
+
+<span class="c"># 第一次失败就停</span>
+python -m pytest -x</pre>
+      </div>
+
+      <h3>测试该覆盖什么</h3>
+      <div class="grid2">
+        <div class="box good">
+          <h4>值得测</h4>
+          <ul>
+            <li>正常路径：能创建、能查到、状态对</li>
+            <li>边界：最短/最长、空数组、最大条数</li>
+            <li>错误：重名、无权限、状态冲突</li>
+            <li>脱敏：列表不含 prompt</li>
+            <li>幂等：重复提交结果一致</li>
+            <li>租户隔离：查不到别的公司的数据</li>
+          </ul>
+        </div>
+        <div class="box bad">
+          <h4>不必测</h4>
+          <ul>
+            <li>FastAPI 自身的路由匹配</li>
+            <li>Pydantic 自身的类型转换</li>
+            <li>SQLAlchemy 自身的 SQL 生成</li>
+            <li>每一行 getter/setter</li>
+            <li>纯样式、纯文案</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>测试命名就是文档</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">好名字 vs 坏名字</span><button class="copy">复制</button></div>
+<pre><span class="c"># 好：一眼知道在验证什么</span>
+test_create_rejects_duplicate_name
+test_list_card_has_no_prompt_field
+test_approve_is_idempotent
+test_shared_user_cannot_edit_assistant
+
+<span class="c"># 坏：看不出预期</span>
+test_create_1
+test_api
+test_ok</pre>
+      </div>
+
+      <div class="callout analogy">
+        <span class="label">前端类比</span>
+        接口测试很像前端的 E2E，但更快、更底层：不用开浏览器，不用等渲染，直接断言接口的输入输出。它不能替代前端 E2E，但能在你改后端时第一时间告诉你「哪个契约被破坏了」。
+      </div>
+
+      <details class="quiz">
+        <summary>自测：为什么测试里要把 <code>LLM_ENABLED</code> 设为 false？</summary>
+        <p>因为测试不应该依赖外部大模型。大模型可能慢、可能限流、输出不稳定，导致测试随机失败。项目在 <code>conftest.py</code> 里设置 <code>LLM_ENABLED=false</code>，AI 生成走本地确定性模板，结果可断言、可离线执行。这叫「隔离外部依赖」。</p>
+      </details>
+    </section>
+
+    <!-- ================= 18 ================= -->
+    <section id="config">
+      <h2><span class="num">18</span>配置与环境变量</h2>
+      <p class="section-sub">代码一套，环境多套。配置不能写死，密钥不能进 Git。</p>
+
+      <h3>配置放在 .env，不放在代码里</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/.env.example（节选）</span><button class="copy">复制</button></div>
+<pre>APP_NAME=数智助理 · 助理团
+DEBUG=true
+LOG_LEVEL=INFO
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=assistant
+
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+OBS_AK=
+OBS_SK=
+LLM_API_KEY=</pre>
+      </div>
+      <p><code>.env.example</code> 是模板，提交到 Git；<code>.env</code> 是本地真实配置，<strong>不提交</strong>。新人 clone 后复制一份，填自己的数据库密码即可。</p>
+
+      <h3>代码怎么读配置</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">server/app/core/config.py（节选）</span><button class="copy">复制</button></div>
+<pre><span class="k">class</span> Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=SERVER_ROOT / <span class="s">".env"</span>,   <span class="c"># 从 .env 读</span>
+        env_file_encoding=<span class="s">"utf-8"</span>,
+        extra=<span class="s">"ignore"</span>,                     <span class="c"># 多余键忽略</span>
+    )
+
+    db_host: str = <span class="s">"127.0.0.1"</span>
+    db_port: int = 3306
+    db_password: str = <span class="s">""</span>
+    cors_origins: str = <span class="s">"http://localhost:5173"</span>
+
+    @property
+    def database_url(self) -> str:
+        password = quote_plus(self.db_password)
+        <span class="k">return</span> f<span class="s">"mysql+pymysql://{self.db_user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}?charset=utf8mb4"</span>
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        <span class="k">return</span> [item.strip() <span class="k">for</span> item <span class="k">in</span> self.cors_origins.split(<span class="s">","</span>) <span class="k">if</span> item.strip()]</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>细节</th><th>为什么</th></tr></thead>
+          <tbody>
+            <tr><td>字段名小写 <code>db_host</code></td><td>Pydantic Settings 大小写不敏感，对应 <code>DB_HOST</code></td></tr>
+            <tr><td><code>quote_plus(password)</code></td><td>密码里可能有 <code>@ # /</code>，不转义会拼坏连接串</td></tr>
+            <tr><td><code>@property</code></td><td>派生值不单独存，避免改了 host 忘了改 URL</td></tr>
+            <tr><td><code>lru_cache</code></td><td><code>get_settings()</code> 只创建一次，全局复用</td></tr>
+            <tr><td><code>cors_origin_list</code></td><td>环境变量只能是字符串，代码里拆成列表</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>改了 .env 没生效？</h3>
+      <p><code>settings</code> 是模块加载时创建的单例，<code>lru_cache</code> 又缓存了它。改 <code>.env</code> 后必须重启进程（<code>--reload</code> 不一定监听 <code>.env</code>），否则读到的还是旧值。这是很常见的「我明明改了配置」问题。</p>
+
+      <h3>密钥管理三条底线</h3>
+      <div class="grid3">
+        <div class="box bad"><h4>① 不进 Git</h4><p class="muted">密码、AK/SK、LLM Key 只放环境变量或密钥管理服务。提交前检查 <code>git diff</code>。</p></div>
+        <div class="box bad"><h4>② 不进日志</h4><p class="muted">不要把完整连接串、Token 打日志。日志会被采集、转发、长期保存。</p></div>
+        <div class="box bad"><h4>③ 不进前端</h4><p class="muted">前端打包后的代码用户能看。任何 <code>VITE_</code> 变量都不是秘密，不能放密钥。</p></div>
+      </div>
+
+      <h3>没有密钥也能开发</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>能力</th><th>没配置时</th><th>配置后</th></tr></thead>
+          <tbody>
+            <tr><td>头像存储</td><td>回退到本地 <code>static/</code> 目录，通过 <code>/static</code> 访问</td><td>上传到天翼云 OBS，库里只存对象 key</td></tr>
+            <tr><td>AI 生成</td><td>回退到本地确定性模板，结果仍然合规</td><td>调用 OpenAI 兼容大模型</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>这种「可选依赖 + 自动回退」的设计很适合本地开发：新人不用先去申请一堆云账号，clone 下来就能跑；生产再通过环境变量打开真实能力。</p>
+
+      <div class="callout tip">
+        <span class="label">环境划分</span>
+        至少准备 dev / test / prod 三套配置。生产要关 <code>DEBUG</code>、关 <code>DB_ECHO</code>、限制 CORS 来源、打开访问日志、使用独立数据库账号（只给必要权限）。不要用 root 跑生产。
+      </div>
+    </section>
+
+    <!-- ================= 19 ================= -->
+    <section id="integration">
+      <h2><span class="num">19</span>前后端联调清单</h2>
+      <p class="section-sub">联调不是「接口通了就行」，而是「契约、错误、边界都对上了」。</p>
+
+      <h3>本项目怎么连起来</h3>
+      <div class="flow">
+        <span class="node">Vue 页面</span><span class="arrow">→</span>
+        <span class="node blue">api/index.ts</span><span class="arrow">→</span>
+        <span class="node purple">request.ts<br>axios 实例</span><span class="arrow">→</span>
+        <span class="node orange">Vite 代理 /api</span><span class="arrow">→</span>
+        <span class="node dark">FastAPI :8000</span>
+      </div>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">web/vite.config.ts · 开发代理</span><button class="copy">复制</button></div>
+<pre>server: {
+  port: 5173,
+  proxy: {
+    <span class="s">'/api'</span>: {
+      target: env.VITE_PROXY_TARGET || <span class="s">'http://127.0.0.1:8000'</span>,
+      changeOrigin: <span class="k">true</span>
+    },
+    <span class="s">'/static'</span>: {
+      target: env.VITE_PROXY_TARGET || <span class="s">'http://127.0.0.1:8000'</span>,
+      changeOrigin: <span class="k">true</span>
+    }
+  }
+}</pre>
+      </div>
+
+      <h3>CORS 和代理，到底什时候需要谁</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>场景</th><th>浏览器地址</th><th>后端地址</th><th>是否需要 CORS</th></tr></thead>
+          <tbody>
+            <tr><td>开发走 Vite 代理</td><td><code>localhost:5173</code></td><td>代理转发到 8000</td><td>不需要，浏览器认为是同源</td></tr>
+            <tr><td>开发直接请求 8000</td><td><code>localhost:5173</code></td><td><code>127.0.0.1:8000</code></td><td>需要，且 Origin 要匹配</td></tr>
+            <tr><td>生产同域部署</td><td><code>https://app.example.com</code></td><td>Nginx 转发到后端</td><td>通常不需要</td></tr>
+            <tr><td>生产跨域调用</td><td><code>https://a.example.com</code></td><td><code>https://api.example.com</code></td><td>需要精确配置来源</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn">
+        <span class="label">常见误区</span>
+        「本地用 Vite 代理，所以 CORS 不用配」——开发确实不用，但生产如果跨域就会挂。后端的 <code>CORS_ORIGINS</code> 仍然要按部署方式配置，且不要图省事写 <code>*</code> 配合 <code>allow_credentials=True</code>（浏览器不允许）。
+      </div>
+
+      <h3>联调前先对齐这 8 件事</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>项</th><th>要确认什么</th><th>本项目约定</th></tr></thead>
+          <tbody>
+            <tr><td>路径</td><td>前缀、复数、子路径</td><td><code>/api/v1/assistants</code></td></tr>
+            <tr><td>方法</td><td>GET/POST/PUT/DELETE</td><td>创建 POST、编辑 PUT、删除 DELETE</td></tr>
+            <tr><td>字段命名</td><td>camelCase 还是 snake_case</td><td>出参 camelCase，Pydantic 自动转</td></tr>
+            <tr><td>分页</td><td>参数名、默认值、上限</td><td><code>page</code> / <code>pageSize</code>，默认 12，最大 50</td></tr>
+            <tr><td>响应壳</td><td>有没有 code/message/data</td><td>统一四字段，前端拦截器剥壳</td></tr>
+            <tr><td>错误</td><td>字段级 error 怎么给</td><td><code>data.field</code></td></tr>
+            <tr><td>登录态</td><td>Header / Cookie / Token</td><td>开发期 Header，生产网关</td></tr>
+            <tr><td>空值</td><td>null、空串、空数组</td><td>version 空串表示未发布；详情有 prompt、列表没有（被授权方脱敏见 Schema 注释）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>页面状态别漏</h3>
+      <div class="grid3">
+        <div class="box"><h4>loading</h4><p class="muted">请求中禁用按钮，防止重复提交。后端虽然幂等，前端也不该制造无谓请求。</p></div>
+        <div class="box"><h4>empty</h4><p class="muted">列表为空要有空状态，不要显示一个空白页让用户以为坏了。</p></div>
+        <div class="box"><h4>error</h4><p class="muted">区分「没权限 / 没登录 / 参数错 / 服务器错」，给不同操作建议。</p></div>
+        <div class="box"><h4>partial</h4><p class="muted">部分字段缺失时不要让整个页面崩，做好可选链和默认值。</p></div>
+        <div class="box"><h4>stale</h4><p class="muted">审批、编辑后主动刷新详情，避免看到旧状态。</p></div>
+        <div class="box"><h4>permission</h4><p class="muted">用后端返回的 actions 渲染按钮，但点击后仍要处理后端 403。</p></div>
+      </div>
+
+      <h3>联调排错顺序</h3>
+      <div class="steps">
+        <div class="step"><h4>① 先看请求有没有发出去</h4><p>Network 里有没有这条请求？没有 → 前端代码/事件/条件渲染问题。</p></div>
+        <div class="step"><h4>② 再看请求内容</h4><p>URL、方法、Header、Body 是否和后端契约一致？最常见的是字段名大小写、少传必填项。</p></div>
+        <div class="step"><h4>③ 看响应状态和 code</h4><p>200 但 code 不是 OK？说明业务失败。直接看 message 和 data.field。</p></div>
+        <div class="step"><h4>④ 用 Swagger 对照</h4><p>同样的参数在 Swagger 能不能成功？能 → 前端问题；不能 → 后端/数据问题。</p></div>
+        <div class="step"><h4>⑤ 看后端日志 traceId</h4><p>把响应里的 traceId 拿去搜终端日志，能看到这次请求的完整访问记录和异常。</p></div>
+      </div>
+
+      <div class="callout ok">
+        <span class="label">最省事的习惯</span>
+        每次报错，先把「请求 URL + 方法 + 状态码 + 响应 JSON + traceId」五件套截图或复制下来。这五项能覆盖 90% 的联调沟通，不用来回复问「你传了什么」。
+      </div>
+    </section>
+
+    <!-- ================= 20 ================= -->
+    <section id="pitfalls">
+      <h2><span class="num">20</span>常见坑速查</h2>
+      <p class="section-sub">这些坑，项目里几乎都出现过。收藏这一节，遇到问题先扫一眼。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>现象 / 坑</th><th>原因</th><th>解决</th></tr></thead>
+          <tbody>
+            <tr><td>01</td><td><code>No module named uvicorn</code></td><td>用了 conda base 的 Python，不是 Agent 环境</td><td><code>conda activate Agent</code> 或用绝对路径启动</td></tr>
+            <tr><td>02</td><td>代码改了行为没变</td><td><code>--reload</code> 没触发</td><td>看终端有没有 Reloading；手动重启</td></tr>
+            <tr><td>03</td><td>启动报数据库连接失败</td><td>没复制 <code>.env</code>、密码错、MySQL 没启动</td><td>复制模板填密码；先连 MySQL；看 <code>/health</code></td></tr>
+            <tr><td>04</td><td>表不存在</td><td>没执行建表脚本</td><td><code>mysql -u root -p &lt; deploy/mysql/assistant_mysql.sql</code></td></tr>
+            <tr><td>05</td><td>401 未登录</td><td>没带 <code>X-User-Id</code></td><td>检查 axios 拦截器 / Swagger Header</td></tr>
+            <tr><td>06</td><td>403 无权限</td><td>不是管理员 / 不是创建人</td><td>用 9001 管理员或对应创建人；看 Service 判断</td></tr>
+            <tr><td>07</td><td>404 明明有接口</td><td>路由顺序、前缀、方法、末尾斜杠</td><td>以 <code>/docs</code> 为准；调整 <code>include_router</code> 顺序</td></tr>
+            <tr><td>08</td><td>422 还是 400？</td><td>FastAPI 默认 422，项目全局改成了 400</td><td>看 <code>exception_handlers.py</code>；前端统一按 400 处理</td></tr>
+            <tr><td>09</td><td>浏览器 CORS 报错</td><td>跨域源不在白名单，或直接请求 8000</td><td>开发用 Vite 代理；生产精确配置 <code>CORS_ORIGINS</code></td></tr>
+            <tr><td>10</td><td>前端字段 undefined</td><td>后端返回 snake_case / 少字段</td><td>确认 <code>model_dump(by_alias=True)</code>；看原始 JSON</td></tr>
+            <tr><td>11</td><td>数据没保存</td><td>只 <code>flush</code> 没 <code>commit</code>；或异常回滚</td><td>Service 里确认 commit；看日志异常</td></tr>
+            <tr><td>12</td><td>拿不到自增 ID</td><td><code>add</code> 后没 <code>flush</code></td><td><code>db.flush()</code> 后再读 <code>row.id</code></td></tr>
+            <tr><td>13</td><td>commit 后读到旧关联数据</td><td><code>expire_on_commit=False</code> + 会话缓存</td><td>重新查询时加 <code>populate_existing=True</code></td></tr>
+            <tr><td>14</td><td>列表很慢 / SQL 很多</td><td>N+1 查询</td><td>用 <code>selectinload</code> 批量加载关联</td></tr>
+            <tr><td>15</td><td>删了数据还能查到</td><td>逻辑删除，查询漏了 <code>deleted_at IS NULL</code></td><td>所有列表/详情查询补上过滤</td></tr>
+            <tr><td>16</td><td>能查到别的公司的数据</td><td>查询漏了 <code>company_id</code></td><td>所有 Repository 查询强制带租户</td></tr>
+            <tr><td>17</td><td>中文姓名乱码</td><td>Header 没编码 / 后端没解码</td><td><code>encodeURIComponent</code> + <code>unquote</code></td></tr>
+            <tr><td>18</td><td>Pydantic v1 写法报错</td><td>项目是 v2，<code>validator</code> 已改名</td><td>用 <code>field_validator</code>；<code>.dict()</code> → <code>.model_dump()</code></td></tr>
+            <tr><td>19</td><td>列表把 prompt 返回了</td><td>直接返回 ORM 对象，没用出参 Schema</td><td>用白名单 Schema，测试断言不含 prompt</td></tr>
+            <tr><td>20</td><td>事务长时间不提交</td><td>在事务里调大模型 / 上传文件</td><td>先 commit 核心数据，再做副作用</td></tr>
+            <tr><td>21</td><td>重复提交导致重复数据</td><td>只有 Service 判断，没有唯一索引</td><td>加唯一键；捕获 IntegrityError；条件更新</td></tr>
+            <tr><td>22</td><td>测试越跑数据越脏</td><td>新测试名没登记清理前缀</td><td>加到 <code>_TEST_NAME_PREFIXES</code> 或用 fixture 清理</td></tr>
+            <tr><td>23</td><td>日志里找不到请求</td><td>没看 traceId / 日志级别太高</td><td>用响应里的 traceId 搜；调 <code>LOG_LEVEL</code></td></tr>
+            <tr><td>24</td><td><code>/redoc</code> 打不开</td><td><code>main.py</code> 里 <code>redoc_url=None</code></td><td>用 <code>/docs</code>；以代码为准</td></tr>
+            <tr><td>25</td><td>生产用了 root 数据库账号</td><td>图省事</td><td>建最小权限账号；关闭 DEBUG / DB_ECHO</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>三个「先别急着改代码」的判断</h3>
+      <div class="grid3">
+        <div class="box info"><h4>先判断层</h4><p class="muted">是网络没通、路由没到、参数没过、业务拒绝，还是数据库没写？层没定，改哪都是猜。</p></div>
+        <div class="box info"><h4>先复现</h4><p class="muted">用 Swagger 或测试稳定复现，再改。只在前端点一次就改代码，很容易改错方向。</p></div>
+        <div class="box info"><h4>先写测试</h4><p class="muted">修 bug 前先写一个会失败的测试，修完它变绿。这样以后不会回归。</p></div>
+      </div>
+    </section>
+
+    <!-- ================= 21 ================= -->
+    <section id="roadmap">
+      <h2><span class="num">21</span>学习路线与练习</h2>
+      <p class="section-sub">不要从第一页读到最后一页。按「跑起来 → 看懂一条链路 → 改一个小功能 → 加一个新接口」推进。</p>
+
+      <h3>7 天速成计划</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>天</th><th>目标</th><th>做什么</th><th>验收</th></tr></thead>
+          <tbody>
+            <tr><td>Day 1</td><td>跑起来</td><td>启动 MySQL、后端、前端；打开 <code>/docs</code> 和 <code>/health</code></td><td>能调通列表接口</td></tr>
+            <tr><td>Day 2</td><td>看懂请求链路</td><td>读第 02、05、06 节；用 Network 对照 Swagger</td><td>能说出一次请求经过哪些层</td></tr>
+            <tr><td>Day 3</td><td>看懂一个接口</td><td>读第 11 节，对照 <code>assistants.py</code> → <code>assistant_service.py</code> → <code>assistant_repo.py</code></td><td>能口述列表接口的 4 个步骤</td></tr>
+            <tr><td>Day 4</td><td>数据库与 ORM</td><td>读第 09、10 节；在数据库里查一条助理和它的标签</td><td>能写一个简单的 <code>select().where()</code></td></tr>
+            <tr><td>Day 5</td><td>校验与权限</td><td>读第 07、08、13 节；改一个字段长度，观察报错</td><td>能定位 <code>data.field</code></td></tr>
+            <tr><td>Day 6</td><td>动手加接口</td><td>跟着第 12 节做「收藏助理」</td><td>三个接口 + 测试通过</td></tr>
+            <tr><td>Day 7</td><td>排错与联调</td><td>读第 16、19、20 节；故意制造 401/403/404/409 各一次</td><td>能独立定位四类错误</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>30 天进阶计划</h3>
+      <div class="grid2">
+        <div class="box">
+          <h4>第 1 周：基础</h4>
+          <ul><li>Python 语法：类型注解、类、异常、生成器</li><li>HTTP 与 REST 语义</li><li>FastAPI 路由 + Pydantic</li><li>SQL 增删改查 + JOIN</li></ul>
+        </div>
+        <div class="box">
+          <h4>第 2 周：项目</h4>
+          <ul><li>分层架构与依赖方向</li><li>SQLAlchemy 关系与事务</li><li>鉴权与多租户</li><li>统一响应与异常</li></ul>
+        </div>
+        <div class="box">
+          <h4>第 3 周：工程化</h4>
+          <ul><li>pytest 与测试数据清理</li><li>日志、traceId、排错</li><li>配置与密钥管理</li><li>代码评审关注点</li></ul>
+        </div>
+        <div class="box">
+          <h4>第 4 周：进阶</h4>
+          <ul><li>并发、幂等、唯一索引</li><li>慢查询与索引优化</li><li>外部服务集成（OBS / LLM）</li><li>部署与监控入门</li></ul>
+        </div>
+      </div>
+
+      <h3>推荐阅读顺序（按文件）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>顺序</th><th>文件</th><th>看什么</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><span class="path">server/app/main.py</span></td><td>应用怎么装配：CORS、中间件、异常、路由、静态目录</td></tr>
+            <tr><td>2</td><td><span class="path">server/app/api/v1/assistants.py</span></td><td>路由怎么声明、参数从哪来、怎么调 Service</td></tr>
+            <tr><td>3</td><td><span class="path">server/app/schemas/assistant.py</span></td><td>入参/出参合同、camelCase、校验器</td></tr>
+            <tr><td>4</td><td><span class="path">server/app/services/assistant_service.py</span></td><td>业务规则、权限、状态、事务</td></tr>
+            <tr><td>5</td><td><span class="path">server/app/repositories/assistant_repo.py</span></td><td>查询怎么写、三段 UNION、批量加载</td></tr>
+            <tr><td>6</td><td><span class="path">server/app/models/assistant.py</span></td><td>表结构、关系、级联</td></tr>
+            <tr><td>7</td><td><span class="path">server/app/core/database.py</span></td><td>连接池、Session、依赖</td></tr>
+            <tr><td>8</td><td><span class="path">server/app/core/security.py</span></td><td>登录态解析、管理员判断</td></tr>
+            <tr><td>9</td><td><span class="path">server/app/core/exception_handlers.py</span></td><td>异常怎么统一翻译</td></tr>
+            <tr><td>10</td><td><span class="path">server/tests/test_assistants.py</span></td><td>接口契约怎么被测试固定住</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>12 个练习（由易到难）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>练习</th><th>考察点</th><th>验收</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>给列表加一个 <code>sortBy=updatedAt</code> 参数</td><td>Query 参数、Service、Repository</td><td>不同排序结果正确，非法值 400</td></tr>
+            <tr><td>2</td><td>给详情接口加「收藏数」字段</td><td>Schema、关联查询</td><td>字段 camelCase，无 N+1</td></tr>
+            <tr><td>3</td><td>把标签上限从 5 改成 8</td><td>Pydantic、前端类型、测试</td><td>三处一致，旧数据不受影响</td></tr>
+            <tr><td>4</td><td>新增「我的收藏」列表页签</td><td>Repository 关联查询、分页</td><td>只返回当前用户收藏</td></tr>
+            <tr><td>5</td><td>给分类加「启用/停用」</td><td>状态机、唯一索引、软删除</td><td>停用后不能被新助理选择</td></tr>
+            <tr><td>6</td><td>实现助理复制</td><td>事务、名称冲突、关联复制</td><td>复制失败不留半条数据</td></tr>
+            <tr><td>7</td><td>加一个操作日志查询接口</td><td>JSON 字段、分页、管理员权限</td><td>非管理员 403</td></tr>
+            <tr><td>8</td><td>给审批加「批量通过」</td><td>事务、幂等、部分失败语义</td><td>明确整批成功/失败</td></tr>
+            <tr><td>9</td><td>给共享范围加「排除人员」</td><td>四维展开、快照、授权重算</td><td>排除的人不出现在 grant</td></tr>
+            <tr><td>10</td><td>加接口耗时监控</td><td>中间件、日志、指标</td><td>慢请求能被发现</td></tr>
+            <tr><td>11</td><td>把列表查询改成游标分页</td><td>索引、排序稳定性、深分页</td><td>翻到很深也不慢</td></tr>
+            <tr><td>12</td><td>接真实 JWT 登录</td><td>网关、Token、测试替换</td><td>伪造 Header 不再有效</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>自测 8 题</h3>
+      <details class="quiz"><summary>1. GET 请求能不能带 Body？</summary><p>HTTP 协议没有禁止，但语义上 GET 是「查询」，很多代理、缓存、框架会忽略 Body。项目里查询参数一律走 Query，创建/修改走 Body。不要用 GET 传复杂 JSON。</p></details>
+      <details class="quiz"><summary>2. 为什么响应要有 code，HTTP 状态码不够吗？</summary><p>状态码只分大类（400/403/409），业务需要更细的区分。比如同样是 409，可能是重名、状态已变、审批已处理，前端处理方式不同。code 给程序看，message 给人看。</p></details>
+      <details class="quiz"><summary>3. Service 里能不能 import FastAPI？</summary><p>不应该。Service 是业务层，不应该依赖 HTTP。抛项目自己的 <code>BizError</code>，由全局异常处理器翻译成 HTTP 响应。这样 Service 才能被定时任务、CLI、消息消费者复用。</p></details>
+      <details class="quiz"><summary>4. <code>flush</code> 和 <code>commit</code> 的区别？</summary><p>flush 把 SQL 发给数据库但事务未提交，能拿到自增 ID；commit 才真正提交，其他连接才能看到。项目里常先 flush 拿审批单 ID，最后统一 commit。</p></details>
+      <details class="quiz"><summary>5. 为什么所有查询都要带 company_id？</summary><p>多租户隔离。只按业务 ID 查，攻击者猜 ID 就能跨公司访问（IDOR）。这是后端安全的底线，不能依赖前端不传错。</p></details>
+      <details class="quiz"><summary>6. 前端已经校验了，后端为什么还要校验？</summary><p>前端代码用户可改、请求可伪造、接口可被脚本直接调用。前端校验是体验，后端校验才是安全。数据库约束是并发下的最后防线。</p></details>
+      <details class="quiz"><summary>7. 为什么审批通过要用条件 UPDATE？</summary><p>避免两个管理员同时通过导致版本号推进两次、授权重算两次。条件 <code>status='pending'</code> 让数据库原子裁决，只有一个 rowcount=1，另一个走幂等回放。</p></details>
+      <details class="quiz"><summary>8. 列表接口为什么不在前端排序？</summary><p>前端只能排当前页，跨页顺序会乱；分页后也拿不到全量数据。跨页的排序、筛选、统计必须由数据库完成，前端只负责展示。</p></details>
+
+      <div class="callout ok">
+        <span class="label">学习心法</span>
+        每读一个接口，画一张「请求 → 路由 → Service → Repository → SQL → 响应」的图；每改一个功能，先写一条会失败的测试；每遇到一个报错，先定位层，再改代码。坚持三周，你就能独立接后端需求。
+      </div>
+    </section>
+
+    <!-- ================= 22 ================= -->
+    <section id="glossary">
+      <h2><span class="num">22</span>术语与命令速查</h2>
+      <p class="section-sub">和 backend 同学开会时，至少这些词要能听懂。</p>
+
+      <h3>网络与 HTTP</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>术语</th><th>大白话</th></tr></thead>
+          <tbody>
+            <tr><td>API</td><td>后端对外提供的能力，一个 URL + 方法就是一个 API</td></tr>
+            <tr><td>Endpoint</td><td>具体的接口地址，如 <code>POST /assistants</code></td></tr>
+            <tr><td>Header</td><td>请求/响应的元信息，如身份、格式、traceId</td></tr>
+            <tr><td>Query</td><td>URL 问号后面的参数，如 <code>?page=1</code></td></tr>
+            <tr><td>Body</td><td>请求体，通常是 JSON</td></tr>
+            <tr><td>Status Code</td><td>200/400/401/403/404/409/500</td></tr>
+            <tr><td>CORS</td><td>浏览器跨域策略，后端要声明允许哪些源</td></tr>
+            <tr><td>Reverse Proxy</td><td>反向代理，如 Nginx，转发请求到后端</td></tr>
+            <tr><td>Gateway</td><td>网关，统一做登录、限流、转发、日志</td></tr>
+            <tr><td>Idempotent</td><td>幂等：重复请求结果一致</td></tr>
+            <tr><td>traceId</td><td>一次请求的追踪 ID，串起日志和响应</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Python / FastAPI</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>术语</th><th>大白话</th></tr></thead>
+          <tbody>
+            <tr><td>ASGI</td><td>异步 Python Web 服务标准，FastAPI 基于它</td></tr>
+            <tr><td>Uvicorn</td><td>运行 ASGI 应用的服务器，监听端口</td></tr>
+            <tr><td>Router</td><td>一组路由的集合，可加 prefix / tags</td></tr>
+            <tr><td>Dependency Injection</td><td>依赖注入：声明需要什么，框架递进来</td></tr>
+            <tr><td>Middleware</td><td>中间件：包住每个请求，做横切逻辑</td></tr>
+            <tr><td>Schema / DTO</td><td>接口入参/出参的数据形状</td></tr>
+            <tr><td>ORM</td><td>对象关系映射，用 Python 对象操作表</td></tr>
+            <tr><td>Session</td><td>ORM 的一次工作台/事务上下文</td></tr>
+            <tr><td>Migration</td><td>数据库结构变更脚本</td></tr>
+            <tr><td>Seed</td><td>初始化演示/基础数据</td></tr>
+            <tr><td>Fixture</td><td>测试的预置环境或数据</td></tr>
+            <tr><td>Type Hint</td><td>类型注解，如 <code>name: str</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>数据库</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>术语</th><th>大白话</th></tr></thead>
+          <tbody>
+            <tr><td>Primary Key</td><td>主键，一行数据的唯一 ID</td></tr>
+            <tr><td>Foreign Key</td><td>外键，指向另一张表的主键</td></tr>
+            <tr><td>Index</td><td>索引，加速查询的目录</td></tr>
+            <tr><td>Unique Key</td><td>唯一索引，防重复</td></tr>
+            <tr><td>Transaction</td><td>事务，一组操作要么全成要么全败</td></tr>
+            <tr><td>ACID</td><td>原子性、一致性、隔离性、持久性</td></tr>
+            <tr><td>Isolation Level</td><td>隔离级别，控制并发事务互相可见程度</td></tr>
+            <tr><td>N+1 Query</td><td>查 N 条主数据又逐条查关联，SQL 次数爆炸</td></tr>
+            <tr><td>Deadlock</td><td>死锁，两个事务互相等对方释放锁</td></tr>
+            <tr><td>Soft Delete</td><td>逻辑删除，用 <code>deleted_at</code> 标记而不是真删</td></tr>
+            <tr><td>Multi-tenant</td><td>多租户，同一套系统服务多个公司，数据按 <code>company_id</code> 隔离</td></tr>
+            <tr><td>IDOR</td><td>越权访问：改 ID 就能看别人数据</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>命令速查</h3>
+      <div class="code-card">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">日常最常用的命令</span><button class="copy">复制</button></div>
+<pre><span class="c"># ===== 后端 =====</span>
+cd server
+conda activate Agent
+copy .env.example .env
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
+python -m pytest -q
+python -m pytest tests/test_assistants.py -q
+python -m pytest -q -k favorite
+
+<span class="c"># ===== 前端 =====</span>
+cd web
+npm install
+npm run dev
+npm run type-check
+npm run build
+
+<span class="c"># ===== 数据库 =====</span>
+mysql -u root -p &lt; deploy/mysql/assistant_mysql.sql
+mysql -u root -p -e "USE assistant; SHOW TABLES;"
+
+<span class="c"># ===== Git 常用 =====</span>
+git status
+git diff
+git log --oneline -10
+git switch -c feature/favorite</pre>
+      </div>
+
+      <h3>文件地图</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>我想改…</th><th>去这个文件</th></tr></thead>
+          <tbody>
+            <tr><td>启动配置、中间件、路由注册</td><td><span class="path">server/app/main.py</span></td></tr>
+            <tr><td>某个接口的 URL / 参数</td><td><span class="path">server/app/api/v1/*.py</span></td></tr>
+            <tr><td>请求/响应字段、校验规则</td><td><span class="path">server/app/schemas/*.py</span></td></tr>
+            <tr><td>业务规则、权限、状态流转</td><td><span class="path">server/app/services/*.py</span></td></tr>
+            <tr><td>SQL 查询、批量加载</td><td><span class="path">server/app/repositories/*.py</span></td></tr>
+            <tr><td>表结构、关系、字段类型</td><td><span class="path">server/app/models/*.py</span></td></tr>
+            <tr><td>数据库连接、Session</td><td><span class="path">server/app/core/database.py</span></td></tr>
+            <tr><td>登录态、管理员判断</td><td><span class="path">server/app/core/security.py</span></td></tr>
+            <tr><td>错误码、异常类型</td><td><span class="path">server/app/core/errors.py</span></td></tr>
+            <tr><td>异常统一处理</td><td><span class="path">server/app/core/exception_handlers.py</span></td></tr>
+            <tr><td>日志格式、traceId</td><td><span class="path">server/app/core/logging.py</span></td></tr>
+            <tr><td>分页参数</td><td><span class="path">server/app/core/pagination.py</span></td></tr>
+            <tr><td>配置项、.env 读取</td><td><span class="path">server/app/core/config.py</span></td></tr>
+            <tr><td>测试用例</td><td><span class="path">server/tests/test_*.py</span></td></tr>
+            <tr><td>测试数据清理</td><td><span class="path">server/tests/conftest.py</span></td></tr>
+            <tr><td>建表与演示数据</td><td><span class="path">deploy/mysql/assistant_mysql.sql</span></td></tr>
+            <tr><td>前端请求封装</td><td><span class="path">web/src/api/request.ts</span></td></tr>
+            <tr><td>前端接口函数</td><td><span class="path">web/src/api/index.ts</span></td></tr>
+            <tr><td>Vite 代理 / 端口</td><td><span class="path">web/vite.config.ts</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>继续读哪些文档</h3>
+      <div class="grid2">
+        <div class="box"><h4>要理解需求</h4><p class="muted"><span class="path">docs/需求说明书.md</span>：13 个功能点、验收标准。</p></div>
+        <div class="box"><h4>要理解架构</h4><p class="muted"><span class="path">docs/01-总体架构设计.md</span>：分层、权限模型、状态机。</p></div>
+        <div class="box"><h4>要改数据库</h4><p class="muted"><span class="path">docs/02-数据库设计.md</span>：14 张表 DDL、索引、一致性规则。</p></div>
+        <div class="box"><h4>要加接口</h4><p class="muted"><span class="path">docs/03-接口设计.md</span>：33 个接口、出入参、错误码。</p></div>
+        <div class="box"><h4>要深入 FastAPI</h4><p class="muted"><span class="path">docs/FastAPI速学笔记.html</span>：路由、依赖、校验、异常、测试的专题笔记。</p></div>
+        <div class="box"><h4>要看数据流</h4><p class="muted"><span class="path">docs/data_flow.html</span>：原型 → 接口 → 落库的全链路可视化。</p></div>
+      </div>
+
+      <hr class="divider">
+      <div class="callout analogy">
+        <span class="label">最后一句</span>
+        你不需要一次记住所有细节。后端能力不是「背出来的」，是「跟着一条请求走出来的」。下次看到一个新接口，就从路由点进去，顺着 Service、Repository、Model 走一遍；下次遇到一个 bug，就先定位层，再缩小范围。走得多了，地图自然就长在脑子里了。
+      </div>
+    </section>
+
+    <footer>
+      <p>数智助理 · 助理团 —— 后端速学笔记（前端友好版）<br>
+      基于当前仓库真实代码整理 · 代码会演进，遇到不一致以源码和 <code>/docs</code> 为准。</p>
+      <p><a href="#howto">回到开头 ↑</a></p>
+    </footer>
+  </main>
+</div>
+
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- 阅读进度 ---------- */
+  var progress = document.getElementById("progress");
+  var topBtn = document.getElementById("top");
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc a[href^='#']"));
+  var sections = tocLinks
+    .map(function (a) { return document.querySelector(a.getAttribute("href")); })
+    .filter(Boolean);
+
+  var ticking = false;
+
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      var doc = document.documentElement;
+      var max = doc.scrollHeight - window.innerHeight;
+      var ratio = max > 0 ? (window.scrollY / max) * 100 : 0;
+      progress.style.width = Math.min(100, Math.max(0, ratio)) + "%";
+
+      if (window.scrollY > 500) topBtn.classList.add("show");
+      else topBtn.classList.remove("show");
+
+      var current = sections[0];
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].getBoundingClientRect().top <= 140) current = sections[i];
+      }
+      tocLinks.forEach(function (a) {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + (current && current.id));
+      });
+
+      ticking = false;
+    });
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  onScroll();
+
+  topBtn.addEventListener("click", function () {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  /* ---------- 代码复制 ---------- */
+  document.querySelectorAll(".code-head .copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var card = btn.closest(".code-card");
+      var pre = card ? card.querySelector("pre") : null;
+      if (!pre) return;
+      var text = pre.innerText;
+
+      function done() {
+        var old = btn.textContent;
+        btn.textContent = "已复制";
+        btn.disabled = true;
+        setTimeout(function () {
+          btn.textContent = old;
+          btn.disabled = false;
+        }, 1400);
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () {
+          fallbackCopy(text, done);
+        });
+      } else {
+        fallbackCopy(text, done);
+      }
+    });
+  });
+
+  function fallbackCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- 练习清单本地保存 ---------- */
+  var checks = Array.prototype.slice.call(document.querySelectorAll(".checklist input[type='checkbox']"));
+  var KEY = "assistant-backend-notes-checks-v1";
+  var saved = [];
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { saved = []; }
+  checks.forEach(function (box, i) {
+    box.checked = !!saved[i];
+    box.addEventListener("change", function () {
+      var state = checks.map(function (c) { return c.checked; });
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    });
+  });
+})();
+</script>
+</body>
+</html>
